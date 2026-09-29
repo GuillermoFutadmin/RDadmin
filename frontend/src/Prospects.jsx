@@ -1490,17 +1490,17 @@ const CLOSET_ADDONS = [
 
 function ProspectForm({ initial, onSave, onCancel, editingId }) {
   const [formData, setFormData] = useState(initial || EMPTY_FORM);
-  const [spaceImageFile, setSpaceImageFile] = useState(null);
+  const [spaceImageFile, setSpaceImageFile] = useState([]);
   const [spaceImagePreview, setSpaceImagePreview] = useState(
-    initial?.space_image_path ? `${API}${initial.space_image_path}` : null
+    initial?.space_image_path ? initial.space_image_path.split(',').map(p => `${API}${p}`) : []
   );
   const spaceFileRef = useRef();
 
-  const [refImageFile, setRefImageFile] = useState(null);
+  const [refImageFile, setRefImageFile] = useState([]);
   const [refImagePreview, setRefImagePreview] = useState(
     initial?.reference_image_path
-      ? `${API}${initial.reference_image_path}`
-      : (initial?.design_image_path ? `${API}${initial.design_image_path}` : null)
+      ? initial.reference_image_path.split(',').map(p => `${API}${p}`)
+      : (initial?.design_image_path ? [`${API}${initial.design_image_path}`] : [])
   );
   const refFileRef = useRef();
 
@@ -1527,17 +1527,19 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
   };
 
   const handleSpaceImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSpaceImageFile(file);
-      setSpaceImagePreview(URL.createObjectURL(file));
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSpaceImageFile(prev => [...(prev || []), ...files]);
+      const previews = files.map(f => URL.createObjectURL(f));
+      setSpaceImagePreview(prev => [...(prev || []), ...previews]);
     }
   };
   const handleRefImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setRefImageFile(file);
-      setRefImagePreview(URL.createObjectURL(file));
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setRefImageFile(prev => [...(prev || []), ...files]);
+      const previews = files.map(f => URL.createObjectURL(f));
+      setRefImagePreview(prev => [...(prev || []), ...previews]);
     }
   };
   const handleSubmit = async (e) => {
@@ -2175,13 +2177,13 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Lugar a instalar (paredes, medidas, área)</div>
                       </div>
                     </div>
-                    {spaceImagePreview && (
+                    {spaceImagePreview && spaceImagePreview.length > 0 && (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSpaceImageFile(null);
-                          setSpaceImagePreview(null);
+                          setSpaceImageFile([]);
+                          setSpaceImagePreview([]);
                         }}
                         style={{
                           background: '#fee2e2', border: 'none', color: '#ef4444',
@@ -2200,8 +2202,12 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                     }}
                     onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent, #f97316)'}
                     onMouseOut={e => e.currentTarget.style.borderColor = '#cbd5e1'}>
-                    {spaceImagePreview ? (
-                      <img src={spaceImagePreview} alt="Espacio" style={{ maxHeight: '180px', borderRadius: '6px', maxWidth: '100%', objectFit: 'contain' }} />
+                    {spaceImagePreview && spaceImagePreview.length > 0 ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {spaceImagePreview.map((src, idx) => (
+                          <img key={idx} src={src} alt="Espacio" style={{ maxHeight: '140px', borderRadius: '6px', maxWidth: '100%', objectFit: 'contain' }} />
+                        ))}
+                      </div>
                     ) : (
                       <div style={{ color: '#64748b', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
                         <span style={{ fontSize: '1.6rem' }}>📸</span>
@@ -2210,7 +2216,7 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                       </div>
                     )}
                   </div>
-                  <input ref={spaceFileRef} type="file" accept="image/*" onChange={handleSpaceImageChange} style={{ display: 'none' }} />
+                  <input ref={spaceFileRef} type="file" accept="image/*" multiple onChange={handleSpaceImageChange} style={{ display: 'none' }} />
                 </div>
 
                 {/* 2. Imagen de Referencia */}
@@ -2229,13 +2235,13 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Bosquejo, plano, Pinterest o catálogo</div>
                       </div>
                     </div>
-                    {refImagePreview && (
+                    {refImagePreview && refImagePreview.length > 0 && (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setRefImageFile(null);
-                          setRefImagePreview(null);
+                          setRefImageFile([]);
+                          setRefImagePreview([]);
                         }}
                         style={{
                           background: '#fee2e2', border: 'none', color: '#ef4444',
@@ -2254,8 +2260,12 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                     }}
                     onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent, #f97316)'}
                     onMouseOut={e => e.currentTarget.style.borderColor = '#cbd5e1'}>
-                    {refImagePreview ? (
-                      <img src={refImagePreview} alt="Referencia" style={{ maxHeight: '180px', borderRadius: '6px', maxWidth: '100%', objectFit: 'contain' }} />
+                    {refImagePreview && refImagePreview.length > 0 ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {refImagePreview.map((src, idx) => (
+                          <img key={idx} src={src} alt="Referencia" style={{ maxHeight: '140px', borderRadius: '6px', maxWidth: '100%', objectFit: 'contain' }} />
+                        ))}
+                      </div>
                     ) : (
                       <div style={{ color: '#64748b', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
                         <span style={{ fontSize: '1.6rem' }}>📐</span>
@@ -2264,7 +2274,7 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
                       </div>
                     )}
                   </div>
-                  <input ref={refFileRef} type="file" accept="image/*" onChange={handleRefImageChange} style={{ display: 'none' }} />
+                  <input ref={refFileRef} type="file" accept="image/*" multiple onChange={handleRefImageChange} style={{ display: 'none' }} />
                 </div>
 
               </div>
@@ -2590,7 +2600,11 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
                 <div style={{ padding: '4px 8px', fontSize: '0.72rem', fontWeight: '700', color: '#0369a1', backgroundColor: '#f0f9ff' }}>
                   🏠 Foto del Espacio
                 </div>
-                <img src={`${API}${prospect.space_image_path}`} alt="Espacio" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
+                  {prospect.space_image_path.split(',').map((imgPath, idx) => (
+                    <img key={idx} src={`${API}${imgPath.trim()}`} alt={`Espacio ${idx + 1}`} style={{ flex: '1 1 45%', maxHeight: '160px', objectFit: 'cover', borderRadius: '4px', minWidth: '80px' }} />
+                  ))}
+                </div>
               </div>
             )}
             {(prospect.reference_image_path || prospect.design_image_path) && (
@@ -2598,7 +2612,11 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
                 <div style={{ padding: '4px 8px', fontSize: '0.72rem', fontWeight: '700', color: '#7c2d12', backgroundColor: '#fff7ed' }}>
                   💡 Foto de Referencia
                 </div>
-                <img src={`${API}${prospect.reference_image_path || prospect.design_image_path}`} alt="Referencia" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
+                  {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
+                    <img key={idx} src={`${API}${imgPath.trim()}`} alt={`Referencia ${idx + 1}`} style={{ flex: '1 1 45%', maxHeight: '160px', objectFit: 'cover', borderRadius: '4px', minWidth: '80px' }} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -2911,16 +2929,16 @@ function Prospects() {
     const saved = await res.json();
     
     // Upload space image
-    if (imageFiles?.spaceImageFile) {
+    if (imageFiles?.spaceImageFile && imageFiles.spaceImageFile.length > 0) {
       const fd = new FormData();
-      fd.append('file', imageFiles.spaceImageFile);
+      imageFiles.spaceImageFile.forEach(f => fd.append('files', f));
       await fetch(`${API}/api/prospects/${saved.id}/upload-space-image`, { method: 'POST', body: fd });
     }
     
     // Upload reference image
-    if (imageFiles?.refImageFile) {
+    if (imageFiles?.refImageFile && imageFiles.refImageFile.length > 0) {
       const fd = new FormData();
-      fd.append('file', imageFiles.refImageFile);
+      imageFiles.refImageFile.forEach(f => fd.append('files', f));
       await fetch(`${API}/api/prospects/${saved.id}/upload-reference-image`, { method: 'POST', body: fd });
     }
 

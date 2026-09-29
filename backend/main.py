@@ -285,25 +285,33 @@ async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db
     return {"image_path": db_prospect.design_image_path}
 
 @app.post("/api/prospects/{prospect_id}/upload-space-image")
-async def upload_space_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_space_image(prospect_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    new_url = await upload_to_storage(file, "space")
-    db_prospect.space_image_path = new_url
+    urls = []
+    for file in files:
+        new_url = await upload_to_storage(file, "space")
+        urls.append(new_url)
+        
+    db_prospect.space_image_path = ",".join(urls)
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.space_image_path}
 
 @app.post("/api/prospects/{prospect_id}/upload-reference-image")
-async def upload_reference_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_reference_image(prospect_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    new_url = await upload_to_storage(file, "ref")
-    db_prospect.reference_image_path = new_url
-    if not db_prospect.design_image_path:
-        db_prospect.design_image_path = db_prospect.reference_image_path
+    urls = []
+    for file in files:
+        new_url = await upload_to_storage(file, "ref")
+        urls.append(new_url)
+        
+    db_prospect.reference_image_path = ",".join(urls)
+    if not db_prospect.design_image_path and urls:
+        db_prospect.design_image_path = urls[0]
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.reference_image_path}
