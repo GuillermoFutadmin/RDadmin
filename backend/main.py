@@ -42,6 +42,7 @@ app.add_middleware(
 import users
 import collaborators
 import store
+import seed_templates  # Agregado para sembrar automáticamente los machotes en la base de datos de Railway
 app.include_router(users.router)
 app.include_router(collaborators.router)
 app.include_router(store.router)

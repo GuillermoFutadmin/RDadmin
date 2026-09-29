@@ -1,8 +1,5 @@
 import sys, json
-sys.path.insert(0, 'D:/RDadmin/backend')
-
 import os
-os.chdir('D:/RDadmin/backend')
 
 # Conectar directo a la DB sin HTTP
 from database import engine, get_db
