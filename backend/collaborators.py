@@ -36,13 +36,10 @@ async def upload_to_storage_collab(file_obj, prefix: str) -> str:
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary (Collaborators): {e}")
-            pass
+            from fastapi import HTTPException
+            raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
 
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-    file_obj.file.seek(0)
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file_obj.file, buffer)
-    return f"/uploads/{unique_name}"
+    raise HTTPException(status_code=500, detail="Cloudinary no está configurado en las variables de entorno.")
 
 # ── MODEL DEFINITION ──────────────────────────────────────────
 class Collaborator(Base):

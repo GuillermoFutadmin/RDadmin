@@ -287,10 +287,10 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary: {e}")
-            # Fallback a local
-            pass
+            raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
             
-    # Subida local
+    # Si Cloudinary no está configurado, levantamos error
+    raise HTTPException(status_code=500, detail="Cloudinary no está configurado en las variables de entorno.")
     save_path = os.path.join(UPLOAD_DIR, unique_name)
     file.file.seek(0)
     with open(save_path, "wb") as buffer:
