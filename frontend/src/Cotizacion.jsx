@@ -321,7 +321,7 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
         {/* Encabezado */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '3px solid #f97316' }}>
           <div>
-            <img src="/logo-orange.jpg" alt="RD Carpintería" style={{ height: '90px', objectFit: 'contain', border: 'none', outline: 'none', mixBlendMode: 'multiply', clipPath: 'inset(1px)' }} />
+            <img src="/logo-orange.png" alt="RD Carpintería" style={{ height: '90px', objectFit: 'contain', border: 'none', outline: 'none', mixBlendMode: 'multiply', clipPath: 'inset(1px)' }} />
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.95rem', color: '#1e293b', lineHeight: '1.4' }}>
             <div>Tijuana, Baja California {today}</div>
