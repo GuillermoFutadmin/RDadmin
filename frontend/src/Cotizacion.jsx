@@ -132,14 +132,16 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
 
   // Imágenes: usa las de la cotización si existen, si no las del formulario del prospecto
   const API = ''; // Relativo al host actual
+  // Helper: si la URL ya es absoluta (Cloudinary) no le agrega el prefijo
+  const resolveUrl = (path) => !path ? null : (path.startsWith('http') ? path : `${API}${path}`);
   const [imagePreview, setImagePreview] = React.useState([
-    p.quote_image_1 ? `${API}${p.quote_image_1}` 
-      : (p.space_image_path ? `${API}${p.space_image_path}` : null),
-    p.quote_image_2 ? `${API}${p.quote_image_2}` 
-      : (p.reference_image_path ? `${API}${p.reference_image_path}` 
-        : (p.design_image_path ? `${API}${p.design_image_path}` : null)),
-    p.quote_image_3 ? `${API}${p.quote_image_3}` : null,
-    p.quote_image_4 ? `${API}${p.quote_image_4}` : null
+    p.quote_image_1 ? resolveUrl(p.quote_image_1)
+      : (p.space_image_path ? resolveUrl(p.space_image_path.split(',')[0]) : null),
+    p.quote_image_2 ? resolveUrl(p.quote_image_2)
+      : (p.reference_image_path ? resolveUrl(p.reference_image_path.split(',')[0])
+        : (p.design_image_path ? resolveUrl(p.design_image_path) : null)),
+    p.quote_image_3 ? resolveUrl(p.quote_image_3) : null,
+    p.quote_image_4 ? resolveUrl(p.quote_image_4) : null
   ]);
 
   const handleImageChange = async (idx, e) => {
