@@ -279,22 +279,23 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{prefix}_{uuid.uuid4()}{ext}"
     
+    # Leer contenido del archivo primero (importante para evitar stream ya consumido)
+    contents = await file.read()
+
     # Si Cloudinary está configurado, subimos ahí
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
         try:
-            # Cloudinary uploader
-            result = cloudinary.uploader.upload(file.file, public_id=unique_name, folder="rdadmin")
+            import io
+            result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=unique_name, folder="rdadmin")
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary: {e}")
             raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
             
-    # Si Cloudinary no está configurado, levantamos error
-    raise HTTPException(status_code=500, detail="Cloudinary no está configurado en las variables de entorno.")
+    # Fallback: guardar en disco local (carpeta /uploads)
     save_path = os.path.join(UPLOAD_DIR, unique_name)
-    file.file.seek(0)
     with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
     return f"/uploads/{unique_name}"
 
 
@@ -361,3 +362,11 @@ try:
 except Exception as e:
     print(f"Error cargando módulo de colaboradores: {e}")
 
+@app.get("/api/debug/cloudinary")
+def debug_cloudinary():
+    import os
+    return {
+        "url_set": bool(os.environ.get("CLOUDINARY_URL")),
+        "cloud_name_set": bool(os.environ.get("CLOUDINARY_CLOUD_NAME")),
+        "api_key_set": bool(os.environ.get("CLOUDINARY_API_KEY"))
+    }

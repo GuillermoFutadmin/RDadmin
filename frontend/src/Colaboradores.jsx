@@ -317,6 +317,9 @@ export default function Colaboradores() {
         if (photoRes.ok) {
           const photoJson = await photoRes.json();
           savedCollab.photo_url = photoJson.photo_url;
+        } else {
+          const errText = await photoRes.json();
+          throw new Error(errText.detail || 'Error al subir la foto');
         }
       }
 
@@ -332,6 +335,9 @@ export default function Colaboradores() {
           const cvJson = await cvRes.json();
           savedCollab.cv_url = cvJson.cv_url;
           savedCollab.cv_filename = cvJson.cv_filename;
+        } else {
+          const errText = await cvRes.json();
+          throw new Error(errText.detail || 'Error al subir el CV');
         }
       }
 
