@@ -7,6 +7,17 @@ from typing import Optional, List
 from datetime import date, datetime
 import models, os, shutil, uuid
 from database import engine, get_db
+import cloudinary
+import cloudinary.uploader
+
+# Configurar Cloudinary si existe la variable de entorno
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
+if CLOUDINARY_URL:
+    cloudinary.config(
+        secure=True
+    )
+    # cloudinary automatically picks up CLOUDINARY_URL from env if set,
+    # but we can also set it explicitly or just let it use the env var.
 
 try:
     models.Base.metadata.create_all(bind=engine)
@@ -232,26 +243,36 @@ def delete_prospect(prospect_id: int, db: Session = Depends(get_db)):
     return {"message": "Prospect deleted successfully"}
 
 
+async def upload_to_storage(file: UploadFile, prefix: str) -> str:
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{prefix}_{uuid.uuid4()}{ext}"
+    
+    # Si Cloudinary está configurado, subimos ahí
+    if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
+        try:
+            # Cloudinary uploader
+            result = cloudinary.uploader.upload(file.file, public_id=unique_name, folder="rdadmin")
+            return result.get("secure_url")
+        except Exception as e:
+            print(f"Error subiendo a Cloudinary: {e}")
+            # Fallback a local
+            pass
+            
+    # Subida local
+    save_path = os.path.join(UPLOAD_DIR, unique_name)
+    file.file.seek(0)
+    with open(save_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return f"/uploads/{unique_name}"
+
+
 @app.post("/api/prospects/{prospect_id}/upload-image")
 async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
-    if not db_prospect:
-        raise HTTPException(status_code=404, detail="Prospect not found")
+    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    # Delete old image if exists
-    if db_prospect.design_image_path:
-        old_path = db_prospect.design_image_path.replace("/uploads/", f"{UPLOAD_DIR}/")
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    ext = os.path.splitext(file.filename)[1]
-    unique_name = f"{uuid.uuid4()}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    db_prospect.design_image_path = f"/uploads/{unique_name}"
+    new_url = await upload_to_storage(file, "design")
+    db_prospect.design_image_path = new_url
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.design_image_path}
@@ -259,25 +280,10 @@ async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db
 @app.post("/api/prospects/{prospect_id}/upload-space-image")
 async def upload_space_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
-    if not db_prospect:
-        raise HTTPException(status_code=404, detail="Prospect not found")
+    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    if db_prospect.space_image_path:
-        old_path = db_prospect.space_image_path.replace("/uploads/", f"{UPLOAD_DIR}/")
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-
-    ext = os.path.splitext(file.filename)[1]
-    unique_name = f"space_{uuid.uuid4()}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    db_prospect.space_image_path = f"/uploads/{unique_name}"
+    new_url = await upload_to_storage(file, "space")
+    db_prospect.space_image_path = new_url
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.space_image_path}
@@ -285,25 +291,10 @@ async def upload_space_image(prospect_id: int, file: UploadFile = File(...), db:
 @app.post("/api/prospects/{prospect_id}/upload-reference-image")
 async def upload_reference_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
-    if not db_prospect:
-        raise HTTPException(status_code=404, detail="Prospect not found")
+    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    if db_prospect.reference_image_path:
-        old_path = db_prospect.reference_image_path.replace("/uploads/", f"{UPLOAD_DIR}/")
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-
-    ext = os.path.splitext(file.filename)[1]
-    unique_name = f"ref_{uuid.uuid4()}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    db_prospect.reference_image_path = f"/uploads/{unique_name}"
+    new_url = await upload_to_storage(file, "ref")
+    db_prospect.reference_image_path = new_url
     if not db_prospect.design_image_path:
         db_prospect.design_image_path = db_prospect.reference_image_path
     db.commit()
@@ -312,32 +303,13 @@ async def upload_reference_image(prospect_id: int, file: UploadFile = File(...),
 
 @app.post("/api/prospects/{prospect_id}/upload-quote-image/{index}")
 async def upload_quote_image(prospect_id: int, index: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if index < 1 or index > 4:
-        raise HTTPException(status_code=400, detail="Invalid image index")
-        
+    if index < 1 or index > 4: raise HTTPException(status_code=400, detail="Invalid image index")
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
-    if not db_prospect:
-        raise HTTPException(status_code=404, detail="Prospect not found")
+    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
+    new_url = await upload_to_storage(file, f"quote_{index}")
     attr_name = f"quote_image_{index}"
-    existing_path = getattr(db_prospect, attr_name)
-    
-    if existing_path:
-        old_path = existing_path.replace("/uploads/", f"{UPLOAD_DIR}/")
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-
-    ext = os.path.splitext(file.filename)[1]
-    unique_name = f"quote_{index}_{uuid.uuid4()}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    setattr(db_prospect, attr_name, f"/uploads/{unique_name}")
+    setattr(db_prospect, attr_name, new_url)
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": getattr(db_prospect, attr_name)}
