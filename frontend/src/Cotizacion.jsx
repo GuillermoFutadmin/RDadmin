@@ -169,7 +169,7 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
       if (data.image_path) {
         // Actualizamos el preview con la ruta real del servidor para asegurar persistencia
         const finalPrev = [...imagePreview];
-        finalPrev[idx] = `${API}${data.image_path}`;
+        finalPrev[idx] = resolveUrl(data.image_path);
         setImagePreview(finalPrev);
       }
     } catch (err) {
