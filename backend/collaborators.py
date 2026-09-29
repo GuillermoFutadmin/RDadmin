@@ -18,7 +18,22 @@ import cloudinary
 import cloudinary.uploader
 CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
 if CLOUDINARY_URL:
-    cloudinary.config(secure=True)
+    # Parsear manualmente la URL para evitar conflictos de configuración
+    # Formato: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+    try:
+        import re
+        m = re.match(r'cloudinary://([^:]+):([^@]+)@(.+)', CLOUDINARY_URL)
+        if m:
+            cloudinary.config(
+                cloud_name=m.group(3),
+                api_key=m.group(1),
+                api_secret=m.group(2),
+                secure=True
+            )
+        else:
+            cloudinary.config(secure=True)
+    except Exception:
+        cloudinary.config(secure=True)
 
 async def upload_to_storage_collab(file_obj, prefix: str) -> str:
     original_filename = file_obj.filename or "file"
@@ -30,16 +45,24 @@ async def upload_to_storage_collab(file_obj, prefix: str) -> str:
         
     unique_name = f"{prefix}_{uuid.uuid4().hex[:8]}{ext}"
     
+    # Leer bytes primero (evita problema de stream ya consumido)
+    import io
+    contents = await file_obj.read()
+
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
         try:
-            result = cloudinary.uploader.upload(file_obj.file, public_id=unique_name, folder="rdadmin")
+            result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=unique_name, folder="rdadmin")
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary (Collaborators): {e}")
             from fastapi import HTTPException
             raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
 
-    raise HTTPException(status_code=500, detail="Cloudinary no está configurado en las variables de entorno.")
+    # Fallback: guardar en disco local
+    save_path = os.path.join(UPLOAD_DIR, unique_name)
+    with open(save_path, "wb") as buffer:
+        buffer.write(contents)
+    return f"/uploads/{unique_name}"
 
 # ── MODEL DEFINITION ──────────────────────────────────────────
 class Collaborator(Base):

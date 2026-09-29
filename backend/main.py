@@ -13,11 +13,21 @@ import cloudinary.uploader
 # Configurar Cloudinary si existe la variable de entorno
 CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
 if CLOUDINARY_URL:
-    cloudinary.config(
-        secure=True
-    )
-    # cloudinary automatically picks up CLOUDINARY_URL from env if set,
-    # but we can also set it explicitly or just let it use the env var.
+    # Parsear manualmente la URL: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+    try:
+        import re
+        _m = re.match(r'cloudinary://([^:]+):([^@]+)@(.+)', CLOUDINARY_URL)
+        if _m:
+            cloudinary.config(
+                cloud_name=_m.group(3),
+                api_key=_m.group(1),
+                api_secret=_m.group(2),
+                secure=True
+            )
+        else:
+            cloudinary.config(secure=True)
+    except Exception:
+        cloudinary.config(secure=True)
 
 try:
     models.Base.metadata.create_all(bind=engine)
