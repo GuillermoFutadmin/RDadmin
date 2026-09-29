@@ -10,24 +10,10 @@ from database import engine, get_db
 import cloudinary
 import cloudinary.uploader
 
-# Configurar Cloudinary si existe la variable de entorno
+# Cloudinary: el SDK lee CLOUDINARY_URL del entorno automáticamente al importar.
+# NO llamar cloudinary.config() cuando CLOUDINARY_URL ya está en el env —
+# hacerlo sobreescribe las credenciales y causa Invalid Signature.
 CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
-if CLOUDINARY_URL:
-    # Parsear manualmente la URL: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
-    try:
-        import re
-        _m = re.match(r'cloudinary://([^:]+):([^@]+)@(.+)', CLOUDINARY_URL)
-        if _m:
-            cloudinary.config(
-                cloud_name=_m.group(3),
-                api_key=_m.group(1),
-                api_secret=_m.group(2),
-                secure=True
-            )
-        else:
-            cloudinary.config(secure=True)
-    except Exception:
-        cloudinary.config(secure=True)
 
 try:
     models.Base.metadata.create_all(bind=engine)

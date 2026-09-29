@@ -16,24 +16,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 import cloudinary
 import cloudinary.uploader
+# Cloudinary: el SDK lee CLOUDINARY_URL del entorno automáticamente al importar.
+# NO llamar cloudinary.config() — sobreescribe las credenciales y causa Invalid Signature.
 CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
-if CLOUDINARY_URL:
-    # Parsear manualmente la URL para evitar conflictos de configuración
-    # Formato: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
-    try:
-        import re
-        m = re.match(r'cloudinary://([^:]+):([^@]+)@(.+)', CLOUDINARY_URL)
-        if m:
-            cloudinary.config(
-                cloud_name=m.group(3),
-                api_key=m.group(1),
-                api_secret=m.group(2),
-                secure=True
-            )
-        else:
-            cloudinary.config(secure=True)
-    except Exception:
-        cloudinary.config(secure=True)
 
 async def upload_to_storage_collab(file_obj, prefix: str) -> str:
     original_filename = file_obj.filename or "file"
