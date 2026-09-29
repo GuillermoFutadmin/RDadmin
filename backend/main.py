@@ -55,12 +55,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "../frontend/dist")
 
 if os.path.exists(FRONTEND_DIST):
+    # Mount assets normally just in case
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
     
     @app.exception_handler(404)
     async def not_found_handler(request, exc):
         if request.url.path.startswith("/api/"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
+        # Check if it's a file request that might exist in dist (like /melaminas/espiga.jpg)
+        file_path = os.path.join(FRONTEND_DIST, request.url.path.lstrip("/"))
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        # Fallback to index.html for SPA routing
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
     
     @app.get("/")
