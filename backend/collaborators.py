@@ -14,6 +14,36 @@ from database import Base, engine, get_db
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+import cloudinary
+import cloudinary.uploader
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
+if CLOUDINARY_URL:
+    cloudinary.config(secure=True)
+
+async def upload_to_storage_collab(file_obj, prefix: str) -> str:
+    original_filename = file_obj.filename or "file"
+    ext = os.path.splitext(original_filename)[1].lower()
+    if prefix.startswith("collab_photo") and ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+        ext = ".jpg"
+    elif prefix.startswith("collab_cv") and not ext:
+        ext = ".pdf"
+        
+    unique_name = f"{prefix}_{uuid.uuid4().hex[:8]}{ext}"
+    
+    if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
+        try:
+            result = cloudinary.uploader.upload(file_obj.file, public_id=unique_name, folder="rdadmin")
+            return result.get("secure_url")
+        except Exception as e:
+            print(f"Error subiendo a Cloudinary (Collaborators): {e}")
+            pass
+
+    save_path = os.path.join(UPLOAD_DIR, unique_name)
+    file_obj.file.seek(0)
+    with open(save_path, "wb") as buffer:
+        shutil.copyfileobj(file_obj.file, buffer)
+    return f"/uploads/{unique_name}"
+
 # ── MODEL DEFINITION ──────────────────────────────────────────
 class Collaborator(Base):
     __tablename__ = "collaborators"
@@ -220,16 +250,8 @@ async def upload_collaborator_photo(collab_id: int, file: UploadFile = File(...)
             except Exception:
                 pass
 
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
-        ext = ".jpg"
-    unique_name = f"collab_photo_{collab_id}_{uuid.uuid4().hex[:8]}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    collab.photo_url = f"/uploads/{unique_name}"
+    new_url = await upload_to_storage_collab(file, f"collab_photo_{collab_id}")
+    collab.photo_url = new_url
     db.commit()
     db.refresh(collab)
     return {"photo_url": collab.photo_url}
@@ -249,19 +271,9 @@ async def upload_collaborator_cv(collab_id: int, file: UploadFile = File(...), d
             except Exception:
                 pass
 
-    original_filename = file.filename or "cv_document"
-    ext = os.path.splitext(original_filename)[1].lower()
-    if not ext:
-        ext = ".pdf"
-        
-    unique_name = f"collab_cv_{collab_id}_{uuid.uuid4().hex[:8]}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    collab.cv_url = f"/uploads/{unique_name}"
-    collab.cv_filename = original_filename
+    new_url = await upload_to_storage_collab(file, f"collab_cv_{collab_id}")
+    collab.cv_url = new_url
+    collab.cv_filename = file.filename or "cv_document"
     db.commit()
     db.refresh(collab)
     return {"cv_url": collab.cv_url, "cv_filename": collab.cv_filename}
