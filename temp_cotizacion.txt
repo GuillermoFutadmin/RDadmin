@@ -1,0 +1,328 @@
+// ─────────────────────────────────────────────────────────────
+// CotizacionView – Vista de cotización mejorada
+// ─────────────────────────────────────────────────────────────
+function CotizacionView({ prospect: p, onBack }) {
+  // Estado de guardado
+  const [saved, setSaved] = React.useState(false);
+
+  // Saludo inicial
+  const [saludo, setSaludo] = React.useState('');
+
+  // Conceptos: cada uno con descripcion, unidad, cantidad, precioBase, precioFinal, motivoModif
+  const [conceptos, setConceptos] = React.useState([
+    { descripcion: '', detalle: '', unidad: 'pza', cantidad: 1, precioBase: '', precioFinal: '', modificado: false, motivoModif: '' }
+  ]);
+
+  // Imágenes (hasta 4)
+  const [imagenes, setImagenes] = React.useState([null, null, null, null]);
+  const [imagePreview, setImagePreview] = React.useState([null, null, null, null]);
+
+  const [notas, setNotas] = React.useState('');
+  const [validez, setValidez] = React.useState('15');
+  const [anticipo, setAnticipo] = React.useState('50');
+
+  const addConcepto = () => setConceptos(prev => [...prev, { descripcion: '', detalle: '', unidad: 'pza', cantidad: 1, precioBase: '', precioFinal: '', modificado: false, motivoModif: '' }]);
+  const removeConcepto = (i) => setConceptos(prev => prev.filter((_, idx) => idx !== i));
+  const updateConcepto = (i, field, val) => setConceptos(prev => prev.map((it, idx) => {
+    if (idx !== i) return it;
+    const updated = { ...it, [field]: val };
+    // Si cambia precioFinal y es distinto al base, marcar como modificado
+    if (field === 'precioFinal') {
+      const base = parseFloat(updated.precioBase) || 0;
+      const final = parseFloat(val) || 0;
+      updated.modificado = base > 0 && final !== base;
+    }
+    if (field === 'precioBase' && !updated.modificado) {
+      updated.precioFinal = val;
+    }
+    return updated;
+  }));
+
+  const handleImageChange = (idx, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const newImgs = [...imagenes]; newImgs[idx] = file;
+    setImagenes(newImgs);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const newPrev = [...imagePreview]; newPrev[idx] = ev.target.result;
+      setImagePreview(newPrev);
+    };
+    reader.readAsDataURL(file);
+  };
+  const removeImage = (idx) => {
+    const newImgs = [...imagenes]; newImgs[idx] = null; setImagenes(newImgs);
+    const newPrev = [...imagePreview]; newPrev[idx] = null; setImagePreview(newPrev);
+  };
+
+  const subtotal = conceptos.reduce((sum, it) => {
+    const precio = parseFloat(it.precioFinal || it.precioBase) || 0;
+    const qty = parseFloat(it.cantidad) || 0;
+    return sum + qty * precio;
+  }, 0);
+
+  const fmt = (n) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+  const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const infoRows = [
+    ['Cliente', p.name],
+    ['Contacto', p.contact_info],
+    ['Ubicación', p.location],
+    ['Tipo de Proyecto', p.project_type],
+    ['Material', p.material_type_2 ? `${p.material_type} + ${p.material_type_2}` : p.material_type],
+    ['Fecha de Inicio', p.start_date],
+    ['Fecha de Entrega', p.delivery_date],
+    ['Casa Habitada', p.inhabited_house],
+    ['Prioridades', p.project_priorities],
+    ['Expectativas', p.expectations],
+    ['Herrajes', p.hardware_details],
+    ['Medidas', p.measurements],
+  ].filter(([, v]) => v);
+
+  const handleSave = () => { setSaved(true); };
+
+  const inputDash = { border: '1px dashed #cbd5e1', borderRadius: '4px', padding: '0.3rem 0.5rem', fontSize: '0.85rem', outline: 'none', background: saved ? '#f8fafc' : 'white' };
+  const secTitle = { fontSize: '1rem', fontWeight: '700', color: '#f97316', borderBottom: '1px solid #fed7aa', paddingBottom: '0.4rem', marginBottom: '1rem' };
+
+  return (
+    <div style={{ maxWidth: '920px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+
+      {/* ── Toolbar ── */}
+      <div className="no-print" style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={onBack} style={{ padding: '0.5rem 1rem', background: '#f1f5f9', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>← Regresar</button>
+        {!saved ? (
+          <button onClick={handleSave} style={{ padding: '0.5rem 1.4rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>
+            💾 Guardar Cotización
+          </button>
+        ) : (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.2rem', background: '#dcfce7', color: '#15803d', borderRadius: '8px', fontWeight: '700', border: '1.5px solid #86efac', fontSize: '0.95rem' }}>
+            ✅ Cotización Guardada
+          </span>
+        )}
+        <button onClick={() => window.print()} style={{ padding: '0.5rem 1.4rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>🖨️ Imprimir / PDF</button>
+        {!saved && <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>Completa la información y guarda antes de imprimir.</span>}
+      </div>
+
+      {/* Banner de guardado */}
+      {saved && (
+        <div className="no-print" style={{ background: 'linear-gradient(90deg,#16a34a,#15803d)', color: 'white', borderRadius: '10px', padding: '0.8rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: '700', fontSize: '1rem', boxShadow: '0 4px 16px rgba(22,163,74,0.3)' }}>
+          <span style={{ fontSize: '1.5rem' }}>✅</span>
+          <span>Cotización guardada correctamente — Folio {p.public_id || p.id}</span>
+          <button onClick={() => setSaved(false)} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '6px', padding: '0.2rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>Editar</button>
+        </div>
+      )}
+
+      {/* ── DOCUMENTO ── */}
+      <div id="cotizacion-doc" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', padding: '2.5rem', border: saved ? '2px solid #86efac' : '1px solid #e2e8f0', transition: 'border 0.4s' }}>
+
+        {/* Encabezado */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '3px solid #f97316' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '900', color: '#f97316' }}>RD Carpintería</h1>
+            <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.88rem' }}>Carpintería de Alta Calidad</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#1e293b' }}>COTIZACIÓN</div>
+            <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '0.2rem' }}>Folio: <strong>{p.public_id || p.id}</strong></div>
+            <div style={{ color: '#64748b', fontSize: '0.82rem' }}>Fecha: {today}</div>
+            <div style={{ color: '#64748b', fontSize: '0.82rem' }}>Válida: <strong>{validez} días</strong></div>
+            {saved && <div style={{ color: '#16a34a', fontSize: '0.82rem', fontWeight: '700', marginTop: '0.2rem' }}>✅ Guardada</div>}
+          </div>
+        </div>
+
+        {/* Saludo Inicial */}
+        <div style={{ marginBottom: '2rem', background: '#fff7ed', borderRadius: '10px', padding: '1.2rem 1.5rem', border: '1px solid #fed7aa' }}>
+          <h3 style={{ ...secTitle, marginBottom: '0.7rem' }}>👋 Saludo Inicial</h3>
+          <textarea
+            value={saludo}
+            onChange={e => setSaludo(e.target.value)}
+            placeholder={`Hola ${p.name || '[Nombre]'}, es un gusto saludarte. Te comparto la cotización que preparamos especialmente para tu proyecto...`}
+            rows={3}
+            style={{ width: '100%', ...inputDash, resize: 'vertical', fontSize: '0.9rem', lineHeight: '1.6', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {/* Datos del Proyecto */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}>📋 Datos del Proyecto</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem 2rem' }}>
+            {infoRows.map(([label, val]) => (
+              <div key={label} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.86rem', alignItems: 'flex-start' }}>
+                <span style={{ fontWeight: '700', color: '#475569', minWidth: '130px', flexShrink: 0 }}>{label}:</span>
+                <span style={{ color: '#1e293b' }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Imágenes del proyecto */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}>🖼️ Imágenes del Proyecto</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
+            {[0, 1, 2, 3].map(idx => (
+              <div key={idx} style={{ position: 'relative', border: '2px dashed #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                {imagePreview[idx] ? (
+                  <>
+                    <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <button className="no-print" onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </>
+                ) : (
+                  <label className="no-print" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>📷</span>
+                    <span>Foto {idx + 1}</span>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
+                  </label>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Conceptos */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}>📝 Conceptos del Proyecto</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {conceptos.map((it, i) => {
+              const base = parseFloat(it.precioBase) || 0;
+              const final = parseFloat(it.precioFinal || it.precioBase) || 0;
+              const subtotalConcepto = final * (parseFloat(it.cantidad) || 0);
+              return (
+                <div key={i} style={{ border: it.modificado ? '1.5px solid #f59e0b' : '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem 1.2rem', background: it.modificado ? '#fffbeb' : '#fafafa' }}>
+                  {/* Fila 1: Descripción + quitar */}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Concepto / Nombre</label>
+                      <input value={it.descripcion} onChange={e => updateConcepto(i, 'descripcion', e.target.value)}
+                        placeholder="Ej: Cocina integral en melamina blanco frosty..."
+                        style={{ width: '100%', ...inputDash, fontWeight: '600', fontSize: '0.9rem', boxSizing: 'border-box' }} />
+                    </div>
+                    {conceptos.length > 1 && (
+                      <button className="no-print" onClick={() => removeConcepto(i)} style={{ background: '#fee2e2', border: 'none', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', padding: '0.3rem 0.7rem', fontWeight: '700', marginTop: '1.3rem', flexShrink: 0 }}>✕ Quitar</button>
+                    )}
+                  </div>
+
+                  {/* Fila 2: Detalle */}
+                  <div style={{ marginBottom: '0.6rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Descripción detallada</label>
+                    <textarea value={it.detalle} onChange={e => updateConcepto(i, 'detalle', e.target.value)}
+                      placeholder="Describe materiales, dimensiones, acabados, incluye/no incluye..."
+                      rows={2}
+                      style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.5', boxSizing: 'border-box' }} />
+                  </div>
+
+                  {/* Fila 3: Precios */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '80px 80px 130px 130px 110px', gap: '0.6rem', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Unidad</label>
+                      <select value={it.unidad} onChange={e => updateConcepto(i, 'unidad', e.target.value)}
+                        style={{ width: '100%', ...inputDash, background: 'white' }}>
+                        {['pza', 'm²', 'm', 'juego', 'servicio', 'puerta'].map(u => <option key={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Cantidad</label>
+                      <input type="number" min="1" value={it.cantidad} onChange={e => updateConcepto(i, 'cantidad', e.target.value)}
+                        style={{ width: '100%', ...inputDash, textAlign: 'center' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Precio base (unitario)</label>
+                      <input type="number" min="0" value={it.precioBase} onChange={e => updateConcepto(i, 'precioBase', e.target.value)}
+                        placeholder="0.00"
+                        style={{ width: '100%', ...inputDash, textAlign: 'right' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: it.modificado ? '#d97706' : '#64748b', display: 'block', marginBottom: '0.2rem' }}>
+                        {it.modificado ? '⚠️ Precio final (modificado)' : 'Precio final (unitario)'}
+                      </label>
+                      <input type="number" min="0" value={it.precioFinal} onChange={e => updateConcepto(i, 'precioFinal', e.target.value)}
+                        placeholder={it.precioBase || '0.00'}
+                        style={{ width: '100%', ...inputDash, textAlign: 'right', borderColor: it.modificado ? '#f59e0b' : '#cbd5e1', background: it.modificado ? '#fef3c7' : 'white', fontWeight: it.modificado ? '700' : '400' }} />
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Subtotal</label>
+                      <span style={{ fontSize: '0.95rem', fontWeight: '800', color: '#1e293b' }}>{fmt(subtotalConcepto)}</span>
+                    </div>
+                  </div>
+
+                  {/* Motivo de modificación */}
+                  {it.modificado && (
+                    <div style={{ marginTop: '0.6rem' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: '#d97706', display: 'block', marginBottom: '0.2rem' }}>📌 Motivo del ajuste de precio</label>
+                      <input value={it.motivoModif} onChange={e => updateConcepto(i, 'motivoModif', e.target.value)}
+                        placeholder="Ej: Descuento por volumen, material especial solicitado, ajuste por medidas..."
+                        style={{ width: '100%', ...inputDash, borderColor: '#f59e0b', background: '#fffbeb', boxSizing: 'border-box' }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="no-print" style={{ marginTop: '1rem' }}>
+            <button onClick={addConcepto} style={{ background: 'none', border: '1px dashed #94a3b8', color: '#64748b', borderRadius: '6px', padding: '0.4rem 1.2rem', cursor: 'pointer', fontSize: '0.85rem' }}>+ Agregar concepto</button>
+          </div>
+        </div>
+
+        {/* Totales */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2rem' }}>
+          <div style={{ width: '300px', background: '#f8fafc', borderRadius: '10px', padding: '1rem 1.2rem', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
+              <span style={{ color: '#64748b' }}>Subtotal:</span>
+              <span style={{ fontWeight: '700' }}>{fmt(subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.9rem', gap: '0.5rem' }}>
+              <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                Anticipo
+                <input type="number" value={anticipo} onChange={e => setAnticipo(e.target.value)} style={{ width: '45px', ...inputDash, textAlign: 'center', padding: '0.1rem 0.3rem' }} />%:
+              </span>
+              <span style={{ fontWeight: '700', color: '#16a34a' }}>{fmt(subtotal * (parseFloat(anticipo) || 0) / 100)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', fontSize: '1.1rem' }}>
+              <span style={{ fontWeight: '800', color: '#f97316' }}>TOTAL:</span>
+              <span style={{ fontWeight: '900', color: '#f97316', fontSize: '1.3rem' }}>{fmt(subtotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Condiciones */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div>
+            <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Validez de cotización (días):</label>
+            <input type="number" value={validez} onChange={e => setValidez(e.target.value)}
+              style={{ width: '90px', ...inputDash }} />
+          </div>
+        </div>
+
+        {/* Notas */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}>📋 Notas y Condiciones</h3>
+          <textarea value={notas} onChange={e => setNotas(e.target.value)}
+            placeholder="Condiciones de pago, tiempos de entrega, garantías, observaciones..."
+            rows={4}
+            style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', boxSizing: 'border-box' }} />
+        </div>
+
+        {/* Firmas */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ borderBottom: '1px solid #94a3b8', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>&nbsp;</div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Firma y sello RD Carpintería</span>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ borderBottom: '1px solid #94a3b8', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>&nbsp;</div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Firma de aceptación del cliente</span>
+          </div>
+        </div>
+
+      </div>
+
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          #cotizacion-doc, #cotizacion-doc * { visibility: visible; }
+          #cotizacion-doc { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; padding: 1.5rem !important; }
+        }
+      `}</style>
+    </div>
+  );
+}

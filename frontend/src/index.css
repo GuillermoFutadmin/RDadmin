@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+:root {
+  --bg-color: #f8f9fa;
+  --sidebar-bg: #29211d; /* Marrón muy oscuro del sidebar */
+  --sidebar-text: #e0e0e0;
+  --sidebar-active-bg: #34303b; /* Fondo del item activo (gris/morado oscuro) */
+  --card-bg: #ffffff;
+  --text-main: #212529;
+  --accent: #ba4b24; /* Naranja/Óxido de los botones y textos activos */
+  --header-bg: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+}
+
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  padding: 2rem 1rem;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.sidebar h2 {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  color: white; /* Logotipo suele ser blanco o claro */
+  letter-spacing: 1px;
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.sidebar li:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar li.active {
+  background-color: var(--sidebar-active-bg);
+  color: var(--accent);
+  padding-left: 1.5rem;
+  border-left: 4px solid var(--accent);
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background: var(--header-bg);
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+header h1 {
+  font-size: 1.5rem;
+  color: var(--text-main);
+}
+
+.user-profile {
+  background: var(--accent);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-top: 4px solid var(--accent);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card h3 {
+  font-size: 1rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.card p {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+@media print {
+  @page {
+    margin: 0; /* Oculta el encabezado (localhost, fecha) y pie de página en navegadores Chromium */
+  }
+  
+  body {
+    /* Da margen al contenido para que no quede pegado a los bordes de la hoja */
+    padding: 1.5cm;
+  }
+}
+
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  .print-only { display: block !important; }
+  .no-print { display: none !important; }
+}
+
+/* Reglas cuando html2pdf está generando */
+.pdf-exporting .print-only { display: block !important; }
+.pdf-exporting .no-print { display: none !important; }
+
+.pdf-exporting #cotizacion-doc {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.pdf-exporting input, .pdf-exporting textarea {
+  border: none !important;
+  background: transparent !important;
+  resize: none !important;
+  color: #000 !important;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

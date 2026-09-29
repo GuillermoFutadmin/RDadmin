@@ -1,0 +1,34 @@
+972: <input required
+1291: <input type="radio" name={typeName} value="Mancha" checked={typeValue === 'Mancha'} onChange={onChange} />
+1295: <input type="radio" name={typeName} value="Color Cerrado" checked={typeValue === 'Color Cerrado'} onChange={onChange} />
+1300: <input
+1441: <input required type="text" name={codeName} value={codeValue} onChange={onChange}
+1559: <input type="text" name="name" required value={formData.name} onChange={handleChange} style={inputStyle} />
+1564: <input required type="text" name="contact_info" value={formData.contact_info} onChange={handleChange} style={inputStyle} />
+1568: <input required type="text" name="location" value={formData.location} onChange={handleChange} style={inputStyle} />
+1637: <input
+1658: <input required
+1675: <input required
+1697: <input
+1722: <input required
+1752: <input required
+1764: <input required
+1853: <input required
+1910: <input
+1927: <input required
+1944: <input required
+2036: <input required
+2094: <input
+2111: <input required
+2128: <input required
+2147: <input type="checkbox" name="has_design" checked={formData.has_design} onChange={handleChange} />
+2212: <input ref={spaceFileRef} type="file" accept="image/*" onChange={handleSpaceImageChange} style={{ display: 'none' }} />
+2266: <input ref={refFileRef} type="file" accept="image/*" onChange={handleRefImageChange} style={{ display: 'none' }} />
+2282: <input type="checkbox" name={key} checked={formData.priorities[key]} onChange={handleCheckboxChange} /> {key}
+2414: <input required
+2427: <input required
+2442: <input required type="date" name="start_date" value={formData.start_date} onChange={handleChange} style={inputStyle} />
+2464: <input required
+2992: <input type="text" value={filterText} onChange={e => setFilterText(e.target.value)}
+3276: ? <input required type="number" value={m.qty} min="0"
+3430: ? <input required type="number" value={data.globalMargin} onChange={e => updateMargin(e.target.value)}
