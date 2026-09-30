@@ -2904,7 +2904,7 @@ function Prospects() {
   const [filterText,      setFilterText]      = useState('');
   const [filterStatus,    setFilterStatus]    = useState('');
   const [filterMaterial,  setFilterMaterial]  = useState('');
-  const [filterValuacion, setFilterValuacion] = useState(''); // '' | 'con' | 'sin'
+  const [filterType,      setFilterType]      = useState('');
 
   const fetchProspects = () => {
     fetch(`${API}/api/prospects`)
@@ -3000,14 +3000,14 @@ function Prospects() {
             const mat = `${p.material_type || ''} ${p.material_type_2 || ''}`.toLowerCase();
             if (!mat.includes(filterMaterial.toLowerCase())) return false;
           }
-          if (filterValuacion === 'con' && !p.valuation_data) return false;
-          if (filterValuacion === 'sin' &&  p.valuation_data) return false;
+          if (filterType && p.project_type !== filterType) return false;
           return true;
         });
         const statusOptions   = [...new Set(prospects.map(p => p.status).filter(Boolean))];
         const materialOptions = [...new Set(prospects.flatMap(p => [p.material_type, p.material_type_2]).filter(Boolean))];
-        const hasFilters = txt || filterStatus || filterMaterial || filterValuacion;
-        const clearFilters = () => { setFilterText(''); setFilterStatus(''); setFilterMaterial(''); setFilterValuacion(''); };
+        const typeOptions     = [...new Set(prospects.map(p => p.project_type).filter(Boolean))];
+        const hasFilters = txt || filterStatus || filterMaterial || filterType;
+        const clearFilters = () => { setFilterText(''); setFilterStatus(''); setFilterMaterial(''); setFilterType(''); };
 
         return (
           <>
@@ -3070,23 +3070,22 @@ function Prospects() {
                 </div>
 
                 <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
-                  <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '4px' }}>Valoración</label>
-                  <select required value={filterValuacion} onChange={e => setFilterValuacion(e.target.value)}
+                  <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '4px' }}>Tipo de Proyecto</label>
+                  <select required value={filterType} onChange={e => setFilterType(e.target.value)}
                     style={{ width: '100%', padding: '7px 8px', borderRadius: '7px', border: '1px solid #cbd5e1', fontSize: '0.87rem', cursor: 'pointer' }}>
                     <option value="">Todos</option>
-                    <option value="con">Con valoración</option>
-                    <option value="sin">Sin valoración</option>
+                    {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                {(txt || filterValuacion) && (
-                  <button onClick={() => { setFilterText(''); setFilterMaterial(''); setFilterValuacion(''); }}
+                {(txt || filterType) && (
+                  <button onClick={() => { setFilterText(''); setFilterMaterial(''); setFilterType(''); }}
                     style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
                     ✕ Limpiar
                   </button>
                 )}
               </div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.77rem', color: '#94a3b8' }}>
-                {(txt || filterStatus || filterValuacion)
+                {(txt || filterStatus || filterType)
                   ? `Mostrando ${filtered.length} de ${prospects.length} prospectos`
                   : `${prospects.length} prospecto${prospects.length !== 1 ? 's' : ''} en total`}
               </div>
@@ -3111,7 +3110,7 @@ function Prospects() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #eee', textAlign: 'left', background: '#fafafa' }}>
-                        {['ID','Nombre','Contacto','Captura','Inicio','Material','Estado','Acciones'].map(h => (
+                        {['ID','Nombre','Proyecto','Contacto','Captura','Inicio','Material','Estado','Acciones'].map(h => (
                           <th key={h} style={{ padding: '0.6rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '700' }}>{h}</th>
                         ))}
                       </tr>
@@ -3127,6 +3126,9 @@ function Prospects() {
                               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', textDecoration: 'underline' }}>
                               {p.name}
                             </button>
+                          </td>
+                          <td style={{ padding: '0.6rem', fontSize: '0.9rem', color: '#1e293b', fontWeight: '500' }}>
+                            {p.project_type || '-'}
                           </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.contact_info || '-'}</td>
                           <td style={{ padding: '0.6rem', fontSize: '0.85rem', color: '#64748b' }}>{p.capture_date ? new Date(p.capture_date).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</td>
