@@ -197,7 +197,7 @@ function App() {
             )}
 
             {/* Contratos */}
-            {hasAccess('Ventas') && (
+            {hasAccess('Contratos') && (
               <li
                 className={activeTab === 'Contratos' ? 'active' : ''}
                 onClick={() => { setActiveTab('Contratos'); setProspectsOpen(false); }}
@@ -297,7 +297,7 @@ function App() {
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
         {activeTab === 'Pedidos'       && hasAccess('Pedidos')       && <Pedidos />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
-        {activeTab === 'Contratos'     && hasAccess('Ventas')        && <Contratos />}
+        {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos />}
         {activeTab === 'Colaboradores' && hasAccess('Colaboradores') && <Colaboradores />}
         {activeTab === 'Asistencia'    && hasAccess('Asistencia')    && <Asistencia view="registro" />}
         {activeTab === 'Nomina'        && hasAccess('Nomina')        && <Asistencia view="corte" />}

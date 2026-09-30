@@ -23,6 +23,7 @@ export default function Accesos() {
     { id: 'Dashboard', label: '📊 Dashboard' },
     { id: 'Prospectos', label: '👥 Prospectos' },
     { id: 'Ventas', label: '📈 Valoración / Cotizaciones' },
+    { id: 'Contratos', label: '📄 Contratos' },
     { id: 'Colaboradores', label: '👷‍♂️ Colaboradores' },
     { id: 'Asistencia', label: '⏱️ Asistencia' },
     { id: 'Nomina', label: '💰 Nómina y Tarifas' },
