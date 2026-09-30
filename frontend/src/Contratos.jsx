@@ -141,9 +141,11 @@ export default function Contratos({ startView = 'list' }) {
   useEffect(() => { fetchContratos(); }, []);
   useEffect(() => {
     if (startView === 'estimacion_list') {
-      setView('list'); // Just show list for now, user can click "Estimación"
+      setView('estimacion_menu');
+      setSelected(null);
     } else {
       setView('list');
+      setSelected(null);
     }
   }, [startView]);
 
@@ -173,7 +175,44 @@ export default function Contratos({ startView = 'list' }) {
   }
 
   if (view === 'estimacion' && selected) {
-    return <Estimacion prospect={selected} onBack={() => setView('detail')} />;
+    return <Estimacion prospect={selected} onBack={() => {
+      if (startView === 'estimacion_list') {
+        setView('estimacion_menu');
+        setSelected(null);
+      } else {
+        setView('detail');
+      }
+    }} />;
+  }
+
+  if (view === 'estimacion_menu') {
+    return (
+      <div style={{ padding:'2rem', maxWidth:'700px', margin:'0 auto' }}>
+        <div style={{ textAlign:'center', marginBottom:'2rem' }}>
+          <h2 style={{ color:'#b45309', fontSize:'2rem', margin:'0 0 0.5rem' }}>Estimación de Contratos</h2>
+          <p style={{ color:'#64748b', fontSize:'1rem', margin:0 }}>Selecciona un contrato para iniciar su estimación en vivo</p>
+        </div>
+        <div style={{ background:'white', borderRadius:'12px', padding:'2rem', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)', border:'1px solid #e2e8f0' }}>
+          <h3 style={{ margin:'0 0 1rem', color:'#1e293b', fontSize:'1.1rem', fontWeight:'700' }}>Paso 1: Asignar Contrato</h3>
+          <select 
+            style={{ width:'100%', padding:'0.8rem', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'1rem', outline:'none', cursor:'pointer' }}
+            onChange={(e) => {
+              const c = contratos.find(x => x.id === parseInt(e.target.value));
+              if(c) {
+                setSelected(c);
+                setView('estimacion');
+              }
+            }}
+            value=""
+          >
+            <option value="" disabled>-- Selecciona --</option>
+            {contratos.map(c => (
+              <option key={c.id} value={c.id}>{c.name} - {c.project_type}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
   }
 
   // ── List filters ──
