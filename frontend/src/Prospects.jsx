@@ -3307,7 +3307,24 @@ function Prospects() {
           onDelete={async () => {
             if(!window.confirm("¿Seguro que deseas eliminar la valoración de este prospecto?")) return;
             try {
-              const updated = { ...viewingValuation, estimated_price: null, valuation_data: null, status: 'Prospecto' };
+              const updated = { 
+                ...viewingValuation, 
+                estimated_price: null, 
+                valuation_data: null, 
+                status: 'Prospecto',
+                has_quote: false,
+                quote_saludo: null,
+                quote_title: null,
+                quote_description: null,
+                quote_total_price: null,
+                quote_delivery_time: null,
+                quote_validez: null,
+                quote_anticipo: null,
+                quote_image_1: null,
+                quote_image_2: null,
+                quote_image_3: null,
+                quote_image_4: null
+              };
               await fetch(`${API}/api/prospects/${viewingValuation.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
