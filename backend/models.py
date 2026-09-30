@@ -76,6 +76,10 @@ class Prospect(Base):
     capture_date = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="New")
     has_quote = Column(Boolean, default=False)
+    is_contract = Column(Boolean, default=False)   # passed to Contratos
+    is_papelera = Column(Boolean, default=False)   # rejected, goes to Papelera
+    contract_date = Column(DateTime, nullable=True)
+    estimation_data = Column(String, nullable=True)  # JSON from Estimación
     quote_saludo = Column(String, nullable=True)
     quote_title = Column(String, nullable=True)
     quote_description = Column(String, nullable=True)

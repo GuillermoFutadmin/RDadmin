@@ -17,6 +17,16 @@ CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
 
 try:
     models.Base.metadata.create_all(bind=engine)
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN is_contract BOOLEAN DEFAULT FALSE;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN is_papelera BOOLEAN DEFAULT FALSE;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;"))
+        except: pass
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
@@ -147,6 +157,10 @@ class ProspectCreate(BaseModel):
     reference_image_path: Optional[str] = None
     has_quote: bool = False
     status: Optional[str] = None
+    is_contract: bool = False
+    is_papelera: bool = False
+    contract_date: Optional[datetime] = None
+    estimation_data: Optional[str] = None
     quote_saludo: Optional[str] = None
     quote_title: Optional[str] = None
     quote_description: Optional[str] = None

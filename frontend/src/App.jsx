@@ -4,6 +4,7 @@ import Dashboard from './Dashboard';
 import Ventas from './Ventas';
 import Pedidos from './Pedidos';
 import Prospects from './Prospects';
+import Contratos from './Contratos';
 import Colaboradores from './Colaboradores';
 import Accesos from './Accesos';
 import Asistencia from './Asistencia';
@@ -195,6 +196,16 @@ function App() {
               </li>
             )}
 
+            {/* Contratos */}
+            {hasAccess('Ventas') && (
+              <li
+                className={activeTab === 'Contratos' ? 'active' : ''}
+                onClick={() => { setActiveTab('Contratos'); setProspectsOpen(false); }}
+              >
+                <span style={{ marginRight: '0.5rem' }}>📄</span> Contratos
+              </li>
+            )}
+
             {/* Pedidos */}
             {hasAccess('Pedidos') && (
               <li
@@ -286,6 +297,7 @@ function App() {
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
         {activeTab === 'Pedidos'       && hasAccess('Pedidos')       && <Pedidos />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
+        {activeTab === 'Contratos'     && hasAccess('Ventas')        && <Contratos />}
         {activeTab === 'Colaboradores' && hasAccess('Colaboradores') && <Colaboradores />}
         {activeTab === 'Asistencia'    && hasAccess('Asistencia')    && <Asistencia view="registro" />}
         {activeTab === 'Nomina'        && hasAccess('Nomina')        && <Asistencia view="corte" />}
