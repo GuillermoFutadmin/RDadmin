@@ -18,23 +18,22 @@ CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
 try:
     models.Base.metadata.create_all(bind=engine)
     from sqlalchemy import text
-    with engine.begin() as conn:
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN is_contract BOOLEAN DEFAULT FALSE;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN is_papelera BOOLEAN DEFAULT FALSE;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_price REAL;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_total_price REAL;"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;"))
-        except: pass
+    
+    def safe_alter(sql):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+        except:
+            pass
+
+    safe_alter("ALTER TABLE prospects ADD COLUMN is_contract BOOLEAN DEFAULT FALSE;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN is_papelera BOOLEAN DEFAULT FALSE;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_price REAL;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_total_price REAL;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
