@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { printProspect } from './Prospects';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -33,7 +34,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect, onBack, onEstimacion }) {
+function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) {
   const chip = (label, value) => value ? (
     <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
       <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
@@ -45,27 +46,7 @@ function ContratoDetail({ prospect, onBack, onEstimacion }) {
     .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
 
   const handleDownloadCotizacion = () => {
-    if (!prospect.has_quote) { alert('Este prospecto no tiene cotización generada aún.'); return; }
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cotización ${prospect.name}</title>
-    <style>body{font-family:sans-serif;padding:2rem;max-width:800px;margin:0 auto}h1{color:#ba4b24}table{width:100%;border-collapse:collapse;margin:1rem 0}th,td{border:1px solid #ddd;padding:0.5rem}th{background:#f8f9fa}</style></head>
-    <body>
-    <h1>${prospect.name}</h1>
-    <p><strong>ID:</strong> ${prospect.public_id} | <strong>Proyecto:</strong> ${prospect.project_type}</p>
-    <p><strong>Contacto:</strong> ${prospect.contact_info || '-'} | <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
-    <hr/>
-    <h2>${prospect.quote_title || 'Propuesta de Proyecto'}</h2>
-    <p>${prospect.quote_description || ''}</p>
-    <table><tr><th>Concepto</th><th>Detalle</th></tr>
-    <tr><td>Total</td><td><strong>${prospect.quote_total_price || '-'}</strong></td></tr>
-    <tr><td>Anticipo</td><td>${prospect.quote_anticipo || '-'}</td></tr>
-    <tr><td>Tiempo de entrega</td><td>${prospect.quote_delivery_time || '-'}</td></tr>
-    <tr><td>Validez</td><td>${prospect.quote_validez || '-'}</td></tr>
-    </table>
-    </body></html>`;
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 500);
+    printProspect(prospect);
   };
 
   return (
@@ -76,6 +57,7 @@ function ContratoDetail({ prospect, onBack, onEstimacion }) {
           <button onClick={onBack} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#eee', border:'none', borderRadius:'6px', cursor:'pointer' }}>Volver</button>
           <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📐 Estimación</button>
           <button onClick={handleDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📄 Descargar Cotización</button>
+          <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
         </div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.4rem' }}>
@@ -137,7 +119,7 @@ function ContratoDetail({ prospect, onBack, onEstimacion }) {
 }
 
 // ─── Main Contratos component ────────────────────────────────────────────────
-export default function Contratos() {
+export default function Contratos({ startView = 'list' }) {
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');         // 'list' | 'detail' | 'estimacion'
@@ -157,6 +139,24 @@ export default function Contratos() {
   };
 
   useEffect(() => { fetchContratos(); }, []);
+  useEffect(() => {
+    if (startView === 'estimacion_list') {
+      setView('list'); // Just show list for now, user can click "Estimación"
+    } else {
+      setView('list');
+    }
+  }, [startView]);
+
+  const handleReturnToProspect = async (p) => {
+    if (!window.confirm('¿Estás seguro de regresar este contrato a prospecto?')) return;
+    await fetch(`${API}/api/prospects/${p.id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ is_contract:false, contract_date:null })
+    });
+    fetchContratos();
+    setView('list');
+    setSelected(null);
+  };
 
   // ── Views ──
   if (view === 'detail' && selected) {
@@ -166,6 +166,7 @@ export default function Contratos() {
           prospect={selected}
           onBack={() => { setView('list'); setSelected(null); }}
           onEstimacion={() => setView('estimacion')}
+          onReturnToProspect={() => handleReturnToProspect(selected)}
         />
       </div>
     );

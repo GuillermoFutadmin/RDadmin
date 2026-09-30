@@ -13,6 +13,7 @@ import Login from './Login';
 function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [prospectsOpen, setProspectsOpen] = useState(false);
+  const [contratosOpen, setContratosOpen] = useState(false);
   const [colaboradoresOpen, setColaboradoresOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -151,13 +152,26 @@ function App() {
               </li>
             )}
 
-            {/* Contratos */}
+            {/* Contratos (con submenú) */}
             {hasAccess('Contratos') && (
               <li
-                className={activeTab === 'Contratos' ? 'active' : ''}
-                onClick={() => { setActiveTab('Contratos'); setProspectsOpen(false); }}
+                className={activeTab === 'Contratos' || activeTab === 'Estimacion' ? 'active' : ''}
+                onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>📄</span> Contratos
+                <span><span style={{ marginRight: '0.5rem' }}>📄</span> Contratos</span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.7, transition: 'transform 0.2s', transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+              </li>
+            )}
+
+            {/* Submenú: Estimación */}
+            {contratosOpen && hasAccess('Contratos') && (
+              <li
+                className={activeTab === 'Estimacion' ? 'active' : ''}
+                onClick={() => setActiveTab('Estimacion')}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Estimacion' ? 1 : 0.85 }}
+              >
+                <span style={{ marginRight: '0.5rem' }}>📐</span> Estimación
               </li>
             )}
 
@@ -297,7 +311,8 @@ function App() {
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
         {activeTab === 'Pedidos'       && hasAccess('Pedidos')       && <Pedidos />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
-        {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos />}
+        {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos startView="list" />}
+        {activeTab === 'Estimacion'    && hasAccess('Contratos')        && <Contratos startView="estimacion_list" />}
         {activeTab === 'Colaboradores' && hasAccess('Colaboradores') && <Colaboradores />}
         {activeTab === 'Asistencia'    && hasAccess('Asistencia')    && <Asistencia view="registro" />}
         {activeTab === 'Nomina'        && hasAccess('Nomina')        && <Asistencia view="corte" />}

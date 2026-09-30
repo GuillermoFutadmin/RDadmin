@@ -3611,6 +3611,5 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
   );
 }
 
-
+export { printProspect };
 export default Prospects;
-
