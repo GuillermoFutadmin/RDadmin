@@ -221,12 +221,18 @@ export default function Contratos({ startView = 'list' }) {
   const filtered = contratos.filter(c => {
     if (txt && !((c.name||'').toLowerCase().includes(txt) || (c.public_id||'').toLowerCase().includes(txt) || (c.contact_info||'').toLowerCase().includes(txt) || (c.project_type||'').toLowerCase().includes(txt))) return false;
     if (filterType && c.project_type !== filterType) return false;
-    if (filterStatus && (c.status || 'APROBADO') !== filterStatus) return false;
+    if (filterStatus && getStatus(c) !== filterStatus) return false;
     return true;
   });
   const typeOptions = [...new Set(contratos.map(c => c.project_type).filter(Boolean))];
 
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric' }) : '-';
+
+    const getStatus = (c) => {
+    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO'];
+    if (c.status && validStates.includes(c.status)) return c.status;
+    return 'APROBADO';
+  };
 
   const statusBadge = (s) => {
     const isAprobado   = s === 'APROBADO';
@@ -292,10 +298,10 @@ export default function Contratos({ startView = 'list' }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.8rem', marginBottom: '1.2rem' }}>
         {[
           { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: '#f1f5f9', icon: '📋' },
-          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => (c.status || 'APROBADO') === 'APROBADO').length,  color: '#166534', bg: '#dcfce7', icon: '✅' },
-          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => c.status === 'RENDER SI/NO').length, color: '#92400e', bg: '#fef3c7', icon: '🎨' },
-          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => c.status === 'ESTIMACIÓN').length,  color: '#3730a3', bg: '#e0e7ff', icon: '📐' },
-          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => c.status === 'CONTRATO').length,  color: '#9d174d', bg: '#fce7f3', icon: '📝' },
+          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#166534', bg: '#dcfce7', icon: '✅' },
+          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#92400e', bg: '#fef3c7', icon: '🎨' },
+          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#3730a3', bg: '#e0e7ff', icon: '📐' },
+          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#9d174d', bg: '#fce7f3', icon: '📝' },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
           return (
@@ -384,7 +390,7 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
                   <td style={{ padding:'0.7rem 0.8rem' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
-                      { (c.status || 'APROBADO') === 'APROBADO' && (
+                      { getStatus(c) === 'APROBADO' && (
                         <button onClick={async () => {
                           await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'RENDER SI/NO' }) });
                           fetchContratos();
@@ -392,7 +398,7 @@ export default function Contratos({ startView = 'list' }) {
                           Avanzar a Render
                         </button>
                       )}
-                      { c.status === 'RENDER SI/NO' && (
+                      { getStatus(c) === 'RENDER SI/NO' && (
                         <button onClick={async () => {
                           await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'ESTIMACIÓN' }) });
                           fetchContratos();
@@ -400,7 +406,7 @@ export default function Contratos({ startView = 'list' }) {
                           Avanzar a Estimación
                         </button>
                       )}
-                      { c.status === 'ESTIMACIÓN' && (
+                      { getStatus(c) === 'ESTIMACIÓN' && (
                         <button onClick={async () => {
                           await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'CONTRATO' }) });
                           fetchContratos();
