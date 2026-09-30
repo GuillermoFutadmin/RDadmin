@@ -128,6 +128,9 @@ export default function Contratos({ startView = 'list' }) {
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [confirmFor, setConfirmFor] = useState(null); // prospect to confirm approval
+  const [renderModalFor, setRenderModalFor] = useState(null); // prospect for Render modal
+  const [renderApplies, setRenderApplies] = useState(null);   // null | true | false
+  const [renderPrice, setRenderPrice] = useState('');
 
   const fetchContratos = async () => {
     setLoading(true);
@@ -273,6 +276,97 @@ export default function Contratos({ startView = 'list' }) {
   return (
     <div style={{ padding:'1rem' }}>
       {/* Confirm Modal */}
+      {/* ── RENDER MODAL ── */}
+      {renderModalFor && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
+          <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'460px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin:'0 0 0.4rem', color:'#1e293b', fontSize:'1.15rem' }}>🎨 ¿Aplica Render?</h3>
+            <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.4rem' }}>
+              <strong>{renderModalFor.name}</strong> · {renderModalFor.project_type}
+            </p>
+
+            {/* SI / NO buttons */}
+            <div style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
+              {[{val: true, label:'✅ SÍ — Aplica Render', bg:'#10b981'}, {val: false, label:'❌ NO — Sin Render', bg:'#64748b'}].map(opt => (
+                <button key={String(opt.val)}
+                  onClick={() => setRenderApplies(opt.val)}
+                  style={{ flex:1, padding:'0.75rem', background: renderApplies === opt.val ? opt.bg : '#f1f5f9',
+                    color: renderApplies === opt.val ? 'white' : '#475569',
+                    border: `2px solid ${renderApplies === opt.val ? opt.bg : '#e2e8f0'}`,
+                    borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.9rem', transition:'all 0.2s' }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Render price form — only when SI */}
+            {renderApplies === true && (
+              <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'1rem', marginBottom:'1.2rem' }}>
+                <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>
+                  💰 Precio del Render (MXN)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={renderPrice}
+                  onChange={e => setRenderPrice(e.target.value)}
+                  placeholder="Ej. 3500"
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'1rem', boxSizing:'border-box' }}
+                />
+                {renderModalFor.quote_total_price && (
+                  <div style={{ marginTop:'0.8rem', padding:'0.7rem 1rem', background:'#e0f2fe', borderRadius:'8px', fontSize:'0.88rem', color:'#0369a1' }}>
+                    <strong>Estimación base:</strong> ${Number(renderModalFor.quote_total_price || 0).toLocaleString('es-MX')}<br/>
+                    <strong>+ Render:</strong> ${Number(renderPrice || 0).toLocaleString('es-MX')}<br/>
+                    <strong style={{ fontSize:'1rem', color:'#1e293b' }}>
+                      Total final: ${(Number(renderModalFor.quote_total_price || 0) + Number(renderPrice || 0)).toLocaleString('es-MX')}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {renderApplies === false && (
+              <div style={{ background:'#f0fdf4', borderRadius:'10px', padding:'0.8rem 1rem', marginBottom:'1.2rem', fontSize:'0.88rem', color:'#166534' }}>
+                ✅ Sin render. El cliente avanzará directamente a Estimación con el precio original.
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display:'flex', gap:'0.8rem' }}>
+              <button
+                disabled={renderApplies === null || (renderApplies === true && !renderPrice)}
+                onClick={async () => {
+                  const totalPrice = renderApplies
+                    ? (Number(renderModalFor.quote_total_price || 0) + Number(renderPrice || 0))
+                    : null;
+                  await fetch(`${API}/api/prospects/${renderModalFor.id}`, {
+                    method: 'PUT', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                      status: 'RENDER SI/NO',
+                      render_applies: renderApplies,
+                      render_price: renderApplies ? Number(renderPrice) : null,
+                      render_total_price: totalPrice
+                    })
+                  });
+                  setRenderModalFor(null);
+                  setRenderApplies(null);
+                  setRenderPrice('');
+                  fetchContratos();
+                }}
+                style={{ flex:1, padding:'0.75rem', background: (renderApplies === null || (renderApplies === true && !renderPrice)) ? '#94a3b8' : '#3b82f6',
+                  color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor: (renderApplies === null || (renderApplies === true && !renderPrice)) ? 'not-allowed' : 'pointer', fontSize:'0.95rem' }}>
+                💾 Guardar y Avanzar
+              </button>
+              <button onClick={() => { setRenderModalFor(null); setRenderApplies(null); setRenderPrice(''); }}
+                style={{ padding:'0.75rem 1rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontWeight:'600', fontSize:'0.9rem' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmFor && (
         <ConfirmModal
           prospect={confirmFor}
@@ -391,11 +485,12 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
                       { getStatus(c) === 'APROBADO' && (
-                        <button onClick={async () => {
-                          await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'RENDER SI/NO' }) });
-                          fetchContratos();
+                        <button onClick={() => {
+                          setRenderModalFor(c);
+                          setRenderApplies(c.render_applies ?? null);
+                          setRenderPrice(c.render_price ? String(c.render_price) : '');
                         }} style={{ padding:'0.3rem 0.7rem', background:'#f59e0b', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>
-                          Avanzar a Render
+                          🎨 Render SI/NO
                         </button>
                       )}
                       { getStatus(c) === 'RENDER SI/NO' && (

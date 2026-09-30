@@ -80,6 +80,10 @@ class Prospect(Base):
     is_papelera = Column(Boolean, default=False)   # rejected, goes to Papelera
     contract_date = Column(DateTime, nullable=True)
     estimation_data = Column(String, nullable=True)  # JSON from Estimación
+    render_applies = Column(Boolean, nullable=True)   # True=SI, False=NO
+    render_price = Column(Float, nullable=True)       # Precio del render
+    render_total_price = Column(Float, nullable=True) # Estimación + Render
+    render_image_path = Column(String, nullable=True) # Imagen del render cargada
     quote_saludo = Column(String, nullable=True)
     quote_title = Column(String, nullable=True)
     quote_description = Column(String, nullable=True)

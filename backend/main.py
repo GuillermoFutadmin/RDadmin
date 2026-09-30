@@ -27,6 +27,14 @@ try:
         except: pass
         try: conn.execute(text("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;"))
         except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_price REAL;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_total_price REAL;"))
+        except: pass
+        try: conn.execute(text("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;"))
+        except: pass
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
