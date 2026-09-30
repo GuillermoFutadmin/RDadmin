@@ -3196,8 +3196,14 @@ function Prospects() {
                             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                               <button onClick={() => { setSelectedProspect(p); setView('edit'); }}
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Editar</button>
-                              <button onClick={() => { setSelectedProspect(p); setView('quote'); }}
-                                style={{ padding: '0.3rem 0.7rem', backgroundColor: p.has_quote ? '#16a34a' : '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                              <button onClick={() => {
+                                if (!p.valuation_data && !p.has_quote) {
+                                  alert("⚠️ Primero debe agregar una valoración (+ Valoración) para poder cotizar.");
+                                  return;
+                                }
+                                setSelectedProspect(p); setView('quote'); 
+                              }}
+                                style={{ padding: '0.3rem 0.7rem', backgroundColor: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#9ca3af' : '#2563eb'), color: 'white', border: 'none', borderRadius: '6px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.7 : 1 }}>
                                 {p.has_quote ? '✅ Cotización' : '💰 Cotizar'}
                               </button>
                               <button onClick={() => setViewingValuation(p)}
