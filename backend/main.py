@@ -171,6 +171,9 @@ class ProspectResponse(ProspectCreate):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+        }
 
 
 class TemplateCreate(BaseModel):
@@ -235,7 +238,7 @@ def generate_public_id():
 def create_prospect(prospect: ProspectCreate, db: Session = Depends(get_db)):
     db_prospect = models.Prospect(**prospect.dict())
     db_prospect.public_id = generate_public_id()
-    db_prospect.capture_date = datetime.now()
+    db_prospect.capture_date = datetime.utcnow()
     db.add(db_prospect)
     db.commit()
     db.refresh(db_prospect)
