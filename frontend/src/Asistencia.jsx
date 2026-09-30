@@ -601,7 +601,7 @@ export default function Asistencia({ view = 'registro' }) {
                   <button onClick={initCamera} style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}>Activar</button>
                 )}
               </div>
-              <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#1e293b' }}>
+              <div style={{ position: 'relative', width: '100%', height: '240px', background: '#1e293b' }}>
                 <video
                   ref={videoRef}
                   autoPlay
@@ -614,7 +614,7 @@ export default function Asistencia({ view = 'registro' }) {
                     <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📷</div>
                     {cameraError
                       ? <div style={{ color: '#f87171', fontSize: '0.82rem', textAlign: 'center' }}>⚠️ {cameraError}</div>
-                      : <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Cámara no activa</div>
+                      : <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Iniciando cámara...</div>
                     }
                   </div>
                 )}
