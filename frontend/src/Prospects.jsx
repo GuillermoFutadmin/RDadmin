@@ -2562,7 +2562,7 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
         {chip('ID', prospect.public_id)}
-        {chip('Fecha Captura', prospect.capture_date ? new Date(prospect.capture_date).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : null)}
+        {chip('Fecha Captura', prospect.capture_date ? new Date(prospect.capture_date + (prospect.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : null)}
         {chip('Contacto', prospect.contact_info)}
         {chip('Ubicación', prospect.location)}
         {chip('Casa habitada', prospect.inhabited_house)}
@@ -2746,7 +2746,7 @@ function printProspect(p) {
     <h1>${p.name}</h1>
     <div class="header-meta">
       <strong>ID: ${p.public_id || 'N/A'}</strong><br/>
-      Capturado: ${p.capture_date ? new Date(p.capture_date).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+      Capturado: ${p.capture_date ? new Date(p.capture_date + (p.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
     </div>
   </div>
 
@@ -3131,7 +3131,7 @@ function Prospects() {
                             {p.project_type || '-'}
                           </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.contact_info || '-'}</td>
-                          <td style={{ padding: '0.6rem', fontSize: '0.85rem', color: '#64748b' }}>{p.capture_date ? new Date(p.capture_date).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</td>
+                          <td style={{ padding: '0.6rem', fontSize: '0.85rem', color: '#64748b' }}>{p.capture_date ? new Date(p.capture_date + (p.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.start_date || '-'}</td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.material_type_2 ? `${p.material_type} + ${p.material_type_2}` : (p.material_type || '-')}</td>
                           <td style={{ padding: '0.6rem' }}>

@@ -751,7 +751,7 @@ function Ventas() {
                       <td style={tdSt}><strong>{sv.name}</strong></td>
                       <td style={tdSt}>{sv.project_type || 'N/A'}</td>
                       <td style={tdSt}>{formatCurrency(sv.estimated_price)}</td>
-                      <td style={tdSt}>{new Date(sv.capture_date).toLocaleDateString()}</td>
+                      <td style={tdSt}>{new Date(sv.capture_date + (sv.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleDateString()}</td>
                       <td style={tdSt}>
                         <button onClick={() => alert(sv.valuation_data ? JSON.stringify(JSON.parse(sv.valuation_data), null, 2) : 'Sin datos')}
                           style={{ padding: '5px 10px', background: '#eab308', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginRight: '6px' }}>
