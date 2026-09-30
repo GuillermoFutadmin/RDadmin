@@ -2898,6 +2898,7 @@ function Prospects() {
   const [view, setView] = useState('list'); // 'list' | 'intro' | 'new' | 'edit' | 'detail' | 'quote'
   const [selectedProspect, setSelectedProspect] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [approveModalFor, setApproveModalFor] = useState(null);
   const [printProspect_data, setPrintProspectData] = useState(null);
   const [viewingValuation, setViewingValuation] = useState(null);
   // ── Filtros del catálogo
@@ -2974,6 +2975,39 @@ function Prospects() {
 
   return (
     <div>
+      {/* Approve Modal */}
+      {approveModalFor && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
+          <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'400px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.25)' }}>
+            <h3 style={{ margin:'0 0 0.3rem', color:'#1e293b', fontSize:'1.1rem' }}>¿Se aprobó el proyecto?</h3>
+            <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.5rem' }}><strong>{approveModalFor.name}</strong> · {approveModalFor.project_type}</p>
+            <div style={{ display:'flex', gap:'0.8rem' }}>
+              <button onClick={async () => {
+                await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
+                  method:'PUT', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString() })
+                });
+                setApproveModalFor(null); fetchProspects();
+              }} style={{ flex:1, padding:'0.75rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+                ✅ SÍ — Pasar a Contratos
+              </button>
+              <button onClick={async () => {
+                await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
+                  method:'PUT', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ is_papelera:true })
+                });
+                setApproveModalFor(null); fetchProspects();
+              }} style={{ flex:1, padding:'0.75rem', background:'#64748b', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+                ❌ NO — Papelera
+              </button>
+            </div>
+            <button onClick={() => setApproveModalFor(null)}
+              style={{ width:'100%', marginTop:'0.6rem', padding:'0.5rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontSize:'0.85rem' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
       {printProspect_data && <PrintAskModal prospect={printProspect_data} onClose={() => setPrintProspectData(null)} />}
       {/* LIST */}
       {view === 'list' && (() => {
@@ -3173,25 +3207,8 @@ function Prospects() {
                               <button onClick={() => setConfirmDelete(p)}
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
                               {p.status === 'Cotización' && !p.is_contract && !p.is_papelera && (
-                                <button onClick={async () => {
-                                  const ans = window.confirm('¿Se aprobó el proyecto?\n\n[Aceptar] = SÍ, pasarlo a Contratos\n[Cancelar] = Dejarlo igual (Si fue rechazado, usa el botón Rechazar que agregaremos o responde que no, pero window.confirm solo tiene Aceptar/Cancelar. Usaremos confirm() anidados o prompt).');
-                                  if (ans) {
-                                    await fetch(`${API}/api/prospects/${p.id}`, {
-                                      method: 'PUT', headers: {'Content-Type': 'application/json'},
-                                      body: JSON.stringify({ is_contract: true, contract_date: new Date().toISOString() })
-                                    });
-                                    fetchProspects();
-                                  } else {
-                                    if(window.confirm('¿Fue rechazado? [Aceptar] = Sí, mandar a papelera. [Cancelar] = No, dejar en cotización.')) {
-                                      await fetch(`${API}/api/prospects/${p.id}`, {
-                                        method: 'PUT', headers: {'Content-Type': 'application/json'},
-                                        body: JSON.stringify({ is_papelera: true })
-                                      });
-                                      fetchProspects();
-                                    }
-                                  }
-                                }}
-                                  style={{ padding: '0.3rem 0.7rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                <button onClick={() => setApproveModalFor(p)}
+                                  style={{ padding:'0.3rem 0.7rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'0.85rem' }}>
                                   ✅ Aprobar
                                 </button>
                               )}
