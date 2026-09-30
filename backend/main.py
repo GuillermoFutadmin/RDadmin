@@ -180,13 +180,17 @@ class ProspectCreate(BaseModel):
     quote_image_2: Optional[str] = None
     quote_image_3: Optional[str] = None
     quote_image_4: Optional[str] = None
+    render_applies: Optional[bool] = None
+    render_price: Optional[float] = None
+    render_total_price: Optional[float] = None
+    render_image_path: Optional[str] = None
 
 class ProspectUpdate(ProspectCreate):
     pass
 
 class ProspectResponse(ProspectCreate):
     id: int
-    status: str
+    status: Optional[str] = 'Prospecto'
     design_image_path: Optional[str] = None
     space_image_path: Optional[str] = None
     reference_image_path: Optional[str] = None
