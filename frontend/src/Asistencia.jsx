@@ -40,10 +40,8 @@ export default function Asistencia({ view = 'registro' }) {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Camera verification modal
-  const [cameraModal, setCameraModal] = useState(null); // { action: 'start'|'resume' } | null
+  // Camera — always on
   const [cameraError, setCameraError] = useState('');
-  const [capturedPhoto, setCapturedPhoto] = useState(null); // base64 data URL
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -79,6 +77,13 @@ export default function Asistencia({ view = 'registro' }) {
       }
     };
     fetchState();
+
+    // Auto-start camera when entering registro view
+    if (view === 'registro') {
+      initCamera();
+    }
+
+    return () => stopCamera();
   }, []);
 
   const fetchCollaborators = async () => {
@@ -147,25 +152,27 @@ export default function Asistencia({ view = 'registro' }) {
   };
 
   // ── Camera helpers ────────────────────────────────────────────────────────────
-  const openCamera = (action) => {
-    setCapturedPhoto(null);
-    setCameraError('');
-    setCameraModal({ action });
-    setCameraActive(false);
-  };
-
-  const startCamera = async () => {
+  const initCamera = async () => {
     try {
       setCameraError('');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      setCameraActive(true);
+      // videoRef might not be mounted yet — retry briefly
+      const attachStream = () => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+          setCameraActive(true);
+        } else {
+          setTimeout(attachStream, 200);
+        }
+      };
+      attachStream();
     } catch (err) {
-      setCameraError('No se pudo acceder a la cámara. Verifique los permisos del navegador.');
+      setCameraError('Sin acceso a cámara. Verifique permisos del navegador.');
     }
   };
 
@@ -177,45 +184,34 @@ export default function Asistencia({ view = 'registro' }) {
     setCameraActive(false);
   };
 
-  const takePicture = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // Capture frame from live video and stamp date/time on it
+  const captureWithTimestamp = () => {
+    if (!videoRef.current || !canvasRef.current) return null;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext('2d');
-    // Mirror the image (selfie style)
+    // Mirror (selfie style)
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    setCapturedPhoto(dataUrl);
-    stopCamera();
-  };
-
-  const retakePicture = () => {
-    setCapturedPhoto(null);
-    startCamera();
-  };
-
-  const confirmWithPhoto = () => {
-    if (!capturedPhoto) return;
-    const action = cameraModal?.action;
-    stopCamera();
-    setCameraModal(null);
-    if (action === 'start') _doStartTurno(capturedPhoto);
-    else if (action === 'resume') _doResumeTurno(capturedPhoto);
-  };
-
-  const cancelCamera = () => {
-    stopCamera();
-    setCameraModal(null);
-    setCapturedPhoto(null);
+    // Burn timestamp
+    const stamp = new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium', hour12: true });
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, canvas.height - 32, canvas.width, 32);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText(stamp, 10, canvas.height - 10);
+    return canvas.toDataURL('image/jpeg', 0.88);
   };
 
   // ── Session actions ──────────────────────────────────────────────────────────
-  const startTurno = () => openCamera('start');
+  const startTurno = () => {
+    const photo = captureWithTimestamp();
+    _doStartTurno(photo);
+  };
 
   const _doStartTurno = (photoDataUrl) => {
     const ts = new Date().toISOString();
@@ -283,8 +279,10 @@ export default function Asistencia({ view = 'registro' }) {
     saveSessions({ ...sessions, [selectedCollab]: { ...session, extraAuth: !session.extraAuth } });
   };
 
-  // Reanudar turno: keeps accumulated hours, starts fresh session
-  const resumeTurno = () => openCamera('resume');
+  const resumeTurno = () => {
+    const photo = captureWithTimestamp();
+    _doResumeTurno(photo);
+  };
 
   const _doResumeTurno = (photoDataUrl) => {
     const prevAccum = session.accumulatedHours || 0;
@@ -390,7 +388,7 @@ export default function Asistencia({ view = 'registro' }) {
 
       {/* ── REGISTRO VIEW ────────────────────────────────────────────────── */}
       {activeTab === 'registro' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '2rem', alignItems: 'start' }}>
 
           {/* LEFT: selector + clock panel */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -589,8 +587,43 @@ export default function Asistencia({ view = 'registro' }) {
             )}
           </div>
 
-          {/* RIGHT: Selected log table */}
-          <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', overflow: 'hidden', alignSelf: 'start' }}>
+          {/* RIGHT: camera + log table */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* LIVE CAMERA */}
+            <div style={{ background: '#0f172a', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+              <div style={{ padding: '0.8rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: cameraActive ? '#22c55e' : '#ef4444', display: 'inline-block', boxShadow: cameraActive ? '0 0 6px #22c55e' : 'none' }} />
+                  <span style={{ color: 'white', fontWeight: '700', fontSize: '0.85rem' }}>📷 Cámara en vivo</span>
+                </div>
+                {!cameraActive && (
+                  <button onClick={initCamera} style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}>Activar</button>
+                )}
+              </div>
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#1e293b' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
+                />
+                {!cameraActive && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569', padding: '2rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📷</div>
+                    {cameraError
+                      ? <div style={{ color: '#f87171', fontSize: '0.82rem', textAlign: 'center' }}>⚠️ {cameraError}</div>
+                      : <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Cámara no activa</div>
+                    }
+                  </div>
+                )}
+              </div>
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+            </div>
+
+            {/* Registros del día */}
+            <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <h3 style={{ margin: 0, color: '#1e293b', fontWeight: '700' }}>📋 Registros del día</h3>
@@ -660,6 +693,7 @@ export default function Asistencia({ view = 'registro' }) {
                 </tbody>
               </table>
             )}
+            </div>
           </div>
         </div>
       )}
