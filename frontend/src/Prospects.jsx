@@ -3200,13 +3200,13 @@ function Prospects() {
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: p.has_quote ? '#16a34a' : '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                 {p.has_quote ? '✅ Cotización' : '💰 Cotizar'}
                               </button>
-                              {p.valuation_data && (
-                                <button onClick={() => setViewingValuation(p)}
-                                  style={{ padding: '0.3rem 0.7rem', backgroundColor: '#eab308', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Valoración</button>
-                              )}
+                              <button onClick={() => setViewingValuation(p)}
+                                style={{ padding: '0.3rem 0.7rem', backgroundColor: p.valuation_data ? '#eab308' : '#9ca3af', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                {p.valuation_data ? 'Valoración' : '+ Valoración'}
+                              </button>
                               <button onClick={() => setConfirmDelete(p)}
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
-                              {p.status === 'Cotización' && !p.is_contract && !p.is_papelera && (
+                              {p.has_quote && p.valuation_data && !p.is_contract && !p.is_papelera && (
                                 <button onClick={() => setApproveModalFor(p)}
                                   style={{ padding:'0.3rem 0.7rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'0.85rem' }}>
                                   ✅ Aprobar
