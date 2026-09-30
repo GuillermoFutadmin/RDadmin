@@ -151,6 +151,16 @@ function App() {
               </li>
             )}
 
+            {/* Contratos */}
+            {hasAccess('Contratos') && (
+              <li
+                className={activeTab === 'Contratos' ? 'active' : ''}
+                onClick={() => { setActiveTab('Contratos'); setProspectsOpen(false); }}
+              >
+                <span style={{ marginRight: '0.5rem' }}>📄</span> Contratos
+              </li>
+            )}
+
             {/* Colaboradores (con submenú) */}
             {(hasAccess('Colaboradores') || hasAccess('Asistencia') || hasAccess('Nomina')) && (
               <li
@@ -193,16 +203,6 @@ function App() {
                 style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Tarifas' ? 1 : 0.85 }}
               >
                 <span style={{ marginRight: '0.5rem' }}>⚙️</span> Tarifas por Hora
-              </li>
-            )}
-
-            {/* Contratos */}
-            {hasAccess('Contratos') && (
-              <li
-                className={activeTab === 'Contratos' ? 'active' : ''}
-                onClick={() => { setActiveTab('Contratos'); setProspectsOpen(false); }}
-              >
-                <span style={{ marginRight: '0.5rem' }}>📄</span> Contratos
               </li>
             )}
 

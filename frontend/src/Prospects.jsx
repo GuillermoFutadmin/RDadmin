@@ -2979,6 +2979,7 @@ function Prospects() {
       {view === 'list' && (() => {
         const txt = filterText.toLowerCase().trim();
         const filtered = prospects.filter(p => {
+          if (p.is_contract || p.is_papelera) return false;
           if (txt && !(
             (p.name         || '').toLowerCase().includes(txt) ||
             (p.public_id    || '').toLowerCase().includes(txt) ||
@@ -3171,30 +3172,30 @@ function Prospects() {
                               )}
                               <button onClick={() => setConfirmDelete(p)}
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
-                            </div>
-                            {p.status === 'Cotización' && !p.is_contract && !p.is_papelera && (
-                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.8rem', flexWrap: 'wrap', background: '#f8fafc', padding: '0.5rem', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', alignSelf: 'center', width: '100%' }}>¿Se aprobó el proyecto?</span>
+                              {p.status === 'Cotización' && !p.is_contract && !p.is_papelera && (
                                 <button onClick={async () => {
-                                  if(window.confirm('¿Mover este proyecto a CONTRATOS?')) {
+                                  const ans = window.confirm('¿Se aprobó el proyecto?\n\n[Aceptar] = SÍ, pasarlo a Contratos\n[Cancelar] = Dejarlo igual (Si fue rechazado, usa el botón Rechazar que agregaremos o responde que no, pero window.confirm solo tiene Aceptar/Cancelar. Usaremos confirm() anidados o prompt).');
+                                  if (ans) {
                                     await fetch(`${API}/api/prospects/${p.id}`, {
                                       method: 'PUT', headers: {'Content-Type': 'application/json'},
                                       body: JSON.stringify({ is_contract: true, contract_date: new Date().toISOString() })
                                     });
                                     fetchProspects();
+                                  } else {
+                                    if(window.confirm('¿Fue rechazado? [Aceptar] = Sí, mandar a papelera. [Cancelar] = No, dejar en cotización.')) {
+                                      await fetch(`${API}/api/prospects/${p.id}`, {
+                                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                                        body: JSON.stringify({ is_papelera: true })
+                                      });
+                                      fetchProspects();
+                                    }
                                   }
-                                }} style={{ flex: 1, padding: '0.4rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>✅ SÍ</button>
-                                <button onClick={async () => {
-                                  if(window.confirm('¿Mover a PAPELERA?')) {
-                                    await fetch(`${API}/api/prospects/${p.id}`, {
-                                      method: 'PUT', headers: {'Content-Type': 'application/json'},
-                                      body: JSON.stringify({ is_papelera: true })
-                                    });
-                                    fetchProspects();
-                                  }
-                                }} style={{ flex: 1, padding: '0.4rem', background: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>❌ NO</button>
-                              </div>
-                            )}
+                                }}
+                                  style={{ padding: '0.3rem 0.7rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                  ✅ Aprobar
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
