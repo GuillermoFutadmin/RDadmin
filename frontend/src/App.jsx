@@ -159,7 +159,7 @@ function App() {
                 onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span><span style={{ marginRight: '0.5rem' }}>📄</span> Contratos</span>
+                <span><span style={{ marginRight: '0.5rem' }}>📄</span> Clientes</span>
                 <span style={{ fontSize: '0.7rem', opacity: 0.7, transition: 'transform 0.2s', transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
               </li>
             )}

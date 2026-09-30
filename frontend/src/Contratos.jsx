@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { printProspect } from './Prospects';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -279,7 +279,7 @@ export default function Contratos({ startView = 'list' }) {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
         <div>
-          <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.4rem', fontWeight:'800' }}>📄 Contratos</h2>
+          <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.4rem', fontWeight:'800' }}>📄 Clientes</h2>
           <p style={{ margin:'0.2rem 0 0', color:'#64748b', fontSize:'0.88rem' }}>Proyectos aprobados y en proceso</p>
         </div>
         <div style={{ background:'#1e293b', color:'white', borderRadius:'10px', padding:'0.5rem 1.2rem', fontWeight:'700', fontSize:'1.1rem' }}>
