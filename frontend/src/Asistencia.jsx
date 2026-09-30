@@ -40,6 +40,15 @@ export default function Asistencia({ view = 'registro' }) {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Camera verification modal
+  const [cameraModal, setCameraModal] = useState(null); // { action: 'start'|'resume' } | null
+  const [cameraError, setCameraError] = useState('');
+  const [capturedPhoto, setCapturedPhoto] = useState(null); // base64 data URL
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+
   const API = '';
 
   // Live clock
@@ -137,12 +146,81 @@ export default function Asistencia({ view = 'registro' }) {
     setDeleteLoading(false);
   };
 
+  // ── Camera helpers ────────────────────────────────────────────────────────────
+  const openCamera = (action) => {
+    setCapturedPhoto(null);
+    setCameraError('');
+    setCameraModal({ action });
+    setCameraActive(false);
+  };
+
+  const startCamera = async () => {
+    try {
+      setCameraError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setCameraActive(true);
+    } catch (err) {
+      setCameraError('No se pudo acceder a la cámara. Verifique los permisos del navegador.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const takePicture = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    // Mirror the image (selfie style)
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setCapturedPhoto(dataUrl);
+    stopCamera();
+  };
+
+  const retakePicture = () => {
+    setCapturedPhoto(null);
+    startCamera();
+  };
+
+  const confirmWithPhoto = () => {
+    if (!capturedPhoto) return;
+    const action = cameraModal?.action;
+    stopCamera();
+    setCameraModal(null);
+    if (action === 'start') _doStartTurno(capturedPhoto);
+    else if (action === 'resume') _doResumeTurno(capturedPhoto);
+  };
+
+  const cancelCamera = () => {
+    stopCamera();
+    setCameraModal(null);
+    setCapturedPhoto(null);
+  };
+
   // ── Session actions ──────────────────────────────────────────────────────────
-  const startTurno = () => {
+  const startTurno = () => openCamera('start');
+
+  const _doStartTurno = (photoDataUrl) => {
     const ts = new Date().toISOString();
-    // Preserve accumulated hours from previous sessions today
     const prevAccum = session.accumulatedHours || 0;
-    saveSessions({ ...sessions, [selectedCollab]: { status: 'working', startTime: ts, mealStart: null, mealEnd: null, endTime: null, extraAuth: session.extraAuth || false, accumulatedHours: prevAccum } });
+    saveSessions({ ...sessions, [selectedCollab]: { status: 'working', startTime: ts, mealStart: null, mealEnd: null, endTime: null, extraAuth: session.extraAuth || false, accumulatedHours: prevAccum, entryPhoto: photoDataUrl } });
   };
 
   const startMeal = () => {
@@ -189,7 +267,9 @@ export default function Asistencia({ view = 'registro' }) {
       exitTime: fmtShort(end),
       extraAuthorized: updated.extraAuth,
       totalHours,
-      sessions: (existingLog?.sessions || 0) + 1
+      sessions: (existingLog?.sessions || 0) + 1,
+      // Keep the entry photo from first session (or latest)
+      entryPhoto: updated.entryPhoto || existingLog?.entryPhoto || null
     };
 
     const filtered = attendanceLogs.filter(l => !(l.collabId === newLog.collabId && l.date === newLog.date));
@@ -204,7 +284,9 @@ export default function Asistencia({ view = 'registro' }) {
   };
 
   // Reanudar turno: keeps accumulated hours, starts fresh session
-  const resumeTurno = () => {
+  const resumeTurno = () => openCamera('resume');
+
+  const _doResumeTurno = (photoDataUrl) => {
     const prevAccum = session.accumulatedHours || 0;
     const prevExtraAuth = session.extraAuth || false;
     saveSessions({ 
@@ -214,7 +296,8 @@ export default function Asistencia({ view = 'registro' }) {
         startTime: new Date().toISOString(), 
         mealStart: null, mealEnd: null, endTime: null,
         extraAuth: prevExtraAuth,
-        accumulatedHours: prevAccum
+        accumulatedHours: prevAccum,
+        entryPhoto: photoDataUrl
       } 
     });
   };
@@ -530,6 +613,7 @@ export default function Asistencia({ view = 'registro' }) {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '0.8rem 1rem', color: '#475569', fontSize: '0.8rem', textAlign: 'left' }}>FOTO</th>
                     <th style={{ padding: '0.8rem 1rem', color: '#475569', fontSize: '0.8rem', textAlign: 'left' }}>COLABORADOR</th>
                     <th style={{ padding: '0.8rem 1rem', color: '#475569', fontSize: '0.8rem', textAlign: 'left' }}>HORARIO</th>
                     <th style={{ padding: '0.8rem 1rem', color: '#475569', fontSize: '0.8rem', textAlign: 'left' }}>ENTRADA</th>
@@ -544,6 +628,13 @@ export default function Asistencia({ view = 'registro' }) {
                     const c = collaborators.find(x => x.id === l.collabId);
                     return (
                       <tr key={l.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '0.5rem 1rem' }}>
+                          {l.entryPhoto ? (
+                            <img src={l.entryPhoto} alt="Foto entrada" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #dcfce7', display: 'block' }} />
+                          ) : (
+                            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '1.4rem' }}>👤</div>
+                          )}
+                        </td>
                         <td style={{ padding: '0.8rem 1rem' }}>
                           <div style={{ fontWeight: '700', color: '#0f172a' }}>{c?.name || 'Desconocido'}</div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{c?.role}</div>
@@ -657,6 +748,88 @@ export default function Asistencia({ view = 'registro' }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── CAMERA VERIFICATION MODAL ─────────────────────────────────────────── */}
+      {cameraModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#0f172a', borderRadius: '20px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 25px 60px rgba(0,0,0,0.5)', border: '1px solid #1e293b' }}>
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>📸</div>
+              <h3 style={{ margin: 0, color: 'white', fontWeight: '800', fontSize: '1.3rem' }}>Verificación de Identidad</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.4rem', marginBottom: 0 }}>
+                {collab?.name} — {cameraModal.action === 'resume' ? 'Reanudando turno' : 'Iniciando turno'}
+              </p>
+            </div>
+
+            {/* Camera / Preview area */}
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '4/3', background: '#1e293b', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem' }}>
+              {/* Video element — always in DOM so ref works */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: (cameraActive && !capturedPhoto) ? 'block' : 'none' }}
+              />
+              {/* Captured photo preview */}
+              {capturedPhoto && (
+                <img src={capturedPhoto} alt="Foto capturada" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              )}
+              {/* Placeholder before camera starts */}
+              {!cameraActive && !capturedPhoto && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>📷</div>
+                  <div style={{ fontSize: '0.85rem' }}>Presiona &quot;Activar Cámara&quot;</div>
+                </div>
+              )}
+              {/* Overlay face guide */}
+              {cameraActive && !capturedPhoto && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <div style={{ width: '160px', height: '200px', border: '2px solid rgba(255,255,255,0.4)', borderRadius: '50%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.25)' }} />
+                </div>
+              )}
+            </div>
+
+            {/* Hidden canvas for capture */}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {/* Error */}
+            {cameraError && (
+              <div style={{ color: '#f87171', fontSize: '0.82rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.6rem', borderRadius: '8px' }}>
+                ⚠️ {cameraError}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {!cameraActive && !capturedPhoto && (
+                <button onClick={startCamera} style={{ padding: '0.9rem', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer' }}>
+                  📷 Activar Cámara
+                </button>
+              )}
+              {cameraActive && !capturedPhoto && (
+                <button onClick={takePicture} style={{ padding: '0.9rem', background: 'linear-gradient(135deg, #16a34a, #166534)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 16px rgba(22,163,74,0.4)' }}>
+                  🟢 Tomar Foto
+                </button>
+              )}
+              {capturedPhoto && (
+                <>
+                  <button onClick={confirmWithPhoto} style={{ padding: '0.9rem', background: 'linear-gradient(135deg, #16a34a, #166534)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(22,163,74,0.3)' }}>
+                    ✅ Confirmar y Registrar Turno
+                  </button>
+                  <button onClick={retakePicture} style={{ padding: '0.7rem', background: 'rgba(255,255,255,0.05)', border: '1px solid #334155', borderRadius: '8px', color: '#94a3b8', fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    🔄 Tomar de nuevo
+                  </button>
+                </>
+              )}
+              <button onClick={cancelCamera} style={{ padding: '0.65rem', background: 'none', border: '1px solid #334155', borderRadius: '8px', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
