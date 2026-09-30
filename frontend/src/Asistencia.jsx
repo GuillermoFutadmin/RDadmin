@@ -54,13 +54,13 @@ export default function Asistencia({ view = 'registro' }) {
     // Fetch state from server instead of local storage
     const fetchState = async () => {
       try {
-        const resAtt = await fetch(`${API}/api/store/rd_attendance`);
+        const resAtt = await fetch(`${API}/api/store/rd_attendance`, { cache: 'no-store' });
         if (resAtt.ok) {
           const data = await resAtt.json();
           if (data.value) setAttendanceLogs(JSON.parse(data.value));
         }
         
-        const resSess = await fetch(`${API}/api/store/rd_sessions`);
+        const resSess = await fetch(`${API}/api/store/rd_sessions`, { cache: 'no-store' });
         if (resSess.ok) {
           const data = await resSess.json();
           if (data.value) setSessions(JSON.parse(data.value));
