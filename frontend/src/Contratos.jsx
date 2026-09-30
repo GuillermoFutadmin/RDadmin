@@ -227,14 +227,17 @@ export default function Contratos({ startView = 'list' }) {
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric' }) : '-';
 
   const statusBadge = (s) => {
-    const isP = !s || s === 'New' || s === 'Prospecto';
-    const isV = s === 'Valoración' || s === 'Valoracion';
-    const label = isP ? 'Prospecto' : isV ? 'Valoración' : 'Cotización';
-    const bg    = isP ? '#eff6ff' : isV ? '#fef3c7' : '#dcfce7';
-    const color = isP ? '#1e40af' : isV ? '#92400e' : '#14532d';
-    const dot   = isP ? '#3b82f6' : isV ? '#f59e0b' : '#22c55e';
+    const isAprobado   = s === 'APROBADO';
+    const isRender     = s === 'RENDER SI/NO';
+    const isEstimacion = s === 'ESTIMACIÓN';
+    const isContrato   = s === 'CONTRATO';
+    let label = s || 'APROBADO';
+    let bg = '#dcfce7'; let color = '#166534'; let dot = '#22c55e';
+    if (isRender)     { bg = '#fef3c7'; color = '#92400e'; dot = '#f59e0b'; }
+    else if (isEstimacion) { bg = '#e0e7ff'; color = '#3730a3'; dot = '#4f46e5'; }
+    else if (isContrato)   { bg = '#fce7f3'; color = '#9d174d'; dot = '#ec4899'; }
     return (
-      <span style={{ background:bg, color, padding:'0.2rem 0.65rem', borderRadius:'12px', fontSize:'0.8rem', fontWeight:'700', display:'inline-flex', alignItems:'center', gap:'5px' }}>
+      <span style={{ background:bg, color, padding:'0.2rem 0.65rem', borderRadius:'12px', fontSize:'0.8rem', fontWeight:'700', display:'inline-flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap' }}>
         <span style={{ width:'7px', height:'7px', borderRadius:'50%', background:dot, display:'inline-block' }} />
         {label}
       </span>
@@ -244,7 +247,7 @@ export default function Contratos({ startView = 'list' }) {
   const handleApprove = async (p) => {
     await fetch(`${API}/api/prospects/${p.id}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString() })
+      body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString(), status:'APROBADO' })
     });
     setConfirmFor(null);
     fetchContratos();
@@ -341,7 +344,24 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.88rem' }}>{c.material_type_2 ? `${c.material_type} + ${c.material_type_2}` : (c.material_type || '-')}</td>
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
                   <td style={{ padding:'0.7rem 0.8rem' }}>
-                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+                      <select
+                        value={c.status && ['APROBADO','RENDER SI/NO','ESTIMACIÓN','CONTRATO'].includes(c.status) ? c.status : 'APROBADO'}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          await fetch(`${API}/api/prospects/${c.id}`, {
+                            method: 'PUT', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ status: newStatus })
+                          });
+                          fetchContratos();
+                        }}
+                        style={{ padding:'0.3rem 0.5rem', borderRadius:'6px', border:'1px solid #cbd5e1', fontSize:'0.78rem', outline:'none', background:'white', color:'#475569', cursor:'pointer' }}
+                      >
+                        <option value="APROBADO">APROBADO</option>
+                        <option value="RENDER SI/NO">RENDER SI/NO</option>
+                        <option value="ESTIMACIÓN">ESTIMACIÓN</option>
+                        <option value="CONTRATO">CONTRATO</option>
+                      </select>
                       <button onClick={() => { setSelected(c); setView('estimacion'); }}
                         style={{ padding:'0.3rem 0.7rem', background:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>
                         📐 Estimación

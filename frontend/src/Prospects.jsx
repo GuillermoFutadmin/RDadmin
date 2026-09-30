@@ -2985,7 +2985,7 @@ function Prospects() {
               <button onClick={async () => {
                 await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
                   method:'PUT', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString() })
+                  body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString(), status: 'APROBADO' })
                 });
                 setApproveModalFor(null); fetchProspects();
               }} style={{ flex:1, padding:'0.75rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
@@ -3056,10 +3056,10 @@ function Prospects() {
             {/* ── ETAPAS PIPELINE ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.2rem' }}>
               {[
-                { key: '', label: 'Todos', count: prospects.length, color: '#475569', bg: '#f1f5f9', icon: '📋' },
-                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.status || p.status === 'New' || p.status === 'Prospecto').length,  color: '#1e40af', bg: '#eff6ff', icon: '🔵' },
-                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => p.status === 'Valoración' || p.status === 'Valoracion').length, color: '#92400e', bg: '#fef3c7', icon: '📊' },
-                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => p.status === 'Cotización').length,  color: '#14532d', bg: '#f0fdf4', icon: '✅' },
+                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: '#f1f5f9', icon: '📋' },
+                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#1e40af', bg: '#eff6ff', icon: '🔵' },
+                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#92400e', bg: '#fef3c7', icon: '📊' },
+                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#14532d', bg: '#f0fdf4', icon: '✅' },
               ].map(({ key, label, count, color, bg, icon }) => {
                 const isActive = filterStatus === key;
                 return (
@@ -3307,7 +3307,7 @@ function Prospects() {
           onDelete={async () => {
             if(!window.confirm("¿Seguro que deseas eliminar la valoración de este prospecto?")) return;
             try {
-              const updated = { ...viewingValuation, estimated_price: null, valuation_data: null };
+              const updated = { ...viewingValuation, estimated_price: null, valuation_data: null, status: 'Prospecto' };
               await fetch(`${API}/api/prospects/${viewingValuation.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
