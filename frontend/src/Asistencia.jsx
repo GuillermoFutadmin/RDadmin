@@ -40,6 +40,9 @@ export default function Asistencia({ view = 'registro' }) {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Camera validation modal
+  const [cameraModal, setCameraModal] = useState(null);
+
   // Camera — always on
   const [cameraError, setCameraError] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
