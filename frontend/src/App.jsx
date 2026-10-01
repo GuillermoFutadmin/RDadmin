@@ -364,9 +364,6 @@ function App() {
               }}
             />
           </div>
-          <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.1em', color: '#8b5a2b', textTransform: 'uppercase' }}>
-            RD Carpintería &amp; Taller
-          </span>
         </div>
       </main>
     </div>
