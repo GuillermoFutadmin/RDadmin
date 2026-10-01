@@ -18,6 +18,8 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
       justifyContent: 'center',
       gap: '1.2rem',
       padding: '3rem',
+      mixBlendMode: 'multiply',
+      opacity: 0.85
     }}>
       <div style={{ position: 'relative', width: size, height: size }}>
         <img
@@ -30,8 +32,7 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
             height: size,
             objectFit: 'contain',
             opacity: frame === 1 ? 1 : 0,
-            transition: 'opacity 0.1s ease-in-out',
-            mixBlendMode: 'multiply',
+            transition: 'opacity 0.1s ease-in-out'
           }}
         />
         <img
@@ -44,8 +45,7 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
             height: size,
             objectFit: 'contain',
             opacity: frame === 2 ? 1 : 0,
-            transition: 'opacity 0.1s ease-in-out',
-            mixBlendMode: 'multiply',
+            transition: 'opacity 0.1s ease-in-out'
           }}
         />
       </div>
