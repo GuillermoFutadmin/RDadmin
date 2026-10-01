@@ -17,6 +17,15 @@ function App() {
   const [colaboradoresOpen, setColaboradoresOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [logoFrame, setLogoFrame] = useState(1);
+
+  // Animate logo in main area
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLogoFrame(f => f === 1 ? 2 : 1);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('rdadmin_user');
@@ -242,7 +251,7 @@ function App() {
           </ul>
         </nav>
 
-        {/* Logo al fondo del sidebar (Elevado con margen inferior cómodo) */}
+        {/* Logo estático al fondo del sidebar */}
         <div style={{
           position: 'absolute',
           bottom: '3.25rem',
@@ -263,7 +272,6 @@ function App() {
               objectFit: 'contain',
               display: 'block',
               filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.65))',
-              transition: 'transform 0.3s ease'
             }}
           />
         </div>
@@ -318,6 +326,47 @@ function App() {
         {activeTab === 'Nomina'        && hasAccess('Nomina')        && <Asistencia view="corte" />}
         {activeTab === 'Tarifas'       && hasAccess('Nomina')        && <Asistencia view="tarifas" />}
         {activeTab === 'Accesos'       && hasAccess('Accesos')       && <Accesos />}
+
+        {/* ── Animated logo at the bottom of main work area ── */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2.5rem 0 1.5rem',
+          gap: '0.6rem',
+          opacity: 0.22,
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}>
+          <div style={{ position: 'relative', width: '90px', height: '90px' }}>
+            <img
+              src="/logo-rd-frame1.png"
+              alt=""
+              style={{
+                position: 'absolute', top: 0, left: 0,
+                width: '90px', height: '90px',
+                objectFit: 'contain',
+                opacity: logoFrame === 1 ? 1 : 0,
+                transition: 'opacity 0.12s ease-in-out',
+              }}
+            />
+            <img
+              src="/logo-rd-frame2.png"
+              alt=""
+              style={{
+                position: 'absolute', top: 0, left: 0,
+                width: '90px', height: '90px',
+                objectFit: 'contain',
+                opacity: logoFrame === 2 ? 1 : 0,
+                transition: 'opacity 0.12s ease-in-out',
+              }}
+            />
+          </div>
+          <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.1em', color: '#8b5a2b', textTransform: 'uppercase' }}>
+            RD Carpintería &amp; Taller
+          </span>
+        </div>
       </main>
     </div>
   );
