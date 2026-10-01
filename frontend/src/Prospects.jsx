@@ -2603,7 +2603,7 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
                 </div>
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
                   {prospect.space_image_path.split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Espacio ${idx + 1}`} style={{ flex: '1 1 45%', maxHeight: '160px', objectFit: 'cover', borderRadius: '4px', minWidth: '80px' }} />
+                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Espacio ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '4px', minWidth: '80px' }} />
                   ))}
                 </div>
               </div>
@@ -2615,7 +2615,7 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
                 </div>
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
                   {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Referencia ${idx + 1}`} style={{ flex: '1 1 45%', maxHeight: '160px', objectFit: 'cover', borderRadius: '4px', minWidth: '80px' }} />
+                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Referencia ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '4px', minWidth: '80px' }} />
                   ))}
                 </div>
               </div>
