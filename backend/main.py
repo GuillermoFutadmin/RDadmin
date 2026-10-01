@@ -34,6 +34,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_total_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_pdf_path VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
 except Exception as e:
@@ -185,6 +186,7 @@ class ProspectCreate(BaseModel):
     render_price: Optional[float] = None
     render_total_price: Optional[float] = None
     render_image_path: Optional[str] = None
+    render_pdf_path: Optional[str] = None
     render_delivery_time: Optional[str] = None
     render_comments: Optional[str] = None
 
