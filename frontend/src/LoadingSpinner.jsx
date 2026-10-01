@@ -21,7 +21,7 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
     }}>
       <div style={{ position: 'relative', width: size, height: size }}>
         <img
-          src="/logo-rd-frame1.png"
+          src="/logo-anim-1.jpg"
           alt="Cargando..."
           style={{
             position: 'absolute',
@@ -31,11 +31,11 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
             objectFit: 'contain',
             opacity: frame === 1 ? 1 : 0,
             transition: 'opacity 0.1s ease-in-out',
-            filter: 'drop-shadow(0 8px 20px rgba(186,75,36,0.35))',
+            mixBlendMode: 'multiply',
           }}
         />
         <img
-          src="/logo-rd-frame2.png"
+          src="/logo-anim-2.jpg"
           alt="Cargando..."
           style={{
             position: 'absolute',
@@ -45,7 +45,7 @@ export default function LoadingSpinner({ size = 140, text = 'Cargando...' }) {
             objectFit: 'contain',
             opacity: frame === 2 ? 1 : 0,
             transition: 'opacity 0.1s ease-in-out',
-            filter: 'drop-shadow(0 8px 20px rgba(186,75,36,0.35))',
+            mixBlendMode: 'multiply',
           }}
         />
       </div>
