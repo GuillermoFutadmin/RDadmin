@@ -400,12 +400,16 @@ def debug_cloudinary():
     }
 
 @app.post("/api/prospects/{prospect_id}/upload-render")
-async def upload_render_file(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    new_url = await upload_to_storage(file, "render")
-    db_prospect.render_image_path = new_url
+    urls = []
+    for file in files:
+        new_url = await upload_to_storage(file, "render")
+        urls.append(new_url)
+
+    db_prospect.render_image_path = ",".join(urls)
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.render_image_path}
