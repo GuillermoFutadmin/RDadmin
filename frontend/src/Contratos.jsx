@@ -236,9 +236,12 @@ export default function Contratos({ startView = 'list' }) {
             value=""
           >
             <option value="" disabled>-- Selecciona --</option>
-            {contratos.map(c => (
-              <option key={c.id} value={c.id}>{c.name} - {c.project_type}</option>
-            ))}
+            {contratos
+              .filter(c => { const s = c.status; return !s || ['APROBADO','RENDER SI/NO','ESTIMACIÓN','CONTRATO'].includes(s); })
+              .map(c => (
+                <option key={c.id} value={c.id}>{c.name} – {c.project_type}{c.status ? ` [${c.status}]` : ' [APROBADO]'}</option>
+              ))
+            }
           </select>
         </div>
       </div>
@@ -611,13 +614,9 @@ export default function Contratos({ startView = 'list' }) {
                         </button>
                       )}
                       <button onClick={() => {
-                        if (c.render_applies === null) {
-                          alert('⛔ Debes completar el formulario de "Render SI/NO" antes de realizar la estimación.');
-                          return;
-                        }
                         setSelected(c); setView('estimacion');
                       }}
-                        style={{ padding:'0.3rem 0.7rem', background: c.render_applies === null ? '#94a3b8' : '#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor: c.render_applies === null ? 'not-allowed' : 'pointer', fontWeight:'600', fontSize:'0.85rem' }}>
+                        style={{ padding:'0.3rem 0.7rem', background: '#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>
                         📐 Estimación
                       </button>
                     </div>
