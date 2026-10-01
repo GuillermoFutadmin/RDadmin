@@ -105,15 +105,30 @@ export default function Asistencia({ view = 'registro' }) {
     } catch (err) { console.error(err); }
   };
 
-  const saveLogs = async (newLogs) => {
-    setAttendanceLogs(newLogs);
+  const saveLogs = async (newLogs, appendedLog = null) => {
     try {
+      // Always read latest from server first to avoid overwriting other records
+      const resAtt = await fetch(`${API}/api/store/rd_attendance`, { cache: 'no-store' });
+      let serverLogs = newLogs;
+      if (resAtt.ok) {
+        const data = await resAtt.json();
+        if (data.value) serverLogs = JSON.parse(data.value);
+      }
+      let logsToSave;
+      if (appendedLog) {
+        // Remove any existing record for same collab+date, then add updated one
+        const filtered = serverLogs.filter(l => !(l.collabId === appendedLog.collabId && l.date === appendedLog.date));
+        logsToSave = [...filtered, appendedLog];
+      } else {
+        logsToSave = newLogs;
+      }
+      setAttendanceLogs(logsToSave);
       await fetch(`${API}/api/store/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'rd_attendance', value: JSON.stringify(newLogs) })
+        body: JSON.stringify({ key: 'rd_attendance', value: JSON.stringify(logsToSave) })
       });
-    } catch (e) {}
+    } catch (e) { console.error('saveLogs error:', e); }
   };
 
   const saveSessions = async (newSess) => {
