@@ -84,6 +84,8 @@ class Prospect(Base):
     render_price = Column(Float, nullable=True)       # Precio del render
     render_total_price = Column(Float, nullable=True) # Estimación + Render
     render_image_path = Column(String, nullable=True) # Imagen del render cargada
+    render_delivery_time = Column(String, nullable=True) # Tiempo de entrega del render
+    render_comments = Column(String, nullable=True)      # Comentarios / Observaciones
     quote_saludo = Column(String, nullable=True)
     quote_title = Column(String, nullable=True)
     quote_description = Column(String, nullable=True)

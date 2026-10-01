@@ -34,6 +34,8 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_total_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
@@ -183,6 +185,8 @@ class ProspectCreate(BaseModel):
     render_price: Optional[float] = None
     render_total_price: Optional[float] = None
     render_image_path: Optional[str] = None
+    render_delivery_time: Optional[str] = None
+    render_comments: Optional[str] = None
 
 class ProspectUpdate(ProspectCreate):
     pass
@@ -310,7 +314,7 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
         try:
             import io
-            result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=unique_name, folder="rdadmin")
+            result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=unique_name, folder="rdadmin", resource_type="auto")
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary: {e}")
@@ -394,3 +398,14 @@ def debug_cloudinary():
         "cloud_name_set": bool(os.environ.get("CLOUDINARY_CLOUD_NAME")),
         "api_key_set": bool(os.environ.get("CLOUDINARY_API_KEY"))
     }
+
+@app.post("/api/prospects/{prospect_id}/upload-render")
+async def upload_render_file(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
+
+    new_url = await upload_to_storage(file, "render")
+    db_prospect.render_image_path = new_url
+    db.commit()
+    db.refresh(db_prospect)
+    return {"image_path": db_prospect.render_image_path}

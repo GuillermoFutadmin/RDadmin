@@ -131,6 +131,10 @@ export default function Contratos({ startView = 'list' }) {
   const [renderModalFor, setRenderModalFor] = useState(null); // prospect for Render modal
   const [renderApplies, setRenderApplies] = useState(null);   // null | true | false
   const [renderPrice, setRenderPrice] = useState('');
+  const [renderDelivery, setRenderDelivery] = useState('');
+  const [renderComments, setRenderComments] = useState('');
+  const [renderFile, setRenderFile] = useState(null);
+  const [uploadingRender, setUploadingRender] = useState(false);
 
   const fetchContratos = async () => {
     setLoading(true);
@@ -302,18 +306,27 @@ export default function Contratos({ startView = 'list' }) {
             {/* Render price form — only when SI */}
             {renderApplies === true && (
               <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'1rem', marginBottom:'1.2rem' }}>
-                <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>
-                  💰 Precio del Render (MXN)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={renderPrice}
-                  onChange={e => setRenderPrice(e.target.value)}
-                  placeholder="Ej. 3500"
-                  style={{ width:'100%', padding:'10px 12px', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'1rem', boxSizing:'border-box' }}
-                />
+                <div style={{ display:'flex', gap:'1rem', marginBottom:'1rem' }}>
+                  <div style={{ flex:1 }}>
+                    <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>💰 Precio del Render (MXN)</label>
+                    <input type="number" min="0" step="100" value={renderPrice} onChange={e => setRenderPrice(e.target.value)} placeholder="Ej. 3500" style={{ width:'100%', padding:'10px 12px', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'1rem', boxSizing:'border-box' }} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>⏳ Tiempo de entrega</label>
+                    <input type="text" value={renderDelivery} onChange={e => setRenderDelivery(e.target.value)} placeholder="Ej. 5 días hábiles" style={{ width:'100%', padding:'10px 12px', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'1rem', boxSizing:'border-box' }} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom:'1rem' }}>
+                  <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>📄 Archivo de Render (PDF)</label>
+                  <input type="file" accept=".pdf,image/*" onChange={e => setRenderFile(e.target.files[0])} style={{ width:'100%', padding:'8px', background:'white', borderRadius:'8px', border:'1px dashed #cbd5e1', fontSize:'0.9rem', boxSizing:'border-box' }} />
+                  <p style={{ margin:'4px 0 0', fontSize:'0.75rem', color:'#64748b' }}>Puedes cargar PDFs (incluso con múltiples hojas).</p>
+                </div>
+
+                <div style={{ marginBottom:'1rem' }}>
+                  <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'6px' }}>💬 Comentarios adicionales</label>
+                  <textarea value={renderComments} onChange={e => setRenderComments(e.target.value)} placeholder="Notas para el equipo..." rows={2} style={{ width:'100%', padding:'10px', borderRadius:'8px', border:'1px solid #cbd5e1', fontSize:'0.9rem', resize:'vertical', boxSizing:'border-box' }} />
+                </div>
                 {renderModalFor.quote_total_price && (
                   <div style={{ marginTop:'0.8rem', padding:'0.7rem 1rem', background:'#e0f2fe', borderRadius:'8px', fontSize:'0.88rem', color:'#0369a1' }}>
                     <strong>Estimación base:</strong> ${Number(renderModalFor.quote_total_price || 0).toLocaleString('es-MX')}<br/>
@@ -335,30 +348,54 @@ export default function Contratos({ startView = 'list' }) {
             {/* Action buttons */}
             <div style={{ display:'flex', gap:'0.8rem' }}>
               <button
-                disabled={renderApplies === null || (renderApplies === true && !renderPrice)}
+                disabled={renderApplies === null || (renderApplies === true && !renderPrice) || uploadingRender}
                 onClick={async () => {
-                  const totalPrice = renderApplies
-                    ? (Number(renderModalFor.quote_total_price || 0) + Number(renderPrice || 0))
-                    : null;
-                  await fetch(`${API}/api/prospects/${renderModalFor.id}`, {
-                    method: 'PUT', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                      status: 'RENDER SI/NO',
-                      render_applies: renderApplies,
-                      render_price: renderApplies ? Number(renderPrice) : null,
-                      render_total_price: totalPrice
-                    })
-                  });
-                  setRenderModalFor(null);
-                  setRenderApplies(null);
-                  setRenderPrice('');
-                  fetchContratos();
+                  setUploadingRender(true);
+                  try {
+                    let uploadedUrl = null;
+                    if (renderApplies && renderFile) {
+                      const fd = new FormData();
+                      fd.append('file', renderFile);
+                      const uploadRes = await fetch(`${API}/api/prospects/${renderModalFor.id}/upload-render`, {
+                        method: 'POST', body: fd
+                      });
+                      const uploadData = await uploadRes.json();
+                      uploadedUrl = uploadData.image_path;
+                    }
+
+                    const totalPrice = renderApplies
+                      ? (Number(renderModalFor.quote_total_price || 0) + Number(renderPrice || 0))
+                      : null;
+                      
+                    await fetch(`${API}/api/prospects/${renderModalFor.id}`, {
+                      method: 'PUT', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({
+                        status: 'RENDER SI/NO',
+                        render_applies: renderApplies,
+                        render_price: renderApplies ? Number(renderPrice) : null,
+                        render_total_price: totalPrice,
+                        render_delivery_time: renderApplies ? renderDelivery : null,
+                        render_comments: renderApplies ? renderComments : null
+                      })
+                    });
+                    
+                    setRenderModalFor(null);
+                    setRenderApplies(null);
+                    setRenderPrice('');
+                    setRenderDelivery('');
+                    setRenderComments('');
+                    setRenderFile(null);
+                    fetchContratos();
+                  } catch(e) {
+                    alert('Error guardando los datos del render');
+                  }
+                  setUploadingRender(false);
                 }}
-                style={{ flex:1, padding:'0.75rem', background: (renderApplies === null || (renderApplies === true && !renderPrice)) ? '#94a3b8' : '#3b82f6',
-                  color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor: (renderApplies === null || (renderApplies === true && !renderPrice)) ? 'not-allowed' : 'pointer', fontSize:'0.95rem' }}>
-                💾 Guardar y Avanzar
+                style={{ flex:1, padding:'0.75rem', background: (renderApplies === null || (renderApplies === true && !renderPrice) || uploadingRender) ? '#94a3b8' : '#3b82f6',
+                  color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor: (renderApplies === null || (renderApplies === true && !renderPrice) || uploadingRender) ? 'not-allowed' : 'pointer', fontSize:'0.95rem' }}>
+                {uploadingRender ? '⏳ Subiendo...' : '💾 Guardar y Avanzar'}
               </button>
-              <button onClick={() => { setRenderModalFor(null); setRenderApplies(null); setRenderPrice(''); }}
+              <button onClick={() => { setRenderModalFor(null); setRenderApplies(null); setRenderPrice(''); setRenderDelivery(''); setRenderComments(''); setRenderFile(null); }}
                 style={{ padding:'0.75rem 1rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontWeight:'600', fontSize:'0.9rem' }}>
                 Cancelar
               </button>
