@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { printProspect } from './Prospects';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -45,7 +44,8 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
     .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
 
-  const handleDownloadCotizacion = () => {
+  const handleDownloadCotizacion = async () => {
+    const { printProspect } = await import('./Prospects');
     printProspect(prospect);
   };
 
