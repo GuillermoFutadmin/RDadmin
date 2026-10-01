@@ -335,31 +335,33 @@ function App() {
           justifyContent: 'center',
           padding: '2.5rem 0 1.5rem',
           gap: '0.6rem',
-          opacity: 0.22,
+          opacity: 0.6,
           pointerEvents: 'none',
           userSelect: 'none',
         }}>
-          <div style={{ position: 'relative', width: '90px', height: '90px' }}>
+          <div style={{ position: 'relative', width: '250px', height: '200px' }}>
             <img
-              src="/logo-rd-frame1.png"
+              src="/logo-anim-1.jpg"
               alt=""
               style={{
                 position: 'absolute', top: 0, left: 0,
-                width: '90px', height: '90px',
+                width: '100%', height: '100%',
                 objectFit: 'contain',
                 opacity: logoFrame === 1 ? 1 : 0,
                 transition: 'opacity 0.12s ease-in-out',
+                mixBlendMode: 'multiply'
               }}
             />
             <img
-              src="/logo-rd-frame2.png"
+              src="/logo-anim-2.jpg"
               alt=""
               style={{
                 position: 'absolute', top: 0, left: 0,
-                width: '90px', height: '90px',
+                width: '100%', height: '100%',
                 objectFit: 'contain',
                 opacity: logoFrame === 2 ? 1 : 0,
                 transition: 'opacity 0.12s ease-in-out',
+                mixBlendMode: 'multiply'
               }}
             />
           </div>
