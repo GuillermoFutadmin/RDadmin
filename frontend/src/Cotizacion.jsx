@@ -26,9 +26,12 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
   const initSaludo = () => {
     if (!p.quote_saludo) return '';
     const defNuevo = getDefaultSaludo().trim();
-    const defViejo = 'Reciba un cordial saludo de parte de RD Carpintería.\nA continuación, presentamos la cotización correspondiente al proyecto solicitado.';
+    const defViejo = `Reciba un cordial saludo de parte de RD Carpintería.
+A continuación, presentamos la cotización correspondiente al proyecto solicitado.`;
+    const defViejo2 = `Estimado/a ${p.name ? p.name.split(' ')[0] : 'estimado cliente'}, reciba un cordial saludo de parte de RD Carpintería.
+Es un placer presentarle la cotización correspondiente a su proyecto de ${p.project_type ? p.project_type.toLowerCase() : 'el proyecto solicitado'}, la cual ha sido preparada especialmente para usted.`;
     const actual = p.quote_saludo.trim();
-    if (actual === defNuevo || actual === defViejo) return '';
+    if (actual === defNuevo || actual === defViejo || actual === defViejo2.trim() || actual.includes('Es un placer presentarle la cotización')) return '';
     return actual;
   };
   
@@ -426,8 +429,38 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
                 className="no-print"
                 style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', fontSize: '0.95rem', boxSizing: 'border-box', whiteSpace: 'pre-wrap' }} 
               />
-              <div className="print-only" style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.8rem', fontSize: '0.95rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', color: '#1e293b', background: '#fafafa' }}>
-                {quoteDesc}
+              <div className="print-only">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', color: '#1e293b' }}>
+                  <tbody>
+                    {quoteDesc.split('\n').map((line, i) => {
+                      if (!line.trim()) return null;
+                      const isHeader = line.endsWith(':') && !line.startsWith(' ');
+                      if (isHeader) {
+                        return (
+                          <tr key={i}>
+                            <td colSpan={2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
+                              {line}
+                            </td>
+                          </tr>
+                        );
+                      }
+                      const parts = line.split(':');
+                      if (parts.length > 1) {
+                        return (
+                          <tr key={i}>
+                            <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '35%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
+                            <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{parts.slice(1).join(':').trim()}</td>
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr key={i}>
+                          <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
 
