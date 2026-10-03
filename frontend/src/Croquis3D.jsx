@@ -17,6 +17,8 @@ const Croquis3D = forwardRef((props, ref) => {
   const [textMode, setTextMode]   = useState(false);
   const [grid3D, setGrid3D]       = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [textInput, setTextInput] = useState({ visible: false, x: 0, y: 0, text: '' });
+  const textInputRef = useRef(null);
 
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
@@ -113,6 +115,29 @@ const Croquis3D = forwardRef((props, ref) => {
     }
   };
 
+  const commitText = () => {
+    if (!textInput.visible) return;
+    const txt = textInput.text;
+    const x = textInput.x;
+    const y = textInput.y;
+    setTextInput({ visible: false, x: 0, y: 0, text: '' });
+    
+    if (txt.trim()) {
+      pushState();
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.font = `${lineWidth * 6 + 10}px sans-serif`;
+      ctx.fillStyle = color;
+      ctx.textBaseline = 'top';
+      
+      const lines = txt.split('\n');
+      const lineHeight = (lineWidth * 6 + 10) * 1.2;
+      lines.forEach((line, index) => {
+        ctx.fillText(line, x, y + (index * lineHeight));
+      });
+    }
+  };
+
   const getPos = (e, canvas) => {
     const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
@@ -128,13 +153,9 @@ const Croquis3D = forwardRef((props, ref) => {
     const pos    = getPos(e, canvas);
     
     if (textMode) {
-      const txt = window.prompt("Escribe el texto a insertar:");
-      if (txt) {
-        pushState();
-        ctx.font = `${lineWidth * 6 + 10}px sans-serif`;
-        ctx.fillStyle = color;
-        ctx.fillText(txt, pos.x, pos.y);
-      }
+      if (textInput.visible) commitText();
+      setTextInput({ visible: true, x: pos.x, y: pos.y, text: '' });
+      setTimeout(() => textInputRef.current?.focus(), 50);
       return;
     }
     
@@ -316,6 +337,38 @@ const Croquis3D = forwardRef((props, ref) => {
             onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
             onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
           />
+          {textInput.visible && (
+            <textarea
+              ref={textInputRef}
+              value={textInput.text}
+              onChange={(e) => setTextInput(prev => ({ ...prev, text: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  commitText();
+                }
+              }}
+              onBlur={commitText}
+              style={{
+                position: 'absolute',
+                left: textInput.x,
+                top: textInput.y,
+                minWidth: '200px',
+                minHeight: '40px',
+                background: 'rgba(255, 255, 255, 0.9)',
+                color: color,
+                border: '1px dashed #94a3b8',
+                outline: 'none',
+                font: `${lineWidth * 6 + 10}px sans-serif`,
+                lineHeight: 1.2,
+                padding: 0,
+                margin: 0,
+                resize: 'both',
+                overflow: 'hidden',
+                zIndex: 10
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
