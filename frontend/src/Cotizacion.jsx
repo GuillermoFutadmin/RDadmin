@@ -7,13 +7,20 @@ import React from 'react';
 export function CotizacionView({ prospect: p, onBack, onSaved }) {
   // Estado de guardado
   const [saved, setSaved] = React.useState(p.has_quote || false);
+  let estData = {};
+  if (p.estimation_data) {
+    try { estData = JSON.parse(p.estimation_data); } catch(e) {}
+  }
+  const fieldPhotos = estData.photos || {};
+  const croquisPhotos = estData.croquisPhotos || [];
+
   const [showPdfModal, setShowPdfModal] = React.useState(false);
 
   // Campos de cotización guardados en DB
   const getDefaultSaludo = () => {
     const nombre = p.name ? p.name.split(' ')[0] : 'estimado cliente';
     const proyecto = p.project_type ? p.project_type.toLowerCase() : 'el proyecto solicitado';
-    return `Estimado/a ${nombre}, reciba un cordial saludo de parte de RD Carpintería.\nEs un placer presentarle la cotización correspondiente a su proyecto de ${proyecto}, la cual ha sido preparada especialmente para usted.`;
+    return `Estimado Sr(a). ${nombre}, reciba un cordial saludo de parte de RD Carpintería.\nA continuación le presentamos la cotización correspondiente a su proyecto de ${proyecto}.`;
   };
   
   const initSaludo = () => {
@@ -343,8 +350,8 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
           <h3 style={{ ...secTitle, marginBottom: '0.7rem' }}><span className="no-print">👋 </span>Saludo Inicial</h3>
           {/* Preview con negritas */}
           <div style={{ background: 'white', borderRadius: '6px', border: '1px dashed #fbbf24', padding: '0.8rem 1rem', fontSize: '0.9rem', lineHeight: '1.7', color: '#1e293b', marginBottom: '0.6rem' }}>
-            Estimado/a <strong style={{ color: '#8b5a2b' }}>{p.name ? p.name.split(' ')[0] : '[Nombre]'}</strong>, reciba un cordial saludo de parte de RD Carpintería.<br/>
-            Es un placer presentarle la cotización correspondiente a su proyecto de <strong style={{ color: '#8b5a2b' }}>{p.project_type ? p.project_type.toLowerCase() : '[Proyecto]'}</strong>, la cual ha sido preparada especialmente para usted.
+            Estimado Sr(a). <strong style={{ color: '#8b5a2b' }}>{p.name ? p.name.split(' ')[0] : '[Nombre]'}</strong>, reciba un cordial saludo de parte de RD Carpintería.<br/>
+            A continuación le presentamos la cotización correspondiente a su proyecto de <strong style={{ color: '#8b5a2b' }}>{p.project_type ? p.project_type.toLowerCase() : '[Proyecto]'}</strong>.
           </div>
           <textarea
             value={saludo}
@@ -358,8 +365,8 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
         
         {/* Saludo Inicial (Solo para impresión) */}
         <div className="print-only" style={{ marginBottom: '2rem', fontSize: '1rem', color: '#1e293b', lineHeight: '1.7' }}>
-          <span>Estimado/a </span><strong>{p.name ? p.name.split(' ')[0] : ''}</strong><span>, reciba un cordial saludo de parte de RD Carpintería.<br/>
-          Es un placer presentarle la cotización correspondiente a su proyecto de </span><strong>{p.project_type ? p.project_type.toLowerCase() : ''}</strong><span>, la cual ha sido preparada especialmente para usted.</span>
+          <span>Estimado Sr(a). </span><strong>{p.name ? p.name.split(' ')[0] : ''}</strong><span>, reciba un cordial saludo de parte de RD Carpintería.<br/>
+          A continuación le presentamos la cotización correspondiente a su proyecto de </span><strong>{p.project_type ? p.project_type.toLowerCase() : ''}</strong><span>.</span>
           {saludo && saludo !== '' && <><br/><br/><span style={{ whiteSpace: 'pre-wrap' }}>{saludo}</span></>}
         </div>
 
@@ -390,6 +397,56 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
           </table>
         </div>
 
+                {/* Detalles y Concepto Principal */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Título del Proyecto:</label>
+            <input 
+              value={quoteTitle} 
+              onChange={e => setQuoteTitle(e.target.value)}
+              placeholder="Ej. WALKIN CLOSETH"
+              className="no-print"
+              style={{ width: '100%', fontSize: '1.2rem', fontWeight: '800', textTransform: 'uppercase', ...inputDash, padding: '0.5rem' }} 
+            />
+            <div className="print-only" style={{ fontSize: '1.2rem', fontWeight: '800', textTransform: 'uppercase', padding: '0.5rem 0', color: '#1e293b' }}>
+              {quoteTitle}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 0 ? (layoutImages.length > 1 ? '1fr 280px' : '1fr 150px') : '1fr', gap: '2rem', alignItems: 'start' }}>
+            <div>
+              <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
+              <textarea 
+                value={quoteDesc} 
+                onChange={e => setQuoteDesc(e.target.value)}
+                placeholder="Fabricación de walking closet en melamina...&#10;Seccion de nicho: ...&#10;Seccion frontal: ...&#10;No incluye: fondos y jaladeras."
+                rows={8}
+                className="no-print"
+                style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', fontSize: '0.95rem', boxSizing: 'border-box', whiteSpace: 'pre-wrap' }} 
+              />
+              <div className="print-only" style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.8rem', fontSize: '0.95rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', color: '#1e293b', background: '#fafafa' }}>
+                {quoteDesc}
+              </div>
+            </div>
+
+            {layoutImages.length > 0 && (
+              <div>
+                <h4 className="no-print" style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: '700' }}>Distribución</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 1 ? '1fr 1fr' : '1fr', gap: '0.8rem' }}>
+                  {layoutImages.map((img, i) => (
+                    <div key={i} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={img.src} alt={img.name} style={{ maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        
         {/* ── Especificaciones de Acabados ── */}
         {(() => {
           const getSwatchStyle = (type, code) => {
@@ -548,58 +605,27 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
           );
         })()}
 
-        {/* Detalles y Concepto Principal */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
-          
-          <div style={{ marginBottom: '1rem' }}>
-            <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Título del Proyecto:</label>
-            <input 
-              value={quoteTitle} 
-              onChange={e => setQuoteTitle(e.target.value)}
-              placeholder="Ej. WALKIN CLOSETH"
-              className="no-print"
-              style={{ width: '100%', fontSize: '1.2rem', fontWeight: '800', textTransform: 'uppercase', ...inputDash, padding: '0.5rem' }} 
-            />
-            <div className="print-only" style={{ fontSize: '1.2rem', fontWeight: '800', textTransform: 'uppercase', padding: '0.5rem 0', color: '#1e293b' }}>
-              {quoteTitle}
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 0 ? (layoutImages.length > 1 ? '1fr 280px' : '1fr 150px') : '1fr', gap: '2rem', alignItems: 'start' }}>
-            <div>
-              <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
-              <textarea 
-                value={quoteDesc} 
-                onChange={e => setQuoteDesc(e.target.value)}
-                placeholder="Fabricación de walking closet en melamina...&#10;Seccion de nicho: ...&#10;Seccion frontal: ...&#10;No incluye: fondos y jaladeras."
-                rows={8}
-                className="no-print"
-                style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', fontSize: '0.95rem', boxSizing: 'border-box', whiteSpace: 'pre-wrap' }} 
-              />
-              <div className="print-only" style={{ fontSize: '0.95rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', color: '#1e293b' }}>
-                {quoteDesc}
-              </div>
-            </div>
-
-            {layoutImages.length > 0 && (
-              <div>
-                <h4 className="no-print" style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: '700' }}>Distribución</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 1 ? '1fr 1fr' : '1fr', gap: '0.8rem' }}>
-                  {layoutImages.map((img, i) => (
-                    <div key={i} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src={img.src} alt={img.name} style={{ maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Imágenes del proyecto (Movidas debajo de conceptos) */}
+{/* Imágenes del proyecto (Movidas debajo de conceptos) */}
         <div style={{ marginBottom: '2rem' }}>
           <h3 style={secTitle}><span className="no-print">🖼️ </span>Imágenes del Proyecto</h3>
+          {/* Fotos del Formulario (Medidas y Croquis) */}
+          {(Object.keys(fieldPhotos).length > 0 || croquisPhotos.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
+              {Object.entries(fieldPhotos).map(([key, src]) => (
+                <div key={key} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ background: '#f8fafc', padding: '4px', fontSize: '0.65rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
+                  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+              {croquisPhotos.map((src, i) => (
+                <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ background: '#f8fafc', padding: '4px', fontSize: '0.65rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
+                  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
             {[0, 1, 2, 3].map(idx => (
               <div key={idx} className={!imagePreview[idx] ? "no-print" : ""} style={{ position: 'relative', border: '2px dashed #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
