@@ -2530,7 +2530,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // 5. ProspectDetail
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
+function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
   const chip = (label, value) => value ? (
     <div style={{ padding: '0.4rem 0.55rem', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
       <p style={{ fontSize: '0.64rem', color: '#94a3b8', margin: '0 0 0.1rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
@@ -2552,12 +2552,21 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack }) {
 
   return (
     <div className="card" style={{ marginBottom: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <h3 style={{ color: 'var(--accent)', margin: 0, fontSize: '1.15rem' }}>{prospect.name}</h3>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+        <div>
+          <h2 style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.2rem' }}>Ficha Técnica</h2>
+          <h3 style={{ color: 'var(--accent)', margin: 0, fontSize: '1.25rem' }}>{prospect.name}</h3>
+        </div>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           <button onClick={onBack} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Volver</button>
-          <button onClick={onEdit} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Editar</button>
-          <button onClick={onDelete} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Eliminar</button>
+          {prospect.is_papelera ? (
+            <button onClick={onRestore} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>♻️ Restaurar a Prospectos</button>
+          ) : (
+            <>
+              <button onClick={onEdit} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Editar</button>
+              <button onClick={onDelete} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Eliminar</button>
+            </>
+          )}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
@@ -3263,6 +3272,17 @@ function Prospects() {
           onEdit={() => setView('edit')}
           onDelete={() => setConfirmDelete(selectedProspect)}
           onBack={() => { setView('list'); setSelectedProspect(null); }}
+          onRestore={async () => {
+            try {
+              await fetch(`${API}/api/prospects/${selectedProspect.id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_papelera: false })
+              });
+              fetchProspects();
+              setView('list');
+              setSelectedProspect(null);
+            } catch(e) { console.error(e); }
+          }}
         />
       )}
 
