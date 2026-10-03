@@ -2,8 +2,11 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 
 const Croquis3D = forwardRef((props, ref) => {
   const canvasRef   = useRef(null);
+  const gridCanvasRef = useRef(null);
+  const containerRef = useRef(null);
   const snapshotRef = useRef(null);
   const startPosRef = useRef(null);
+  const historyRef  = useRef([]);
 
   const [color, setColor]         = useState('#000000');
   const [lineWidth, setLineWidth] = useState(2);
@@ -13,36 +16,56 @@ const Croquis3D = forwardRef((props, ref) => {
   const [arrowMode, setArrowMode] = useState(false);
   const [textMode, setTextMode]   = useState(false);
   const [grid3D, setGrid3D]       = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     getSketchData: () => {
       const canvas = canvasRef.current;
-      return canvas ? canvas.toDataURL('image/png') : null;
+      if (!canvas) return null;
+      // Combine with white background
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      ctx.drawImage(canvas, 0, 0);
+      return tempCanvas.toDataURL('image/png');
     },
     loadSketchData: (dataUrl) => {
       const canvas = canvasRef.current;
       if (!canvas || !dataUrl) return;
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.onload = () => {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+      };
       img.src = dataUrl;
     }
   }));
 
   useEffect(() => {
-    initCanvas();
+    const gridCanvas = gridCanvasRef.current;
+    if (!gridCanvas) return;
+    const ctx = gridCanvas.getContext('2d');
+    ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    if (grid3D) {
+      drawIsometricGrid(ctx, gridCanvas.width, gridCanvas.height);
+    }
   }, [grid3D]);
 
   const initCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (grid3D) {
-      drawIsometricGrid(ctx, canvas.width, canvas.height);
-    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const drawIsometricGrid = (ctx, w, h) => {
@@ -65,6 +88,28 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.restore();
   };
 
+  const pushState = () => {
+    if (canvasRef.current) {
+      historyRef.current.push(canvasRef.current.toDataURL('image/png'));
+    }
+  };
+
+  const undo = () => {
+    if (historyRef.current.length > 0) {
+      const lastState = historyRef.current.pop();
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = lastState;
+    } else {
+      initCanvas();
+    }
+  };
+
   const getPos = (e, canvas) => {
     const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
@@ -82,6 +127,7 @@ const Croquis3D = forwardRef((props, ref) => {
     if (textMode) {
       const txt = window.prompt("Escribe el texto a insertar:");
       if (txt) {
+        pushState();
         ctx.font = `${lineWidth * 6 + 10}px sans-serif`;
         ctx.fillStyle = color;
         ctx.fillText(txt, pos.x, pos.y);
@@ -89,6 +135,8 @@ const Croquis3D = forwardRef((props, ref) => {
       return;
     }
     
+    pushState();
+
     if (lineMode || arrowMode) {
       snapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
       startPosRef.current = pos;
@@ -124,7 +172,8 @@ const Croquis3D = forwardRef((props, ref) => {
       ctx.beginPath();
       ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
       ctx.lineTo(pos.x, pos.y);
-      ctx.strokeStyle = erasing ? '#ffffff' : color;
+      ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
+      ctx.strokeStyle = color;
       ctx.lineWidth   = erasing ? 20 : lineWidth;
       ctx.lineCap = 'round';
       ctx.stroke();
@@ -132,8 +181,9 @@ const Croquis3D = forwardRef((props, ref) => {
         drawArrowhead(ctx, startPosRef.current.x, startPosRef.current.y, pos.x, pos.y);
       }
     } else {
+      ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
       ctx.lineTo(pos.x, pos.y);
-      ctx.strokeStyle = erasing ? '#ffffff' : color;
+      ctx.strokeStyle = color;
       ctx.lineWidth   = erasing ? 20 : lineWidth;
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.stroke();
@@ -152,7 +202,8 @@ const Croquis3D = forwardRef((props, ref) => {
         ctx.beginPath();
         ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
         ctx.lineTo(pos.x, pos.y);
-        ctx.strokeStyle = erasing ? '#ffffff' : color;
+        ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
+        ctx.strokeStyle = color;
         ctx.lineWidth   = erasing ? 20 : lineWidth;
         ctx.lineCap = 'round'; ctx.stroke();
         if (arrowMode && !erasing) {
@@ -165,7 +216,16 @@ const Croquis3D = forwardRef((props, ref) => {
   };
 
   const clearCanvas = () => {
+    pushState();
     initCanvas();
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
   };
 
   const setMode = (mode) => {
@@ -178,13 +238,19 @@ const Croquis3D = forwardRef((props, ref) => {
   const curStyle = textMode ? 'text' : (lineMode || arrowMode) ? 'crosshair' : (erasing ? 'cell' : 'crosshair');
 
   return (
-    <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-      <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'0.8rem' }}>
+    <div ref={containerRef} style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem', marginBottom: '1.5rem', width: isFullscreen ? '100%' : 'auto', height: isFullscreen ? '100%' : 'auto', overflowY: isFullscreen ? 'auto' : 'visible' }}>
+      <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'0.8rem', gap:'1rem' }}>
         <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>✏️ Croquis y Dibujo (2D / 3D Isométrico)</h3>
-        <button onClick={() => setGrid3D(!grid3D)}
-          style={{ padding:'6px 12px', background: grid3D ? '#8b5a2b' : '#f1f5f9', color: grid3D ? 'white' : '#475569', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'700', fontSize:'0.85rem' }}>
-          {grid3D ? '🧊 Ocultar Guía 3D' : '🧊 Activar Guía 3D Isométrica'}
-        </button>
+        <div style={{ display:'flex', gap:'0.5rem' }}>
+          <button onClick={toggleFullscreen}
+            style={{ padding:'6px 12px', background: '#3b82f6', color: 'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'700', fontSize:'0.85rem' }}>
+            {isFullscreen ? '↘️ Salir de Pantalla Completa' : '↗️ Pantalla Completa'}
+          </button>
+          <button onClick={() => setGrid3D(!grid3D)}
+            style={{ padding:'6px 12px', background: grid3D ? '#8b5a2b' : '#f1f5f9', color: grid3D ? 'white' : '#475569', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'700', fontSize:'0.85rem' }}>
+            {grid3D ? '🧊 Ocultar Guía 3D' : '🧊 Activar Guía 3D Isométrica'}
+          </button>
+        </div>
       </div>
         
       <div style={{ display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.8rem', flexWrap:'wrap', background:'#f8fafc', padding:'8px 12px', borderRadius:'8px', border:'1px solid #e2e8f0' }}>
@@ -222,16 +288,27 @@ const Croquis3D = forwardRef((props, ref) => {
           style={{ padding:'4px 10px', background:erasing?'#fef9c3':'transparent', border:`1px solid ${erasing?'#d97706':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:erasing?'#b45309':'#475569' }}>
           🩹 Borrar
         </button>
+        
+        <div style={{ width:'1px', height:'24px', background:'#cbd5e1', margin:'0 4px' }} />
+
+        <button onClick={undo}
+          style={{ padding:'4px 10px', background:'transparent', color:'#475569', border:'1px solid #cbd5e1', borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600' }}>
+          ↩️ Deshacer
+        </button>
         <button onClick={clearCanvas}
           style={{ padding:'4px 10px', background:'transparent', color:'#dc2626', border:'none', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600' }}>
           🗑 Limpiar Todo
         </button>
       </div>
 
-      <div style={{ overflowX: 'auto', width: '100%' }}>
+      <div style={{ overflowX: 'auto', width: '100%', position: 'relative', height: '900px', border:'1px solid #cbd5e1', borderRadius:'8px', background:'#fff' }}>
         <canvas
-          ref={canvasRef} width={1200} height={600}
-          style={{ border:'1px solid #cbd5e1', cursor: curStyle, background:'#fff', minWidth: '900px', width:'100%', borderRadius:'8px', touchAction:'none' }}
+          ref={gridCanvasRef} width={1200} height={900}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
+        />
+        <canvas
+          ref={canvasRef} width={1200} height={900}
+          style={{ position: 'absolute', top: 0, left: 0, cursor: curStyle, touchAction:'none', zIndex: 2 }}
           onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
           onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
         />
