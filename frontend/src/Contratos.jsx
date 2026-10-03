@@ -747,8 +747,30 @@ function Estimacion({ prospect, onBack }) {
   const [measures, setMeasures] = useState({});
   const [obsText, setObsText] = useState('');
   const [photos, setPhotos] = useState({});
+  const [croquisPhotos, setCroquisPhotos] = useState([]);
   const [viewPhoto, setViewPhoto] = useState(null);
   const croquisRef = useRef(null);
+
+  const handleCroquisPhotoUpload = (files) => {
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_W = 1200;
+          const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          setCroquisPhotos(prev => [...prev, canvas.toDataURL('image/jpeg', 0.8)]);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
 
   const handlePhotoUpload = (fieldId, file) => {
     if (!file) return;
@@ -781,6 +803,7 @@ function Estimacion({ prospect, onBack }) {
         if (d.measures) setMeasures(d.measures);
         if (d.obsText) setObsText(d.obsText);
         if (d.photos) setPhotos(d.photos);
+        if (d.croquisPhotos) setCroquisPhotos(d.croquisPhotos);
         if (d.croquis_data) {
           setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data), 200);
         }
@@ -911,7 +934,7 @@ function Estimacion({ prospect, onBack }) {
   const handleSave = async () => {
     setSaving(true);
     const data = { 
-      materials, labor, concepts, margin, measures, obsText, totalWithMargin, photos,
+      materials, labor, concepts, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
       croquis_data: croquisRef.current?.getSketchData()
     };
     try {
@@ -1026,6 +1049,30 @@ function Estimacion({ prospect, onBack }) {
            <textarea value={obsText} onChange={e => setObsText(e.target.value)} rows={4}
              style={{ width:'100%', padding:'8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', resize:'vertical', boxSizing:'border-box' }} />
          </div>
+      </div>
+
+      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
+          <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📸 Fotos del Croquis / Levantamiento</h3>
+          <label style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
+            ➕ Agregar Foto
+            <input type='file' accept='image/*' capture='environment' multiple style={{ display:'none' }}
+              onChange={e => handleCroquisPhotoUpload(e.target.files)} />
+          </label>
+        </div>
+        
+        {croquisPhotos.length > 0 ? (
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'10px' }}>
+            {croquisPhotos.map((p, idx) => (
+              <div key={idx} style={{ position:'relative' }}>
+                <img src={p} onClick={() => setViewPhoto(p)} style={{ width:'100px', height:'100px', objectFit:'cover', borderRadius:'8px', border:'2px solid #cbd5e1', cursor:'pointer' }} />
+                <button onClick={() => setCroquisPhotos(prev => prev.filter((_, i) => i !== idx))} style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'24px', height:'24px', fontWeight:'bold', cursor:'pointer' }}>×</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize:'0.85rem', color:'#64748b', margin:0 }}>No hay fotos agregadas. Usa esta sección si prefieres tomarle foto a tu croquis en papel (Máximo 25 fotos recomendadas).</p>
+        )}
       </div>
 
       <Croquis3D ref={croquisRef} />

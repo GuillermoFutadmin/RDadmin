@@ -301,17 +301,19 @@ const Croquis3D = forwardRef((props, ref) => {
         </button>
       </div>
 
-      <div style={{ overflowX: 'auto', width: '100%', position: 'relative', height: '900px', border:'1px solid #cbd5e1', borderRadius:'8px', background:'#fff' }}>
-        <canvas
-          ref={gridCanvasRef} width={1200} height={900}
-          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
-        />
-        <canvas
-          ref={canvasRef} width={1200} height={900}
-          style={{ position: 'absolute', top: 0, left: 0, cursor: curStyle, touchAction:'none', zIndex: 2 }}
-          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
-          onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
-        />
+      <div style={{ overflow: 'auto', width: '100%', position: 'relative', height: isFullscreen ? 'calc(100vh - 100px)' : '900px', border:'1px solid #cbd5e1', borderRadius:'8px', background: isFullscreen ? '#f1f5f9' : '#fff', display: 'flex', justifyContent: isFullscreen ? 'center' : 'flex-start', alignItems: isFullscreen ? 'center' : 'flex-start' }}>
+        <div style={{ position: 'relative', width: '1200px', height: '900px', flexShrink: 0, background: '#fff', boxShadow: isFullscreen ? '0 4px 20px rgba(0,0,0,0.1)' : 'none' }}>
+          <canvas
+            ref={gridCanvasRef} width={1200} height={900}
+            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
+          />
+          <canvas
+            ref={canvasRef} width={1200} height={900}
+            style={{ position: 'absolute', top: 0, left: 0, cursor: curStyle, touchAction:'none', zIndex: 2 }}
+            onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
+            onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+          />
+        </div>
       </div>
     </div>
   );
