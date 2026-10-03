@@ -746,7 +746,7 @@ function Estimacion({ prospect, onBack }) {
   
   const [measures, setMeasures] = useState({});
   const [obsText, setObsText] = useState('');
-
+  const croquisRef = useRef(null);
   // Cargar info previa
   useEffect(() => {
     if (prospect.estimation_data && !templateLoaded) {
@@ -759,6 +759,9 @@ function Estimacion({ prospect, onBack }) {
         if (d.margin !== undefined) setMargin(d.margin);
         if (d.measures) setMeasures(d.measures);
         if (d.obsText) setObsText(d.obsText);
+        if (d.croquis_data) {
+          setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data), 200);
+        }
         setTemplateLoaded(true);
       } catch {}
     }
@@ -885,7 +888,10 @@ function Estimacion({ prospect, onBack }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const data = { materials, labor, concepts, margin, measures, obsText, totalWithMargin };
+    const data = { 
+      materials, labor, concepts, margin, measures, obsText, totalWithMargin,
+      croquis_data: croquisRef.current?.getSketchData()
+    };
     try {
       await fetch(`${API}/api/prospects/${prospect.id}`, {
         method:'PUT', headers:{'Content-Type':'application/json'},
@@ -971,14 +977,14 @@ function Estimacion({ prospect, onBack }) {
            <textarea value={obsText} onChange={e => setObsText(e.target.value)} rows={4}
              style={{ width:'100%', padding:'8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', resize:'vertical', boxSizing:'border-box' }} />
          </div>
-
-         <button onClick={handleSave} disabled={saving}
-          style={{ width:'100%', marginTop:'1rem', padding:'0.8rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'8px', cursor:saving?'not-allowed':'pointer', fontWeight:'800', fontSize:'0.95rem' }}>
-          {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
-         </button>
       </div>
 
-      <Croquis3D />
+      <Croquis3D ref={croquisRef} />
+
+      <button onClick={handleSave} disabled={saving}
+       style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '1.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
+       {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
+      </button>
     </div>
   );
 }

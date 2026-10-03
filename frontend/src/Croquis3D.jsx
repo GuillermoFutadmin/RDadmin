@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
-export default function Croquis3D() {
+const Croquis3D = forwardRef((props, ref) => {
   const canvasRef   = useRef(null);
   const snapshotRef = useRef(null);
   const startPosRef = useRef(null);
@@ -10,8 +10,24 @@ export default function Croquis3D() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [erasing, setErasing]     = useState(false);
   const [lineMode, setLineMode]   = useState(false);
+  const [arrowMode, setArrowMode] = useState(false);
   const [textMode, setTextMode]   = useState(false);
-  const [grid3D, setGrid3D]       = useState(false); // Isometric grid
+  const [grid3D, setGrid3D]       = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    getSketchData: () => {
+      const canvas = canvasRef.current;
+      return canvas ? canvas.toDataURL('image/png') : null;
+    },
+    loadSketchData: (dataUrl) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !dataUrl) return;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = dataUrl;
+    }
+  }));
 
   useEffect(() => {
     initCanvas();
@@ -34,16 +50,14 @@ export default function Croquis3D() {
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    const size = 30; // grid size
+    const size = 30;
     const dx = size * Math.cos(Math.PI / 6);
     const dy = size * Math.sin(Math.PI / 6);
     
-    // Draw diagonal lines
     for (let x = -w; x < w * 2; x += dx) {
       ctx.moveTo(x, 0); ctx.lineTo(x + h * Math.tan(Math.PI / 3), h);
       ctx.moveTo(x, 0); ctx.lineTo(x - h * Math.tan(Math.PI / 3), h);
     }
-    // Draw vertical lines
     for (let x = 0; x < w; x += dx) {
       ctx.moveTo(x, 0); ctx.lineTo(x, h);
     }
@@ -75,13 +89,26 @@ export default function Croquis3D() {
       return;
     }
     
-    if (lineMode) {
+    if (lineMode || arrowMode) {
       snapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
       startPosRef.current = pos;
     } else {
       ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
     }
     setIsDrawing(true);
+  };
+
+  const drawArrowhead = (ctx, fromX, fromY, toX, toY) => {
+    const headlen = 15; // length of head in pixels
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const angle = Math.atan2(dy, dx);
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
   };
 
   const draw = (e) => {
@@ -92,7 +119,7 @@ export default function Croquis3D() {
     const ctx    = canvas.getContext('2d');
     const pos    = getPos(e, canvas);
 
-    if (lineMode && snapshotRef.current && startPosRef.current) {
+    if ((lineMode || arrowMode) && snapshotRef.current && startPosRef.current) {
       ctx.putImageData(snapshotRef.current, 0, 0);
       ctx.beginPath();
       ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
@@ -101,6 +128,9 @@ export default function Croquis3D() {
       ctx.lineWidth   = erasing ? 20 : lineWidth;
       ctx.lineCap = 'round';
       ctx.stroke();
+      if (arrowMode && !erasing) {
+        drawArrowhead(ctx, startPosRef.current.x, startPosRef.current.y, pos.x, pos.y);
+      }
     } else {
       ctx.lineTo(pos.x, pos.y);
       ctx.strokeStyle = erasing ? '#ffffff' : color;
@@ -113,7 +143,7 @@ export default function Croquis3D() {
   const stopDrawing = (e) => {
     if (textMode) return;
     if (e) { try { e.preventDefault(); } catch {} }
-    if (lineMode && isDrawing && snapshotRef.current && startPosRef.current) {
+    if ((lineMode || arrowMode) && isDrawing && snapshotRef.current && startPosRef.current) {
       try {
         const canvas = canvasRef.current;
         const ctx    = canvas.getContext('2d');
@@ -125,6 +155,9 @@ export default function Croquis3D() {
         ctx.strokeStyle = erasing ? '#ffffff' : color;
         ctx.lineWidth   = erasing ? 20 : lineWidth;
         ctx.lineCap = 'round'; ctx.stroke();
+        if (arrowMode && !erasing) {
+          drawArrowhead(ctx, startPosRef.current.x, startPosRef.current.y, pos.x, pos.y);
+        }
       } catch {}
       snapshotRef.current = null; startPosRef.current = null;
     }
@@ -135,13 +168,19 @@ export default function Croquis3D() {
     initCanvas();
   };
 
-  const curStyle = textMode ? 'text' : lineMode ? 'crosshair' : (erasing ? 'cell' : 'crosshair');
+  const setMode = (mode) => {
+    setLineMode(mode === 'line');
+    setArrowMode(mode === 'arrow');
+    setTextMode(mode === 'text');
+    setErasing(mode === 'erase');
+  };
+
+  const curStyle = textMode ? 'text' : (lineMode || arrowMode) ? 'crosshair' : (erasing ? 'cell' : 'crosshair');
 
   return (
-    <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem' }}>
+    <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
       <div style={{ display:'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'0.8rem' }}>
         <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>✏️ Croquis y Dibujo (2D / 3D Isométrico)</h3>
-        
         <button onClick={() => setGrid3D(!grid3D)}
           style={{ padding:'6px 12px', background: grid3D ? '#8b5a2b' : '#f1f5f9', color: grid3D ? 'white' : '#475569', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'700', fontSize:'0.85rem' }}>
           {grid3D ? '🧊 Ocultar Guía 3D' : '🧊 Activar Guía 3D Isométrica'}
@@ -160,22 +199,26 @@ export default function Croquis3D() {
 
         <div style={{ width:'1px', height:'24px', background:'#cbd5e1', margin:'0 4px' }} />
 
-        <button onClick={() => { setLineMode(false); setTextMode(false); setErasing(false); }}
-          style={{ padding:'4px 10px', background:!lineMode&&!textMode&&!erasing?'#dbeafe':'transparent', border:`1px solid ${!lineMode&&!textMode&&!erasing?'#3b82f6':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:!lineMode&&!textMode&&!erasing?'#1d4ed8':'#475569' }}>
+        <button onClick={() => setMode('libre')}
+          style={{ padding:'4px 10px', background:!lineMode&&!textMode&&!arrowMode&&!erasing?'#dbeafe':'transparent', border:`1px solid ${!lineMode&&!textMode&&!arrowMode&&!erasing?'#3b82f6':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:!lineMode&&!textMode&&!arrowMode&&!erasing?'#1d4ed8':'#475569' }}>
           ✍️ Libre
         </button>
-        <button onClick={() => { setLineMode(true); setTextMode(false); setErasing(false); }}
+        <button onClick={() => setMode('line')}
           style={{ padding:'4px 10px', background:lineMode?'#dbeafe':'transparent', border:`1px solid ${lineMode?'#3b82f6':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:lineMode?'#1d4ed8':'#475569' }}>
           📏 Recta
         </button>
-        <button onClick={() => { setTextMode(true); setLineMode(false); setErasing(false); }}
+        <button onClick={() => setMode('arrow')}
+          style={{ padding:'4px 10px', background:arrowMode?'#dbeafe':'transparent', border:`1px solid ${arrowMode?'#3b82f6':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:arrowMode?'#1d4ed8':'#475569' }}>
+          ➡️ Flecha
+        </button>
+        <button onClick={() => setMode('text')}
           style={{ padding:'4px 10px', background:textMode?'#dbeafe':'transparent', border:`1px solid ${textMode?'#3b82f6':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:textMode?'#1d4ed8':'#475569' }}>
           🔤 Texto
         </button>
         
         <div style={{ width:'1px', height:'24px', background:'#cbd5e1', margin:'0 4px' }} />
 
-        <button onClick={() => { setErasing(true); setLineMode(false); setTextMode(false); }}
+        <button onClick={() => setMode('erase')}
           style={{ padding:'4px 10px', background:erasing?'#fef9c3':'transparent', border:`1px solid ${erasing?'#d97706':'transparent'}`, borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600', color:erasing?'#b45309':'#475569' }}>
           🩹 Borrar
         </button>
@@ -195,4 +238,6 @@ export default function Croquis3D() {
       </div>
     </div>
   );
-}
+});
+
+export default Croquis3D;
