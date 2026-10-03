@@ -459,14 +459,36 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                         </tr>
                       );
                     })}
+                    {/* Photos row inside the table for PDF */}
+                    {(layoutImages.length > 0 || imagePreview.filter(Boolean).length > 0) && (
+                      <tr>
+                        <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.6rem', background: '#f8fafc' }}>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '0.5rem' }}>Distribución / Fotos de Referencia</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {layoutImages.map((img, idx2) => (
+                              <div key={`lay-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <img src={img.src} alt={img.name} style={{ maxWidth: '120px', maxHeight: '100px', objectFit: 'contain' }} />
+                                <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>{img.name}</span>
+                              </div>
+                            ))}
+                            {imagePreview.filter(Boolean).map((src, idx2) => (
+                              <div key={`ref-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <img src={src} alt={`ref-${idx2+1}`} style={{ maxWidth: '120px', maxHeight: '100px', objectFit: 'cover' }} />
+                                <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>Foto ref. {idx2+1}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
             {layoutImages.length > 0 && (
-              <div>
-                <h4 className="no-print" style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: '700' }}>Distribución</h4>
+              <div className="no-print">
+                <h4 style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: '700' }}>Distribución</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 1 ? '1fr 1fr' : '1fr', gap: '0.8rem' }}>
                   {layoutImages.map((img, i) => (
                     <div key={i} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
