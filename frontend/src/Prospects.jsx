@@ -131,7 +131,7 @@ const EMPTY_FORM = {
   material_type_interior: '',
   material_type_exterior: '',
   wood_tone: '',
-  project_timeline: '', material_type_2: '', estimated_price: '', production_days: '',
+  project_timeline: '', estimated_price: '',
   interior_color_type: '', interior_color_code: '',
   exterior_inf_color_type: '', exterior_inf_color_code: '',
   exterior_sup_color_type: '', exterior_sup_color_code: '',

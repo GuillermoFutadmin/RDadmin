@@ -19,6 +19,15 @@ function App() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoFrame, setLogoFrame] = useState(1);
 
+  // Logo panel / cambiar contraseña
+  const [showLogoPanel, setShowLogoPanel] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwMsg, setPwMsg] = useState(null);
+  const [pwSaving, setPwSaving] = useState(false);
+
   // Animate logo in main area
   useEffect(() => {
     const interval = setInterval(() => {
@@ -46,6 +55,42 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('rdadmin_user');
     setUser(null);
+    setShowLogoPanel(false);
+  };
+
+  const handleChangePassword = async () => {
+    setPwMsg(null);
+    if (!pwCurrent || !pwNew || !pwConfirm) {
+      setPwMsg({ type: 'error', text: 'Completa todos los campos.' }); return;
+    }
+    if (pwNew !== pwConfirm) {
+      setPwMsg({ type: 'error', text: 'La nueva contraseña no coincide.' }); return;
+    }
+    if (pwNew.length < 4) {
+      setPwMsg({ type: 'error', text: 'Mínimo 4 caracteres.' }); return;
+    }
+    setPwSaving(true);
+    try {
+      const verRes = await fetch(`/api/users/verify-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, password: pwCurrent })
+      });
+      if (!verRes.ok) {
+        setPwMsg({ type: 'error', text: 'La contraseña actual es incorrecta.' });
+        setPwSaving(false); return;
+      }
+      const upRes = await fetch(`/api/users/${user.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwNew })
+      });
+      if (!upRes.ok) throw new Error();
+      setPwMsg({ type: 'ok', text: '¡Contraseña actualizada!' });
+      setPwCurrent(''); setPwNew(''); setPwConfirm('');
+      setTimeout(() => { setChangingPassword(false); setPwMsg(null); }, 2000);
+    } catch {
+      setPwMsg({ type: 'error', text: 'Error al cambiar la contraseña.' });
+    }
+    setPwSaving(false);
   };
 
   if (!user) {
@@ -66,10 +111,101 @@ function App() {
   return (
     <div className="admin-container">
       <aside className="sidebar">
-        {/* Brand Header Modernizado */}
+        {/* ── LOGO CLICKABLE – arriba del sidebar ── */}
+        <div
+          onClick={() => { setShowLogoPanel(v => !v); setChangingPassword(false); setPwMsg(null); }}
+          style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            padding: '0.75rem 0.5rem 0.6rem', cursor: 'pointer',
+            borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '0.5rem',
+          }}
+          title="Información de sesión"
+        >
+          <img
+            src="/logo-rd.png" alt="RD Carpintería"
+            style={{ width: '88px', height: '88px', objectFit: 'contain',
+              filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.55))', transition: 'transform 0.2s ease' }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          />
+        </div>
+
+        {/* ── PANEL DE SESIÓN ── */}
+        {showLogoPanel && (
+          <div style={{
+            background: 'rgba(255,255,255,0.05)', borderRadius: '10px',
+            margin: '0 0.5rem 0.75rem', padding: '0.85rem 0.9rem',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#ba4b24,#7c2d12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0 }}>
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ color: 'white', fontWeight: '700', fontSize: '0.85rem', lineHeight: 1.2 }}>{user.name}</div>
+                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.68rem' }}>@{user.username} · {user.role}</div>
+              </div>
+            </div>
+
+            {!changingPassword ? (
+              <>
+                <button onClick={() => setChangingPassword(true)} style={{
+                  width: '100%', padding: '0.42rem 0.6rem', marginBottom: '0.4rem',
+                  background: 'rgba(255,255,255,0.1)', color: 'white',
+                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left'
+                }}>
+                  🔑 Cambiar contraseña
+                </button>
+                <button onClick={handleLogout} style={{
+                  width: '100%', padding: '0.42rem 0.6rem',
+                  background: 'rgba(220,38,38,0.2)', color: '#fca5a5',
+                  border: '1px solid rgba(220,38,38,0.3)', borderRadius: '6px',
+                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left'
+                }}>
+                  🚪 Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.32rem' }}>
+                {[
+                  [pwCurrent, setPwCurrent, 'Contraseña actual'],
+                  [pwNew, setPwNew, 'Nueva contraseña'],
+                  [pwConfirm, setPwConfirm, 'Confirmar nueva'],
+                ].map(([val, setter, ph]) => (
+                  <input key={ph} type="password" placeholder={ph} value={val}
+                    onChange={e => setter(e.target.value)}
+                    style={{ padding: '0.38rem 0.6rem', borderRadius: '6px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.08)', color: 'white',
+                      fontSize: '0.76rem', outline: 'none' }}
+                  />
+                ))}
+                {pwMsg && (
+                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '600',
+                    color: pwMsg.type === 'ok' ? '#86efac' : '#fca5a5' }}>
+                    {pwMsg.text}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  <button onClick={handleChangePassword} disabled={pwSaving} style={{
+                    flex: 1, padding: '0.38rem', background: '#10b981', color: 'white',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.73rem', fontWeight: '700'
+                  }}>{pwSaving ? 'Guardando...' : 'Guardar'}</button>
+                  <button onClick={() => { setChangingPassword(false); setPwMsg(null); setPwCurrent(''); setPwNew(''); setPwConfirm(''); }} style={{
+                    flex: 1, padding: '0.38rem', background: 'rgba(255,255,255,0.1)', color: 'white',
+                    border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.73rem'
+                  }}>Cancelar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Brand Header ── */}
         <div style={{
-          padding: '0 0.25rem 1.5rem 0.25rem',
-          marginBottom: '1.25rem',
+          padding: '0 0.25rem 1rem 0.25rem',
+          marginBottom: '0.75rem',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -126,7 +262,7 @@ function App() {
           </div>
         </div>
 
-        <nav style={{ paddingBottom: '13rem' }}>
+        <nav style={{ paddingBottom: '2rem' }}>
           <ul>
             {/* Dashboard */}
             {hasAccess('Dashboard') && (
@@ -250,31 +386,6 @@ function App() {
             )}
           </ul>
         </nav>
-
-        {/* Logo estático al fondo del sidebar */}
-        <div style={{
-          position: 'absolute',
-          bottom: '3.25rem',
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '0 0.5rem',
-          pointerEvents: 'none'
-        }}>
-          <img
-            src="/logo-rd.png"
-            alt="RD Carpintería"
-            style={{
-              width: '185px',
-              height: '185px',
-              objectFit: 'contain',
-              display: 'block',
-              filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.65))',
-            }}
-          />
-        </div>
       </aside>
 
       <main className="main-content">
