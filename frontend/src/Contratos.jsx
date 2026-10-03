@@ -1053,12 +1053,19 @@ function Estimacion({ prospect, onBack }) {
 
       <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
-          <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📸 Fotos del Croquis / Levantamiento</h3>
-          <label style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
-            ➕ Agregar Foto
-            <input type='file' accept='image/*' capture='environment' multiple style={{ display:'none' }}
-              onChange={e => handleCroquisPhotoUpload(e.target.files)} />
-          </label>
+          <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📸 Fotos de Croquis Guardados</h3>
+          <button onClick={(e) => {
+            e.preventDefault();
+            if (croquisRef.current) {
+              const dataUrl = croquisRef.current.getSketchData();
+              if (dataUrl) {
+                setCroquisPhotos(prev => [...prev, dataUrl]);
+                croquisRef.current.clearCanvas();
+              }
+            }
+          }} style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
+            📸 Capturar Dibujo Actual
+          </button>
         </div>
         
         {croquisPhotos.length > 0 ? (
@@ -1071,7 +1078,7 @@ function Estimacion({ prospect, onBack }) {
             ))}
           </div>
         ) : (
-          <p style={{ fontSize:'0.85rem', color:'#64748b', margin:0 }}>No hay fotos agregadas. Usa esta sección si prefieres tomarle foto a tu croquis en papel (Máximo 25 fotos recomendadas).</p>
+          <p style={{ fontSize:'0.85rem', color:'#64748b', margin:0 }}>No hay dibujos capturados. Dibuja en el lienzo de abajo y presiona 'Capturar Dibujo Actual' para guardar múltiples piezas o partes de tu diseño.</p>
         )}
       </div>
 

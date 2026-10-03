@@ -48,6 +48,9 @@ const Croquis3D = forwardRef((props, ref) => {
         ctx.drawImage(img, 0, 0);
       };
       img.src = dataUrl;
+    },
+    clearCanvas: () => {
+      initCanvas();
     }
   }));
 
