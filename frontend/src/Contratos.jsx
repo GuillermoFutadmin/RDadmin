@@ -746,7 +746,28 @@ function Estimacion({ prospect, onBack }) {
   
   const [measures, setMeasures] = useState({});
   const [obsText, setObsText] = useState('');
+  const [photos, setPhotos] = useState({});
+  const [viewPhoto, setViewPhoto] = useState(null);
   const croquisRef = useRef(null);
+
+  const handlePhotoUpload = (fieldId, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_W = 800;
+        const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        setPhotos(p => ({...p, [fieldId]: canvas.toDataURL('image/jpeg', 0.7)}));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
   // Cargar info previa
   useEffect(() => {
     if (prospect.estimation_data && !templateLoaded) {
@@ -759,6 +780,7 @@ function Estimacion({ prospect, onBack }) {
         if (d.margin !== undefined) setMargin(d.margin);
         if (d.measures) setMeasures(d.measures);
         if (d.obsText) setObsText(d.obsText);
+        if (d.photos) setPhotos(d.photos);
         if (d.croquis_data) {
           setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data), 200);
         }
@@ -889,7 +911,7 @@ function Estimacion({ prospect, onBack }) {
   const handleSave = async () => {
     setSaving(true);
     const data = { 
-      materials, labor, concepts, margin, measures, obsText, totalWithMargin,
+      materials, labor, concepts, margin, measures, obsText, totalWithMargin, photos,
       croquis_data: croquisRef.current?.getSketchData()
     };
     try {
@@ -905,7 +927,15 @@ function Estimacion({ prospect, onBack }) {
   return (
     <div style={{ padding:'1rem', maxWidth:'1400px', margin:'0 auto' }}>
       {editingItem && <EditItemModal item={editingItem} onClose={() => setEditingItem(null)} onSave={saveItemEdit} />}
-      
+
+      {viewPhoto && (
+        <div style={{ position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,0.88)', zIndex:99999, display:'flex', justifyContent:'center', alignItems:'center' }}
+          onClick={() => setViewPhoto(null)}>
+          <img src={viewPhoto} alt='Foto' style={{ maxWidth:'92%', maxHeight:'90vh', borderRadius:'10px', boxShadow:'0 8px 40px rgba(0,0,0,0.6)' }} />
+          <button onClick={e => { e.stopPropagation(); setViewPhoto(null); }} style={{ position:'absolute', top:'20px', right:'24px', background:'white', border:'none', borderRadius:'50%', width:'42px', height:'42px', fontSize:'1.3rem', cursor:'pointer', fontWeight:'bold' }}>×</button>
+        </div>
+      )}
+
       <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.2rem' }}>
         <button onClick={onBack} style={{ padding:'0.4rem 0.9rem', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:'7px', cursor:'pointer', fontWeight:'600', fontSize:'0.87rem' }}>
           ← Volver
@@ -949,24 +979,43 @@ function Estimacion({ prospect, onBack }) {
          {formFields.length > 0 ? (
            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'0.8rem' }}>
              {formFields.map(f => (
-               <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                 <label style={{ fontSize:'0.75rem', fontWeight:'700', color:'#475569' }}>{f.label}</label>
-                 {f.type === 'select' ? (
-                   <select value={measures[f.id]||''} onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                    style={{ padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem' }}>
-                      <option value="">Selecciona</option>
-                      {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                   </select>
-                 ) : (
-                   <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-                     <input type={f.type} placeholder={f.placeholder} value={measures[f.id]||''} 
-                      onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                      style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '30px' : '8px', boxSizing:'border-box' }} />
-                     {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.75rem', color:'#94a3b8' }}>{f.suffix}</span>}
-                   </div>
-                 )}
-               </div>
-             ))}
+                <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  <label style={{ fontSize:'0.75rem', fontWeight:'700', color:'#475569' }}>{f.label}</label>
+                  <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
+                    <div style={{ flex:1 }}>
+                      {f.type === 'select' ? (
+                        <select value={measures[f.id]||''} onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
+                         style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem' }}>
+                           <option value=''>Selecciona</option>
+                           {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+                          <input type={f.type} placeholder={f.placeholder} value={measures[f.id]||''}
+                           onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
+                           style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '30px' : '8px', boxSizing:'border-box' }} />
+                          {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.75rem', color:'#94a3b8' }}>{f.suffix}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <label style={{ cursor:'pointer', padding:'5px 8px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'4px', fontSize:'0.78rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }} title='Tomar o subir foto'>
+                      📷 Foto
+                      <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
+                        onChange={e => handlePhotoUpload(f.id, e.target.files[0])} />
+                    </label>
+                  </div>
+                  {photos[f.id] && (
+                    <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
+                      <img src={photos[f.id]} onClick={() => setViewPhoto(photos[f.id])}
+                        style={{ width:'64px', height:'64px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd', display:'block' }} />
+                      <button onClick={() => setPhotos(p => { const np={...p}; delete np[f.id]; return np; })}
+                        style={{ position:'absolute', top:'-7px', right:'-7px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', fontSize:'11px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+
            </div>
          ) : (
            <p style={{ fontSize:'0.85rem', color:'#64748b' }}>No hay campos específicos para este proyecto.</p>
