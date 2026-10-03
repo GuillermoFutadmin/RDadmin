@@ -37,6 +37,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   
 
   const [saludo, setSaludo] = React.useState(initSaludo());
+  const [isEditingDesc, setIsEditingDesc] = React.useState(false);
 
   const getLayoutImages = () => {
     const imgs = [];
@@ -420,16 +421,23 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
           <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 0 ? (layoutImages.length > 1 ? '1fr 280px' : '1fr 150px') : '1fr', gap: '2rem', alignItems: 'start' }}>
             <div>
-              <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
-              <textarea 
-                value={quoteDesc} 
-                onChange={e => setQuoteDesc(e.target.value)}
-                placeholder="Fabricación de walking closet en melamina...&#10;Seccion de nicho: ...&#10;Seccion frontal: ...&#10;No incluye: fondos y jaladeras."
-                rows={8}
-                className="no-print"
-                style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', fontSize: '0.95rem', boxSizing: 'border-box', whiteSpace: 'pre-wrap' }} 
-              />
-              <div className="print-only">
+              <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
+                <button type="button" onClick={() => setIsEditingDesc(!isEditingDesc)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', background: isEditingDesc ? '#3b82f6' : '#e2e8f0', color: isEditingDesc ? 'white' : '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' }}>
+                  {isEditingDesc ? <><span>👁️</span> Ver Formato Final</> : <><span>✏️</span> Editar Texto</>}
+                </button>
+              </div>
+              {isEditingDesc && (
+                <textarea 
+                  value={quoteDesc} 
+                  onChange={e => setQuoteDesc(e.target.value)}
+                  placeholder="Fabricación de walking closet en melamina...&#10;Seccion de nicho: ...&#10;Seccion frontal: ...&#10;No incluye: fondos y jaladeras."
+                  rows={8}
+                  className="no-print"
+                  style={{ width: '100%', ...inputDash, resize: 'vertical', lineHeight: '1.6', fontSize: '0.95rem', boxSizing: 'border-box', whiteSpace: 'pre-wrap', marginBottom: '1rem' }} 
+                />
+              )}
+              <div className={isEditingDesc ? "print-only" : ""} style={!isEditingDesc ? { border: '2px solid #e2e8f0', borderRadius: '8px', padding: '1px', background: 'white' } : {}}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', color: '#1e293b' }}>
                   <tbody>
                     {(() => {
