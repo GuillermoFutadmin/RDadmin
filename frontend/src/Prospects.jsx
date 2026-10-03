@@ -146,7 +146,7 @@ function dbToForm(p) {
       if (key in prio) prio[key] = true;
     });
   }
-  return {
+  const form = {
     name: p.name || '', contact_info: p.contact_info || '', location: p.location || '',
     priorities: prio, expectations: p.expectations || '',
     has_design: p.has_design || false, design_details: p.design_details || '',
@@ -181,7 +181,7 @@ function formToPayload(f) {
     name: f.name, contact_info: f.contact_info, location: f.location,
     project_priorities: Object.keys(f.priorities).filter(k => f.priorities[k]).join(', '),
     expectations: f.expectations, has_design: f.has_design,
-    design_details: f.design_details, measurements: f.measurements,
+    design_details: f.design_details,
     hardware_details: f.hardware_details,
     start_date: f.start_date || null, delivery_date: f.delivery_date || null, production_days: f.production_days || null,
     project_type: f.project_type || null, project_type_other: f.project_type_other || null, kitchen_layout: f.kitchen_layout || null, kitchen_addons: f.kitchen_addons || null, closet_layout: f.closet_layout || null, closet_addons: f.closet_addons || null,
@@ -207,7 +207,7 @@ function formToPayload(f) {
       if (f.other_measurements) parts.push(`Otros: ${f.other_measurements}`);
       return parts.length > 0 ? parts.join(' | ') : (f.measurements || null);
     })(),
-    material_type: f.material_type, material_type_2: f.material_type_2 || null, estimated_price: f.estimated_price, production_days: f.production_days || null,
+    material_type: f.material_type, estimated_price: f.estimated_price,
     interior_color_type: f.interior_color_type, interior_color_code: f.interior_color_code,
     exterior_inf_color_type: f.exterior_inf_color_type, exterior_inf_color_code: f.exterior_inf_color_code,
     exterior_sup_color_type: f.exterior_sup_color_type, exterior_sup_color_code: f.exterior_sup_color_code,
