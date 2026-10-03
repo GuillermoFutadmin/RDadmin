@@ -432,55 +432,57 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               <div className="print-only">
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', color: '#1e293b' }}>
                   <tbody>
-                    {quoteDesc.split('\n').map((line, i) => {
-                      if (!line.trim()) return null;
-                      const isHeader = line.endsWith(':') && !line.startsWith(' ');
-                      if (isHeader) {
-                        return (
-                          <tr key={i}>
-                            <td colSpan={2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
-                              {line}
+                    {(() => {
+                      const lines = quoteDesc.split('\n').filter(line => line.trim() !== '');
+                      const rowCount = lines.length;
+                      return lines.map((line, i) => {
+                        const isHeader = line.endsWith(':') && !line.startsWith(' ');
+                        
+                        // Right column for Layout Images
+                        let imageCell = null;
+                        if (i === 0 && layoutImages.length > 0) {
+                          imageCell = (
+                            <td rowSpan={rowCount} style={{ border: '1px solid #cbd5e1', padding: '0.6rem', width: '35%', background: '#fafafa', verticalAlign: 'top' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
+                                {layoutImages.map((img, idx2) => (
+                                  <div key={`lay-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                                    <img src={img.src} alt={img.name} style={{ maxWidth: '100%', maxHeight: '140px', objectFit: 'contain' }} />
+                                    <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '4px', fontWeight: 'bold' }}>{img.name}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </td>
-                          </tr>
-                        );
-                      }
-                      const parts = line.split(':');
-                      if (parts.length > 1) {
+                          );
+                        }
+
+                        if (isHeader) {
+                          return (
+                            <tr key={i}>
+                              <td colSpan={2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
+                                {line}
+                              </td>
+                              {imageCell}
+                            </tr>
+                          );
+                        }
+                        const parts = line.split(':');
+                        if (parts.length > 1) {
+                          return (
+                            <tr key={i}>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '30%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '35%' }}>{parts.slice(1).join(':').trim()}</td>
+                              {imageCell}
+                            </tr>
+                          );
+                        }
                         return (
                           <tr key={i}>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '35%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{parts.slice(1).join(':').trim()}</td>
+                            <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
+                            {imageCell}
                           </tr>
                         );
-                      }
-                      return (
-                        <tr key={i}>
-                          <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
-                        </tr>
-                      );
-                    })}
-                    {/* Photos row inside the table for PDF */}
-                    {(layoutImages.length > 0 || imagePreview.filter(Boolean).length > 0) && (
-                      <tr>
-                        <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.6rem', background: '#f8fafc' }}>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#64748b', marginBottom: '0.5rem' }}>Distribución / Fotos de Referencia</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            {layoutImages.map((img, idx2) => (
-                              <div key={`lay-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <img src={img.src} alt={img.name} style={{ maxWidth: '120px', maxHeight: '100px', objectFit: 'contain' }} />
-                                <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>{img.name}</span>
-                              </div>
-                            ))}
-                            {imagePreview.filter(Boolean).map((src, idx2) => (
-                              <div key={`ref-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <img src={src} alt={`ref-${idx2+1}`} style={{ maxWidth: '120px', maxHeight: '100px', objectFit: 'cover' }} />
-                                <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>Foto ref. {idx2+1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -660,38 +662,20 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           );
         })()}
 
-{/* Imágenes del proyecto (Movidas debajo de conceptos) */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={secTitle}><span className="no-print">🖼️ </span>Imágenes del Proyecto</h3>
-          {/* Fotos del Formulario (Medidas y Croquis) */}
-          {(Object.keys(fieldPhotos).length > 0 || croquisPhotos.length > 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.5rem' }}>
-              {Object.entries(fieldPhotos).map(([key, src]) => (
-                <div key={key} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ background: '#f8fafc', padding: '4px', fontSize: '0.65rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
-                  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ))}
-              {croquisPhotos.map((src, i) => (
-                <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ background: '#f8fafc', padding: '4px', fontSize: '0.65rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
-                  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
-                </div>
-              ))}
-            </div>
-          )}
-
+{/* Área de carga de imágenes manuales (solo para pantalla) */}
+        <div className="no-print" style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}><span className="no-print">🖼️ </span>Imágenes de Referencia Adicionales</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
             {[0, 1, 2, 3].map(idx => (
-              <div key={idx} className={!imagePreview[idx] ? "no-print" : ""} style={{ position: 'relative', border: '2px dashed #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <div key={idx} style={{ position: 'relative', border: '2px dashed #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                 {imagePreview[idx] ? (
                   <>
                     <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    <button className="no-print" onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    <button onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                   </>
                 ) : (
-                  <label className="no-print" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
-                    <span style={{ fontSize: '1.8rem' }}><span className="no-print">📷</span></span>
+                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>📷</span>
                     <span>Foto {idx + 1}</span>
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
                   </label>
@@ -699,7 +683,6 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               </div>
             ))}
           </div>
-
         </div>
 
         {/* Totales y Entregas */}
@@ -935,6 +918,46 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             </li>
           </ul>
         </div>
+
+        {/* Anexo de Imágenes de Referencia */}
+        {(() => {
+          const validPreviewImages = imagePreview.filter(Boolean);
+          const hasFieldPhotos = Object.keys(fieldPhotos).length > 0;
+          const hasCroquisPhotos = croquisPhotos.length > 0;
+          
+          if (validPreviewImages.length === 0 && !hasFieldPhotos && !hasCroquisPhotos) return null;
+
+          return (
+            <div style={{ marginTop: '3rem', pageBreakInside: 'avoid' }}>
+              <h3 style={{ ...secTitle, marginBottom: '1.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                {validPreviewImages.map((src, i) => (
+                  <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Referencia {i+1}</div>
+                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+                
+                {Object.entries(fieldPhotos).map(([key, src]) => (
+                  <div key={`field-${key}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
+                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+                
+                {croquisPhotos.map((src, i) => (
+                  <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
+                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Pie de página oficial */}
         <div style={{ textAlign: 'center', marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
