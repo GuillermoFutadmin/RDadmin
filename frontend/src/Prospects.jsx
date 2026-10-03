@@ -2906,6 +2906,7 @@ function Prospects() {
   const [filterStatus,    setFilterStatus]    = useState('');
   const [filterMaterial,  setFilterMaterial]  = useState('');
   const [filterType,      setFilterType]      = useState('');
+  const [showPapelera,    setShowPapelera]    = useState(false);
 
   const fetchProspects = () => {
     fetch(`${API}/api/prospects`)
@@ -3013,7 +3014,8 @@ function Prospects() {
       {view === 'list' && (() => {
         const txt = filterText.toLowerCase().trim();
         const filtered = prospects.filter(p => {
-          if (p.is_contract || p.is_papelera) return false;
+          if (p.is_contract) return false;
+          if (showPapelera ? !p.is_papelera : p.is_papelera) return false;
           if (txt && !(
             (p.name         || '').toLowerCase().includes(txt) ||
             (p.public_id    || '').toLowerCase().includes(txt) ||
@@ -3047,10 +3049,15 @@ function Prospects() {
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700' }}>Prospectos</h2>
-              <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                + Nuevo Prospecto
-              </button>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700' }}>{showPapelera ? 'Papelera de Prospectos' : 'Prospectos'}</h2>
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button onClick={() => setShowPapelera(!showPapelera)} style={{ backgroundColor: showPapelera ? '#94a3b8' : '#e2e8f0', color: showPapelera ? 'white' : '#334155', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  {showPapelera ? 'Volver a Prospectos' : '🗑️ Ver Papelera'}
+                </button>
+                <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  + Nuevo Prospecto
+                </button>
+              </div>
             </div>
 
             {/* ── ETAPAS PIPELINE ── */}
