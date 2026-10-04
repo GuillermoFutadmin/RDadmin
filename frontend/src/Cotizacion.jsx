@@ -985,7 +985,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
         {/* Pie de página oficial */}
         <div style={{ textAlign: 'center', marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/logo-leather.png" alt="Sello RD Carpinteria" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '0.8rem', borderRadius: '50%' }} />
+          <img src="/logo-leather.png" alt="Sello RD Carpinteria" style={{ width: '160px', height: '160px', objectFit: 'contain', marginBottom: '0.8rem', borderRadius: '50%' }} />
           <p style={{ margin: '0 0 0.3rem 0', fontSize: '0.95rem', fontWeight: '700', color: '#334155' }}>
             Documento oficial de RD Carpintería
           </p>
