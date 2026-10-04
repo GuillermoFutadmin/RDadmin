@@ -2592,6 +2592,12 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
         {colorChip('Color Ext. Inferior', prospect.exterior_inf_color_type, prospect.exterior_inf_color_code)}
         {colorChip('Color Ext. Superior', prospect.exterior_sup_color_type, prospect.exterior_sup_color_code)}
       </div>
+      {prospect.papelera_reason && (
+        <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'1px solid #fca5a5', borderRadius:'8px' }}>
+          <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
+          <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
+        </div>
+      )}
       {prospect.expectations && (
         <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.55rem', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
           <p style={{ fontSize: '0.64rem', color: '#94a3b8', margin: '0 0 0.1rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expectativas</p>
@@ -2987,36 +2993,67 @@ function Prospects() {
     <div>
       {/* Approve Modal */}
       {approveModalFor && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
-          <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'400px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.25)' }}>
-            <h3 style={{ margin:'0 0 0.3rem', color:'#1e293b', fontSize:'1.1rem' }}>¿Se aprobó el proyecto?</h3>
-            <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.5rem' }}><strong>{approveModalFor.name}</strong> · {approveModalFor.project_type}</p>
-            <div style={{ display:'flex', gap:'0.8rem' }}>
-              <button onClick={async () => {
-                await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
-                  method:'PUT', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString(), status: 'APROBADO' })
-                });
-                setApproveModalFor(null); fetchProspects();
-              }} style={{ flex:1, padding:'0.75rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
-                ✅ SÍ — Pasar a Contratos
-              </button>
-              <button onClick={async () => {
-                await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
-                  method:'PUT', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ is_papelera:true })
-                });
-                setApproveModalFor(null); fetchProspects();
-              }} style={{ flex:1, padding:'0.75rem', background:'#64748b', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
-                ❌ NO — Papelera
-              </button>
-            </div>
-            <button onClick={() => setApproveModalFor(null)}
-              style={{ width:'100%', marginTop:'0.6rem', padding:'0.5rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontSize:'0.85rem' }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
+        (() => {
+          // Inline stateful wrapper using a mini-component approach
+          const ApproveModal = () => {
+            const [showReason, setShowReason] = React.useState(false);
+            const [reason, setReason] = React.useState('');
+
+            return (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
+                <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'440px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.25)' }}>
+                  <h3 style={{ margin:'0 0 0.3rem', color:'#1e293b', fontSize:'1.1rem' }}>¿Se aprobó el proyecto?</h3>
+                  <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.2rem' }}><strong>{approveModalFor.name}</strong> · {approveModalFor.project_type}</p>
+
+                  {showReason && (
+                    <div style={{ marginBottom:'1rem' }}>
+                      <p style={{ fontSize:'0.88rem', fontWeight:'700', color:'#dc2626', margin:'0 0 0.5rem' }}>❌ ¿Por qué no se aprobó el proyecto?</p>
+                      <textarea
+                        value={reason}
+                        onChange={e => setReason(e.target.value)}
+                        rows={3}
+                        placeholder="Ej. Presupuesto fuera de rango, cliente decidió no continuar..."
+                        autoFocus
+                        style={{ width:'100%', padding:'8px', border:'1px solid #fca5a5', borderRadius:'8px', fontSize:'0.88rem', resize:'vertical', boxSizing:'border-box', outline:'none' }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display:'flex', gap:'0.8rem' }}>
+                    {!showReason && (
+                      <button onClick={async () => {
+                        await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
+                          method:'PUT', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ is_contract:true, contract_date:new Date().toISOString(), status:'APROBADO' })
+                        });
+                        setApproveModalFor(null); fetchProspects();
+                      }} style={{ flex:1, padding:'0.75rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+                        ✅ SÍ — Pasar a Contratos
+                      </button>
+                    )}
+                    <button onClick={async () => {
+                      if (!showReason) { setShowReason(true); return; }
+                      if (!reason.trim()) { alert('Por favor escribe el motivo de rechazo.'); return; }
+                      await fetch(`${API}/api/prospects/${approveModalFor.id}`, {
+                        method:'PUT', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ is_papelera:true, papelera_reason: reason.trim() })
+                      });
+                      setApproveModalFor(null); fetchProspects();
+                    }} style={{ flex:1, padding:'0.75rem', background: showReason ? '#dc2626' : '#64748b', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+                      ❌ {showReason ? 'Confirmar Rechazo' : 'NO — Papelera'}
+                    </button>
+                  </div>
+
+                  <button onClick={() => setApproveModalFor(null)}
+                    style={{ width:'100%', marginTop:'0.6rem', padding:'0.5rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontSize:'0.85rem' }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            );
+          };
+          return <ApproveModal key={approveModalFor.id} />;
+        })()
       )}
       {printProspect_data && <PrintAskModal prospect={printProspect_data} onClose={() => setPrintProspectData(null)} />}
       {/* LIST */}
