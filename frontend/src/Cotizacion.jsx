@@ -926,7 +926,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           const hasCroquisPhotos = croquisPhotos.length > 0;
           
           return (
-            <div style={{ marginTop: '3rem', pageBreakInside: 'avoid' }}>
+            <div style={{ marginTop: '3rem', pageBreakBefore: 'always', breakBefore: 'page' }}>
               <h3 style={{ ...secTitle, marginBottom: '1.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
                 <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias
               </h3>
@@ -955,24 +955,24 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               </div>
               
               
-              {(validPreviewImages.length > 0 || hasFieldPhotos || hasCroquisPhotos) && <div className="print-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+              {(validPreviewImages.length > 0 || hasFieldPhotos || hasCroquisPhotos) && <div className="print-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                 {validPreviewImages.map((src, i) => (
-                  <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Referencia {i+1}</div>
-                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Referencia {i+1}</div>
+                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
                   </div>
                 ))}
                 
                 {Object.entries(fieldPhotos).map(([key, src]) => (
-                  <div key={`field-${key}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
-                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div key={`field-${key}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
+                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
                   </div>
                 ))}
                 
                 {croquisPhotos.map((src, i) => (
-                  <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
+                  <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
                     <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
                   </div>
                 ))}
