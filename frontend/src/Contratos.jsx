@@ -742,9 +742,8 @@ function Estimacion({ prospect, onBack }) {
   const [saving, setSaving]       = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false);
 
-  const [materials, setMaterials] = useState([mkRow('Tablero de melamina')]);
-  const [labor, setLabor]       = useState([mkRow('Mano de obra carpintería')]);
-  const [concepts, setConcepts] = useState([mkRow('Flete / Transporte')]);
+  const [sheets, setSheets] = useState([]);
+  const [activeSheetIdx, setActiveSheetIdx] = useState(0);
   
   const [editingItem, setEditingItem] = useState(null); // { section, id }
 
@@ -809,9 +808,11 @@ function Estimacion({ prospect, onBack }) {
       try {
         const d = typeof prospect.estimation_data === 'string'
           ? JSON.parse(prospect.estimation_data) : prospect.estimation_data;
-        if (d.materials?.length) setMaterials(d.materials);
-        if (d.labor?.length)     setLabor(d.labor);
-        if (d.concepts?.length)  setConcepts(d.concepts);
+        if (d.sheets && d.sheets.length > 0) {
+          setSheets(d.sheets);
+        } else if (d.materials || d.labor || d.concepts) {
+          setSheets([{ type: prospect.project_type || 'Proyecto', materials: d.materials || [], labor: d.labor || [], concepts: d.concepts || [] }]);
+        }
         if (d.margin !== undefined) setMargin(d.margin);
         if (d.measures) setMeasures(d.measures);
         if (d.obsText) setObsText(d.obsText);
@@ -825,9 +826,25 @@ function Estimacion({ prospect, onBack }) {
     }
   }, [prospect]);
 
-  // Cargar machote por CADA tipo de proyecto detectado en project_type
+  // Cargar desde valuation_data o machotes
   useEffect(() => {
     if (templateLoaded || prospect.estimation_data) return;
+
+    if (prospect.valuation_data) {
+      try {
+        const rawVal = JSON.parse(prospect.valuation_data);
+        if (rawVal.sheets && rawVal.sheets.length > 0) {
+          setSheets(rawVal.sheets);
+          if (rawVal.globalMargin) setMargin(rawVal.globalMargin);
+        } else if (rawVal.materials || rawVal.labor || rawVal.concepts) {
+          setSheets([{ type: rawVal.projectType || 'Proyecto', materials: rawVal.materials || [], labor: rawVal.labor || [], concepts: rawVal.concepts || [] }]);
+          if (rawVal.margin) setMargin(rawVal.margin);
+        }
+        setTemplateLoaded(true);
+        return;
+      } catch(e) {}
+    }
+
     const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     const ptRaw = prospect.project_type || '';
     // Detectar todos los tipos presentes
@@ -837,7 +854,7 @@ function Estimacion({ prospect, onBack }) {
     fetch(`${API}/api/templates/`)
       .then(r => r.json())
       .then(data => {
-        const allMat = [], allLab = [], allCon = [];
+        const newSheets = [];
         matchedKeys.forEach(key => {
           const tpl = data.find(t => normalize(t.name) === normalize(key));
           if (!tpl) return;
@@ -845,23 +862,28 @@ function Estimacion({ prospect, onBack }) {
             const parsed = JSON.parse(tpl.data);
             const mapItem = it => ({
               id: Date.now() + Math.random(),
-              desc: '[' + key + '] ' + (it.desc || ''),
+              desc: it.desc || '',
               qty: 1, price: Number(it.price) || 0, unit: it.unit || 'pza'
             });
-            if (parsed?.materiales?.length) allMat.push(...parsed.materiales.map(mapItem));
-            if (parsed?.mano_obra?.length)  allLab.push(...parsed.mano_obra.map(mapItem));
-            if (parsed?.conceptos?.length)  allCon.push(...parsed.conceptos.map(mapItem));
+            newSheets.push({
+              type: key,
+              materials: parsed?.materiales ? parsed.materiales.map(mapItem) : [],
+              labor: parsed?.mano_obra ? parsed.mano_obra.map(mapItem) : [],
+              concepts: parsed?.conceptos ? parsed.conceptos.map(mapItem) : []
+            });
           } catch {}
         });
-        if (allMat.length) setMaterials(allMat);
-        if (allLab.length) setLabor(allLab);
-        if (allCon.length) setConcepts(allCon);
+        if (newSheets.length > 0) setSheets(newSheets);
         setTemplateLoaded(true);
       })
       .catch(() => {});
   }, [prospect, templateLoaded]);
 
-  const totalCost = [...materials, ...labor, ...concepts].reduce((s, r) => s + Number(r.qty) * Number(r.price), 0);
+  const getSheetCost = (sh) => {
+    const sum = arr => (arr||[]).reduce((s, r) => s + Number(r.qty||0) * Number(r.price||0), 0);
+    return sum(sh.materials) + sum(sh.labor) + sum(sh.concepts);
+  };
+  const totalCost = sheets.reduce((s, sh) => s + getSheetCost(sh), 0);
   const totalWithMargin = totalCost * (1 + margin / 100);
 
   // Tablas render helpers (estilo Valoracion)
@@ -872,25 +894,37 @@ function Estimacion({ prospect, onBack }) {
   const handleEditItem = (section, item) => setEditingItem({ section, ...item });
   const saveItemEdit = (updates) => {
     const { section, id } = editingItem;
-    const updFn = prev => prev.map(r => r.id === id ? { ...r, ...updates } : r);
-    if (section === 'mat') setMaterials(updFn);
-    if (section === 'lab') setLabor(updFn);
-    if (section === 'con') setConcepts(updFn);
+    setSheets(prev => {
+      const nw = [...prev];
+      const sh = {...nw[activeSheetIdx]};
+      const arrKey = section === 'mat' ? 'materials' : section === 'lab' ? 'labor' : 'concepts';
+      sh[arrKey] = sh[arrKey].map(r => r.id === id ? { ...r, ...updates } : r);
+      nw[activeSheetIdx] = sh;
+      return nw;
+    });
     setEditingItem(null);
   };
   
   const addRow = (section, desc) => {
-    const mk = () => [...(section==='mat'?materials:section==='lab'?labor:concepts), mkRow(desc)];
-    if (section === 'mat') setMaterials(mk());
-    if (section === 'lab') setLabor(mk());
-    if (section === 'con') setConcepts(mk());
+    setSheets(prev => {
+      const nw = [...prev];
+      const sh = {...nw[activeSheetIdx]};
+      const arrKey = section === 'mat' ? 'materials' : section === 'lab' ? 'labor' : 'concepts';
+      sh[arrKey] = [...(sh[arrKey]||[]), mkRow(desc)];
+      nw[activeSheetIdx] = sh;
+      return nw;
+    });
   };
   
   const delRow = (section, id) => {
-    const flt = arr => arr.filter(r => r.id !== id);
-    if (section === 'mat') setMaterials(flt(materials));
-    if (section === 'lab') setLabor(flt(labor));
-    if (section === 'con') setConcepts(flt(concepts));
+    setSheets(prev => {
+      const nw = [...prev];
+      const sh = {...nw[activeSheetIdx]};
+      const arrKey = section === 'mat' ? 'materials' : section === 'lab' ? 'labor' : 'concepts';
+      sh[arrKey] = sh[arrKey].filter(r => r.id !== id);
+      nw[activeSheetIdx] = sh;
+      return nw;
+    });
   };
 
   const renderValRow = (item, section) => (
@@ -901,10 +935,14 @@ function Estimacion({ prospect, onBack }) {
           <input type="number" value={item.qty} min="0"
             onChange={e => {
                const val = e.target.value;
-               const updFn = prev => prev.map(r => r.id === item.id ? { ...r, qty: val } : r);
-               if (section === 'mat') setMaterials(updFn);
-               if (section === 'lab') setLabor(updFn);
-               if (section === 'con') setConcepts(updFn);
+               setSheets(prev => {
+                 const nw = [...prev];
+                 const sh = {...nw[activeSheetIdx]};
+                 const arrKey = section === 'mat' ? 'materials' : section === 'lab' ? 'labor' : 'concepts';
+                 sh[arrKey] = sh[arrKey].map(r => r.id === item.id ? { ...r, qty: val } : r);
+                 nw[activeSheetIdx] = sh;
+                 return nw;
+               });
             }}
             style={{ width: '72px', padding: '4px', border:'1px solid #cbd5e1', borderRadius:'4px' }}
           />
@@ -953,7 +991,7 @@ function Estimacion({ prospect, onBack }) {
   const handleSave = async () => {
     setSaving(true);
     const data = { 
-      materials, labor, concepts, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
+      sheets, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
       croquis_data: croquisRef.current?.getSketchData()
     };
     try {
@@ -1102,9 +1140,47 @@ function Estimacion({ prospect, onBack }) {
           </div>
         </div>
 
-        {renderQuoteTable('Materiales', materials, 'mat', 'Material')}
-        {renderQuoteTable('Mano de obra', labor, 'lab', 'Mano de obra')}
-        {renderQuoteTable('Conceptos / Otros', concepts, 'con', 'Concepto')}
+        {sheets.length > 0 && (
+          <>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '1.2rem', paddingBottom: '4px' }}>
+              {sheets.map((sh, idx) => {
+                const sheetCost = getSheetCost(sh);
+                const isActive = activeSheetIdx === idx;
+                return (
+                  <button key={idx} onClick={() => setActiveSheetIdx(idx)}
+                    style={{
+                      padding: '8px 16px', background: isActive ? '#8b5a2b' : '#f1f5f9',
+                      color: isActive ? 'white' : '#475569', border: isActive ? 'none' : '1px solid #cbd5e1',
+                      borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem',
+                      display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
+                    }}>
+                    #{idx+1} {sh.type} <span style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>{formatCurrency(sheetCost)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {sheets[activeSheetIdx] && (
+              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
+                   <h4 style={{ margin:0, color:'#8b5a2b', fontSize:'1rem' }}>Hoja: {sheets[activeSheetIdx].type}</h4>
+                   <button onClick={() => {
+                     if(!window.confirm('¿Eliminar esta hoja?')) return;
+                     setSheets(prev => {
+                       const nw = [...prev];
+                       nw.splice(activeSheetIdx, 1);
+                       return nw;
+                     });
+                     setActiveSheetIdx(0);
+                   }} style={{ background:'#ef4444', color:'white', border:'none', borderRadius:'6px', padding:'4px 8px', fontSize:'0.75rem', cursor:'pointer' }}>Eliminar hoja</button>
+                </div>
+                {renderQuoteTable('Materiales', sheets[activeSheetIdx].materials || [], 'mat', 'Material')}
+                {renderQuoteTable('Mano de obra', sheets[activeSheetIdx].labor || [], 'lab', 'Mano de obra')}
+                {renderQuoteTable('Conceptos / Otros', sheets[activeSheetIdx].concepts || [], 'con', 'Concepto')}
+              </div>
+            )}
+          </>
+        )}
+        {sheets.length === 0 && <p style={{ color:'#64748b' }}>No hay hojas de cotización. Regresa el contrato a prospecto y realiza la Valoración.</p>}
 
         <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'1rem' }}>
           <div style={{ background:'#fff7ed', border:'2px dashed #fdba74', padding:'1rem 1.5rem', borderRadius:'8px', display:'flex', alignItems:'center', gap:'1.5rem' }}>
