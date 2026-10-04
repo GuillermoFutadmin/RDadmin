@@ -87,15 +87,18 @@ function Dashboard() {
             <span style={{ fontSize: '1.4rem' }}>👥</span>
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Prospectos</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Estado actual</div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prospectos</div>
             </div>
           </div>
-          <span style={{
-            background: '#fff1ec', borderRadius: '10px', padding: '0.25rem 0.75rem',
-            fontWeight: '800', fontSize: '1.6rem', color: '#ba4b24', lineHeight: 1
-          }}>
-            {totalProspects === null ? '...' : totalProspects}
-          </span>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totales</div>
+            <span style={{
+              background: '#fff1ec', borderRadius: '10px', padding: '0.1rem 0.75rem',
+              fontWeight: '800', fontSize: '1.6rem', color: '#ba4b24', lineHeight: 1, display: 'block'
+            }}>
+              {totalProspects === null ? '...' : totalProspects}
+            </span>
+          </div>
         </div>
 
         {/* Contadores por estado */}
@@ -122,15 +125,18 @@ function Dashboard() {
             <span style={{ fontSize: '1.4rem' }}>📋</span>
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Clientes</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Estado del proceso</div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Clientes</div>
             </div>
           </div>
-          <span style={{
-            background: '#f5f3ff', borderRadius: '10px', padding: '0.25rem 0.75rem',
-            fontWeight: '800', fontSize: '1.6rem', color: '#7c3aed', lineHeight: 1
-          }}>
-            {totalClientes === null ? '...' : totalClientes}
-          </span>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totales</div>
+            <span style={{
+              background: '#f5f3ff', borderRadius: '10px', padding: '0.1rem 0.75rem',
+              fontWeight: '800', fontSize: '1.6rem', color: '#7c3aed', lineHeight: 1, display: 'block'
+            }}>
+              {totalClientes === null ? '...' : totalClientes}
+            </span>
+          </div>
         </div>
 
         {/* Pipeline stages */}
