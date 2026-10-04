@@ -724,28 +724,30 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 const grandTotal = grandCost + grandMg;
                 return (
                   <div style={{ width: '100%', marginBottom: '1rem' }}>
-                    <div style={{ border: '3px solid #8b5a2b', borderRadius: '10px', overflow: 'hidden', marginTop: '0.5rem' }}>
-                      <div style={{ background: '#8b5a2b', color: 'white', padding: '8px 14px', fontWeight: '800', fontSize: '0.95rem' }}>
-                        <span className="no-print">📊 </span>Resumen Global — {valSheets.length} proyecto{valSheets.length !== 1 ? 's' : ''}
-                      </div>
+                    <div style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginTop: '0.5rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
                         <tbody>
+                          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                            <td colSpan={2} style={{ padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
+                              <span className="no-print">📊 </span>Resumen Global — {valSheets.length} proyecto{valSheets.length !== 1 ? 's' : ''}
+                            </td>
+                          </tr>
                           {valSheets.map((sh, i) => {
                             const sheetPrice = sheetCost(sh) * (1 + valMargin / 100);
                             return (
-                              <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                <td style={{ padding: '8px 12px', fontSize: '0.9rem', fontWeight: '700', color: '#8b5a2b' }}>#{i+1} {sh.type}</td>
-                                <td style={{ padding: '8px 12px', fontSize: '0.9rem', textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>
+                              <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '0.4rem 0.6rem', fontSize: '0.9rem', fontWeight: '700', color: '#475569', background: '#f8fafc', borderRight: '1px solid #e2e8f0' }}>#{i+1} {sh.type}</td>
+                                <td style={{ padding: '0.4rem 0.6rem', fontSize: '0.9rem', textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>
                                   Precio: {fmtCur(sheetPrice)}
                                 </td>
                               </tr>
                             );
                           })}
-                          <tr style={{ background: '#f5deb3', borderTop: '2px solid #8b5a2b' }}>
-                            <td style={{ padding: '10px 12px', fontWeight: '800', fontSize: '1rem', color: '#4a2c0a' }}>
+                          <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1' }}>
+                            <td style={{ padding: '0.5rem 0.6rem', fontWeight: '800', fontSize: '1rem', color: '#334155', textTransform: 'uppercase' }}>
                               TOTAL DEL PROYECTO
                             </td>
-                            <td style={{ padding: '10px 12px', fontWeight: '800', fontSize: '1rem', textAlign: 'right', color: '#4a2c0a' }}>
+                            <td style={{ padding: '0.5rem 0.6rem', fontWeight: '800', fontSize: '1rem', textAlign: 'right', color: '#1e293b' }}>
                               {fmtCur(grandTotal)}
                             </td>
                           </tr>
