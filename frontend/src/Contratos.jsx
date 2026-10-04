@@ -341,6 +341,13 @@ export default function Contratos({ startView = 'list' }) {
 
   // ── List filters ──
   const txt = filterText.toLowerCase().trim();
+
+  const getStatus = (c) => {
+    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO'];
+    if (c.status && validStates.includes(c.status)) return c.status;
+    return 'APROBADO';
+  };
+
   const filtered = contratos.filter(c => {
     if (txt && !((c.name||'').toLowerCase().includes(txt) || (c.public_id||'').toLowerCase().includes(txt) || (c.contact_info||'').toLowerCase().includes(txt) || (c.project_type||'').toLowerCase().includes(txt))) return false;
     if (filterType && c.project_type !== filterType) return false;
@@ -348,14 +355,7 @@ export default function Contratos({ startView = 'list' }) {
     return true;
   });
   const typeOptions = [...new Set(contratos.map(c => c.project_type).filter(Boolean))];
-
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z')).toLocaleDateString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric' }) : '-';
-
-    const getStatus = (c) => {
-    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO'];
-    if (c.status && validStates.includes(c.status)) return c.status;
-    return 'APROBADO';
-  };
 
   const statusBadge = (s) => {
     const isAprobado   = s === 'APROBADO';
