@@ -463,7 +463,7 @@ export default function Contratos({ startView = 'list' }) {
                     await fetch(`${API}/api/prospects/${renderModalFor.id}`, {
                       method: 'PUT', headers:{'Content-Type':'application/json'},
                       body: JSON.stringify({
-                        status: 'RENDER SI/NO',
+                        status: 'ESTIMACIÓN',
                         render_applies: renderApplies,
                         render_price: renderApplies ? Number(renderPrice) : null,
                         render_total_price: totalPrice,
@@ -629,26 +629,6 @@ export default function Contratos({ startView = 'list' }) {
                           {c.render_applies !== null && c.render_applies !== undefined ? '✅ Render SI/NO' : '🎨 Render SI/NO'}
                         </button>
                       )}
-                      { getStatus(c) === 'RENDER SI/NO' && (
-                        <button onClick={async () => {
-                          await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'ESTIMACIÓN' }) });
-                          fetchContratos();
-                        }} style={{ padding:'0.3rem 0.7rem', background:'#4f46e5', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>
-                          Avanzar a Estimación
-                        </button>
-                      )}
-                      { getStatus(c) === 'ESTIMACIÓN' && (
-                        <button onClick={async () => {
-                          if (!c.estimation_data) {
-                            alert('⛔ Debes realizar y guardar la Estimación primero para poder avanzar a Contrato.');
-                            return;
-                          }
-                          await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'CONTRATO' }) });
-                          fetchContratos();
-                        }} style={{ padding:'0.3rem 0.7rem', background: !c.estimation_data ? '#94a3b8' : '#ec4899', color:'white', border:'none', borderRadius:'6px', cursor: !c.estimation_data ? 'not-allowed' : 'pointer', fontWeight:'600', fontSize:'0.8rem' }}>
-                          Avanzar a Contrato
-                        </button>
-                      )}
                       {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
                       <button
                         disabled={getStatus(c) === 'APROBADO'}
@@ -669,6 +649,30 @@ export default function Contratos({ startView = 'list' }) {
                         }}>
                         {c.estimation_data ? '✅ Estimación' : '📐 Estimación'}
                       </button>
+                      
+                      {/* Cotización button - disabled until estimation_data is filled */}
+                      { getStatus(c) === 'ESTIMACIÓN' && (
+                        <button
+                          disabled={!c.estimation_data}
+                          onClick={async () => {
+                            if (!c.estimation_data) return;
+                            await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'CONTRATO' }) });
+                            fetchContratos();
+                          }} 
+                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para cotizar.' : 'Avanzar a Cotización'}
+                          style={{ 
+                            padding:'0.3rem 0.7rem', 
+                            background: !c.estimation_data ? '#cbd5e1' : '#8b5cf6', 
+                            color: !c.estimation_data ? '#94a3b8' : 'white', 
+                            border:'none', borderRadius:'6px', 
+                            cursor: !c.estimation_data ? 'not-allowed' : 'pointer', 
+                            fontWeight:'600', fontSize:'0.8rem',
+                            opacity: !c.estimation_data ? 0.7 : 1,
+                            transition: 'all 0.2s ease'
+                          }}>
+                          {c.estimation_data ? '✅ Cotización' : '📄 Cotización'}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
