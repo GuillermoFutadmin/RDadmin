@@ -422,7 +422,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                   const [l1, v1] = col1[i] || [];
                   const [l2, v2] = col2[i] || [];
                   return (
-                    <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : 'white' }}>
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : 'white', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                       <td style={{ padding: '0.38rem 0.6rem', fontWeight: '700', color: '#475569', width: '16%', borderRight: '2px solid #f0f0f0', whiteSpace: 'nowrap' }}>{l1}</td>
                       <td style={{ padding: '0.38rem 0.6rem', color: '#1e293b', width: '34%', borderRight: '2px solid #e2e8f0' }}>{v1}</td>
                       <td style={{ padding: '0.38rem 0.6rem', fontWeight: '700', color: '#475569', width: '16%', borderRight: '2px solid #f0f0f0', whiteSpace: 'nowrap' }}>{l2}</td>
@@ -482,7 +482,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                         
                         if (isHeader) {
                           return (
-                            <tr key={i}>
+                            <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                               <td colSpan={hasImages ? 3 : 2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
                                 {line}
                               </td>
@@ -495,7 +495,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                           const valUpper = valStr.toUpperCase();
                           const matchedImg = layoutImages.find(img => img.name === valUpper);
                           return (
-                            <tr key={i}>
+                            <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                               <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '25%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
                               <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '40%' }}>{valStr}</td>
                               {hasImages && (
@@ -511,7 +511,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                           );
                         }
                         return (
-                          <tr key={i}>
+                          <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                             <td colSpan={hasImages ? 3 : 2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
                           </tr>
                         );
@@ -818,7 +818,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 }
 
                 return (
-                  <div style={{ marginTop: '1.2rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ marginTop: '1.2rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                         Tiempo de Entrega:
