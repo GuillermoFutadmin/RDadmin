@@ -78,6 +78,7 @@ class Prospect(Base):
     has_quote = Column(Boolean, default=False)
     is_contract = Column(Boolean, default=False)   # passed to Contratos
     is_papelera = Column(Boolean, default=False)   # rejected, goes to Papelera
+    papelera_reason = Column(String, nullable=True)  # motivo de rechazo
     contract_date = Column(DateTime, nullable=True)
     estimation_data = Column(String, nullable=True)  # JSON from Estimación
     render_applies = Column(Boolean, nullable=True)   # True=SI, False=NO

@@ -28,6 +28,7 @@ try:
 
     safe_alter("ALTER TABLE prospects ADD COLUMN is_contract BOOLEAN DEFAULT FALSE;")
     safe_alter("ALTER TABLE prospects ADD COLUMN is_papelera BOOLEAN DEFAULT FALSE;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN papelera_reason VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;")
     safe_alter("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;")
@@ -169,6 +170,7 @@ class ProspectCreate(BaseModel):
     status: Optional[str] = None
     is_contract: bool = False
     is_papelera: bool = False
+    papelera_reason: Optional[str] = None
     contract_date: Optional[datetime] = None
     estimation_data: Optional[str] = None
     quote_saludo: Optional[str] = None

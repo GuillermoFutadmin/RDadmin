@@ -8,22 +8,47 @@ function formatCurrency(val) {
 
 // ─── Confirm Modal ────────────────────────────────────────────────────────────
 function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
+  const [showReason, setShowReason] = React.useState(false);
+  const [reason, setReason] = React.useState('');
+
+  const handleRejectClick = () => {
+    if (!showReason) { setShowReason(true); return; }
+    if (!reason.trim()) { alert('Por favor escribe el motivo de rechazo.'); return; }
+    onReject(reason.trim());
+  };
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
-      <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'400px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.25)' }}>
+      <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'440px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.25)' }}>
         <h3 style={{ margin:'0 0 0.4rem', color:'#1e293b', fontSize:'1.1rem' }}>¿Se aprobó el proyecto?</h3>
         <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.5rem' }}><strong>{prospect.name}</strong> · {prospect.project_type}</p>
+
+        {showReason ? (
+          <div style={{ marginBottom:'1rem' }}>
+            <p style={{ fontSize:'0.88rem', fontWeight:'700', color:'#dc2626', margin:'0 0 0.5rem' }}>❌ ¿Por qué no se aprobó el proyecto?</p>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="Ej. Presupuesto fuera de rango, cliente decidió no continuar..."
+              style={{ width:'100%', padding:'8px', border:'1px solid #fca5a5', borderRadius:'8px', fontSize:'0.88rem', resize:'vertical', boxSizing:'border-box', outline:'none' }}
+            />
+          </div>
+        ) : null}
+
         <div style={{ display:'flex', gap:'0.8rem' }}>
-          <button onClick={onApprove}
-            style={{ flex:1, padding:'0.8rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
-            ✅ SÍ — Pasar a Contratos
-          </button>
-          <button onClick={onReject}
-            style={{ flex:1, padding:'0.8rem', background:'#64748b', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
-            ❌ NO — Mandar a Papelera
+          {!showReason && (
+            <button onClick={onApprove}
+              style={{ flex:1, padding:'0.8rem', background:'#10b981', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+              ✅ SÍ — Pasar a Contratos
+            </button>
+          )}
+          <button onClick={handleRejectClick}
+            style={{ flex:1, padding:'0.8rem', background: showReason ? '#dc2626' : '#64748b', color:'white', border:'none', borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.95rem' }}>
+            ❌ {showReason ? 'Confirmar Rechazo' : 'NO — Mandar a Papelera'}
           </button>
         </div>
-        <button onClick={onClose}
+        <button onClick={() => { setShowReason(false); setReason(''); onClose(); }}
           style={{ width:'100%', marginTop:'0.6rem', padding:'0.55rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontSize:'0.85rem' }}>
           Cancelar
         </button>
@@ -78,6 +103,12 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
         {chip('Estado', prospect.status)}
         {chip('Prioridades', prospect.project_priorities)}
       </div>
+      {prospect.papelera_reason && (
+        <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'1px solid #fca5a5', borderRadius:'8px' }}>
+          <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
+          <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
+        </div>
+      )}
       {prospect.expectations && (
         <div style={{ marginTop:'0.4rem', padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
           <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase' }}>Expectativas</p>
@@ -293,10 +324,10 @@ export default function Contratos({ startView = 'list' }) {
     fetchContratos();
   };
 
-  const handleReject = async (p) => {
+  const handleReject = async (p, reason) => {
     await fetch(`${API}/api/prospects/${p.id}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ is_papelera:true })
+      body: JSON.stringify({ is_papelera:true, papelera_reason: reason || null })
     });
     setConfirmFor(null);
     fetchContratos();
@@ -471,7 +502,7 @@ export default function Contratos({ startView = 'list' }) {
         <ConfirmModal
           prospect={confirmFor}
           onApprove={() => handleApprove(confirmFor)}
-          onReject={() => handleReject(confirmFor)}
+          onReject={(reason) => handleReject(confirmFor, reason)}
           onClose={() => setConfirmFor(null)}
         />
       )}
