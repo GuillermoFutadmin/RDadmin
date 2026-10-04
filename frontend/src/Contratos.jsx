@@ -268,9 +268,9 @@ export default function Contratos({ startView = 'list' }) {
           >
             <option value="" disabled>-- Selecciona --</option>
             {contratos
-              .filter(c => ['ESTIMACIÓN','CONTRATO'].includes(c.status))
+              .filter(c => ['RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO'].includes(c.status))
               .map(c => (
-                <option key={c.id} value={c.id}>{c.name} – {c.project_type}{c.status ? ` [${c.status}]` : ' [APROBADO]'}</option>
+                <option key={c.id} value={c.id}>{c.name} – {c.project_type}{c.status ? ` [${c.status}]` : ''}</option>
               ))
             }
           </select>
@@ -615,13 +615,18 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
                   <td style={{ padding:'0.7rem 0.8rem' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
-                      { getStatus(c) === 'APROBADO' && (
+                      {/* Render button - shows on APROBADO, changes color when filled */}
+                      { (getStatus(c) === 'APROBADO' || getStatus(c) === 'RENDER SI/NO') && (
                         <button onClick={() => {
                           setRenderModalFor(c);
                           setRenderApplies(c.render_applies ?? null);
                           setRenderPrice(c.render_price ? String(c.render_price) : '');
-                        }} style={{ padding:'0.3rem 0.7rem', background:'#f59e0b', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>
-                          🎨 Render SI/NO
+                        }} style={{
+                          padding:'0.3rem 0.7rem',
+                          background: c.render_applies !== null && c.render_applies !== undefined ? '#10b981' : '#f59e0b',
+                          color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem'
+                        }}>
+                          {c.render_applies !== null && c.render_applies !== undefined ? '✅ Render SI/NO' : '🎨 Render SI/NO'}
                         </button>
                       )}
                       { getStatus(c) === 'RENDER SI/NO' && (
@@ -644,16 +649,17 @@ export default function Contratos({ startView = 'list' }) {
                           Avanzar a Contrato
                         </button>
                       )}
+                      {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
                       <button
                         disabled={getStatus(c) === 'APROBADO'}
                         onClick={() => {
                           if (getStatus(c) === 'APROBADO') return;
                           setSelected(c); setView('estimacion');
                         }}
-                        title={getStatus(c) === 'APROBADO' ? 'Completa el paso de Render primero' : 'Abrir Estimación'}
+                        title={getStatus(c) === 'APROBADO' ? 'Completa el paso de Render primero' : (c.estimation_data ? 'Ver/editar Estimación guardada' : 'Abrir Estimación')}
                         style={{
                           padding:'0.3rem 0.7rem',
-                          background: getStatus(c) === 'APROBADO' ? '#cbd5e1' : '#3b82f6',
+                          background: getStatus(c) === 'APROBADO' ? '#cbd5e1' : (c.estimation_data ? '#10b981' : '#3b82f6'),
                           color: getStatus(c) === 'APROBADO' ? '#94a3b8' : 'white',
                           border:'none', borderRadius:'6px',
                           cursor: getStatus(c) === 'APROBADO' ? 'not-allowed' : 'pointer',
@@ -661,7 +667,7 @@ export default function Contratos({ startView = 'list' }) {
                           opacity: getStatus(c) === 'APROBADO' ? 0.7 : 1,
                           transition: 'all 0.2s ease'
                         }}>
-                        📐 Estimación
+                        {c.estimation_data ? '✅ Estimación' : '📐 Estimación'}
                       </button>
                     </div>
                   </td>
