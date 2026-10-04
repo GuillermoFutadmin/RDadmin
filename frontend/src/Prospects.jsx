@@ -3340,7 +3340,31 @@ function Prospects() {
             try {
               await fetch(`${API}/api/prospects/${selectedProspect.id}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_papelera: false, papelera_reason: null })
+                body: JSON.stringify({ 
+                  is_papelera: false, 
+                  papelera_reason: null, 
+                  status: 'Prospecto',
+                  is_contract: false,
+                  estimation_data: null,
+                  render_applies: null,
+                  render_price: null,
+                  render_total_price: null,
+                  render_image_path: null,
+                  render_pdf_path: null,
+                  render_delivery_time: null,
+                  render_comments: null,
+                  quote_saludo: null,
+                  quote_title: null,
+                  quote_description: null,
+                  quote_total_price: null,
+                  quote_delivery_time: null,
+                  quote_validez: null,
+                  quote_anticipo: null,
+                  quote_image_1: null,
+                  quote_image_2: null,
+                  quote_image_3: null,
+                  quote_image_4: null
+                })
               });
               fetchProspects();
               setView('list');
