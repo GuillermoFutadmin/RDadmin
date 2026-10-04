@@ -123,7 +123,7 @@ function App() {
         >
           <img
             src="/logo-rd.png" alt="RD Carpintería"
-            style={{ width: '88px', height: '88px', objectFit: 'contain',
+            style={{ width: '176px', height: '176px', objectFit: 'contain',
               filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.55))', transition: 'transform 0.2s ease' }}
             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -202,77 +202,76 @@ function App() {
           </div>
         )}
 
-        {/* ── Brand Header ── */}
-        <div style={{
-          padding: '0 0.25rem 1rem 0.25rem',
-          marginBottom: '0.75rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Monogram Badge */}
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              fontWeight: '900',
-              fontSize: '1.15rem',
-              letterSpacing: '0.5px',
-              boxShadow: '0 4px 12px rgba(186, 75, 36, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              flexShrink: 0
+        {/* ── Brand Header (Dashboard Link) ── */}
+        {hasAccess('Dashboard') && (
+          <div 
+            onClick={() => { setActiveTab('Dashboard'); setProspectsOpen(false); setContratosOpen(false); setColaboradoresOpen(false); }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              marginBottom: '0.75rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              cursor: 'pointer',
+              background: activeTab === 'Dashboard' ? 'rgba(255,255,255,0.05)' : 'transparent',
+              borderRadius: '8px',
+              transition: 'background 0.2s',
             }}>
-              RD
-            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {/* Monogram Badge */}
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontWeight: '900',
+                fontSize: '1.15rem',
+                letterSpacing: '0.5px',
+                boxShadow: '0 4px 12px rgba(186, 75, 36, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                flexShrink: 0
+              }}>
+                RD
+              </div>
 
-            {/* Brand Title & Subtitle */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+              {/* Brand Title & Subtitle */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                  <span style={{
+                    fontSize: '1.45rem',
+                    fontWeight: '800',
+                    color: '#ffffff',
+                    letterSpacing: '0.5px'
+                  }}>
+                    RD
+                  </span>
+                  <span style={{
+                    fontSize: '1.45rem',
+                    fontWeight: '300',
+                    color: '#ba4b24',
+                    letterSpacing: '0.5px'
+                  }}>
+                    admins
+                  </span>
+                </div>
                 <span style={{
-                  fontSize: '1.45rem',
-                  fontWeight: '800',
-                  color: '#ffffff',
-                  letterSpacing: '0.5px'
+                  fontSize: '0.62rem',
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: '600'
                 }}>
-                  RD
-                </span>
-                <span style={{
-                  fontSize: '1.45rem',
-                  fontWeight: '300',
-                  color: '#ba4b24',
-                  letterSpacing: '0.5px'
-                }}>
-                  admin
+                  Agenda
                 </span>
               </div>
-              <span style={{
-                fontSize: '0.62rem',
-                color: 'rgba(255, 255, 255, 0.45)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                fontWeight: '600'
-              }}>
-                Carpintería & Taller
-              </span>
             </div>
           </div>
-        </div>
+        )}
 
         <nav style={{ paddingBottom: '2rem' }}>
           <ul>
-            {/* Dashboard */}
-            {hasAccess('Dashboard') && (
-              <li
-                className={activeTab === 'Dashboard' ? 'active' : ''}
-                onClick={() => { setActiveTab('Dashboard'); setProspectsOpen(false); }}
-              >
-                <span style={{ marginRight: '0.5rem' }}>📊</span> Dashboard
-              </li>
-            )}
 
             {/* Prospectos (con submenú) */}
             {hasAccess('Prospectos') && (

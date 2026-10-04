@@ -20,7 +20,7 @@ export default function Accesos() {
   const [formData, setFormData] = useState(defaultForm);
 
   const availablePermissions = [
-    { id: 'Dashboard', label: '📊 Dashboard' },
+    { id: 'Dashboard', label: '📊 RD admins, agenda' },
     { id: 'Prospectos', label: '👥 Prospectos' },
     { id: 'Ventas', label: '📈 Valoración / Cotizaciones' },
     { id: 'Contratos', label: '📄 Contratos' },
