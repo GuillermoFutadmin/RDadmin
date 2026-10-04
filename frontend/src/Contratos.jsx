@@ -613,10 +613,23 @@ export default function Contratos({ startView = 'list' }) {
                           Avanzar a Contrato
                         </button>
                       )}
-                      <button onClick={() => {
-                        setSelected(c); setView('estimacion');
-                      }}
-                        style={{ padding:'0.3rem 0.7rem', background: '#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>
+                      <button
+                        disabled={getStatus(c) === 'APROBADO'}
+                        onClick={() => {
+                          if (getStatus(c) === 'APROBADO') return;
+                          setSelected(c); setView('estimacion');
+                        }}
+                        title={getStatus(c) === 'APROBADO' ? 'Completa el paso de Render primero' : 'Abrir Estimación'}
+                        style={{
+                          padding:'0.3rem 0.7rem',
+                          background: getStatus(c) === 'APROBADO' ? '#cbd5e1' : '#3b82f6',
+                          color: getStatus(c) === 'APROBADO' ? '#94a3b8' : 'white',
+                          border:'none', borderRadius:'6px',
+                          cursor: getStatus(c) === 'APROBADO' ? 'not-allowed' : 'pointer',
+                          fontWeight:'600', fontSize:'0.85rem',
+                          opacity: getStatus(c) === 'APROBADO' ? 0.7 : 1,
+                          transition: 'all 0.2s ease'
+                        }}>
                         📐 Estimación
                       </button>
                     </div>
