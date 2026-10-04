@@ -3340,7 +3340,7 @@ function Prospects() {
             try {
               await fetch(`${API}/api/prospects/${selectedProspect.id}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_papelera: false })
+                body: JSON.stringify({ is_papelera: false, papelera_reason: null })
               });
               fetchProspects();
               setView('list');
