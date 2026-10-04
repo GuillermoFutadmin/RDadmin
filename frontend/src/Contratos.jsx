@@ -237,7 +237,7 @@ export default function Contratos({ startView = 'list' }) {
           >
             <option value="" disabled>-- Selecciona --</option>
             {contratos
-              .filter(c => { const s = c.status; return !s || ['APROBADO','RENDER SI/NO','ESTIMACIÓN','CONTRATO'].includes(s); })
+              .filter(c => ['ESTIMACIÓN','CONTRATO'].includes(c.status))
               .map(c => (
                 <option key={c.id} value={c.id}>{c.name} – {c.project_type}{c.status ? ` [${c.status}]` : ' [APROBADO]'}</option>
               ))
