@@ -261,7 +261,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      pagebreak:    { mode: ['css', 'legacy'] }
     };
     
     // Generar y descargar, al finalizar restaurar estilos
@@ -374,9 +374,13 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           {saludo && saludo !== '' && <><br/><br/><span style={{ whiteSpace: 'pre-wrap' }}>{saludo}</span></>}
         </div>
 
-        {/* Datos del Proyecto */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={secTitle}><span className="no-print">📋 </span>Datos del Proyecto</h3>
+
+        {/* Datos del Proyecto + Descripción - lado a lado en PDF */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.5rem', alignItems: 'start', marginBottom: '2rem' }}>
+
+          {/* Columna izquierda: Datos del Proyecto */}
+          <div>
+            <h3 style={secTitle}><span className="no-print">📋 </span>Datos del Proyecto</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
             <tbody>
               {(() => {
@@ -399,11 +403,11 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               })()}
             </tbody>
           </table>
-        </div>
+          </div>
 
-                {/* Detalles y Concepto Principal */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
+          {/* Columna derecha: Descripción de la Cotización */}
+          <div>
+            <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
           
           <div style={{ marginBottom: '1rem' }}>
             <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Título del Proyecto:</label>
@@ -468,7 +472,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                                 <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem', width: '35%', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
                                   {matchedImg && (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                      <img src={matchedImg.src} alt={matchedImg.name} style={{ maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' }} />
+                                      <img src={matchedImg.src} alt={matchedImg.name} style={{ maxWidth: '100%', maxHeight: '65px', objectFit: 'contain' }} />
                                     </div>
                                   )}
                                 </td>
@@ -488,9 +492,11 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               </div>
             </div>
 
-
           </div>
-        </div>
+
+          </div> {/* fin columna derecha: Descripción */}
+
+        </div> {/* fin grid Datos + Descripción */}
 
         
         {/* ── Especificaciones de Acabados ── */}
