@@ -116,48 +116,108 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
         </div>
       )}
       {prospect.has_design && (
-        <div style={{ marginTop:'0.4rem', padding:'0.6rem 0.75rem', backgroundColor:'#f8f9fa', borderRadius:'8px' }}>
-          <p style={{ fontSize:'0.68rem', color:'#94a3b8', margin:'0 0 0.4rem', textTransform:'uppercase', fontWeight:'700' }}>Diseño y Fotos del Proyecto</p>
-          {prospect.design_details && <p style={{ marginBottom:'0.6rem', fontSize:'0.82rem', color:'#334155' }}>{prospect.design_details}</p>}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'0.75rem' }}>
-            {prospect.space_image_path && (
-              <div style={{ border:'1px solid #e2e8f0', borderRadius:'8px', overflow:'hidden', backgroundColor:'white' }}>
-                <div style={{ padding:'4px 8px', fontSize:'0.72rem', fontWeight:'700', color:'#0369a1', backgroundColor:'#f0f9ff' }}>🏠 Foto del Espacio</div>
-                <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'4px' }}>
-                  {prospect.space_image_path.split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
-                      alt={`Espacio ${idx + 1}`} style={{ flex:'1 1 45%', width: '100%', height: 'auto', borderRadius:'4px' }} />
-                  ))}
+        <div style={{ marginTop:'0.6rem' }}>
+
+          {/* ── RENDER INFO CARD (datos capturados en etapa de Contrato) ─── */}
+          {(prospect.render_applies !== null && prospect.render_applies !== undefined) && (
+            <div style={{ marginBottom:'0.75rem', padding:'0.75rem 1rem', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', border:'2px solid #86efac', borderRadius:'12px' }}>
+              <p style={{ fontSize:'0.68rem', fontWeight:'900', color:'#166534', margin:'0 0 0.5rem', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+                🎨 Información del Render — <span style={{ color:'#15803d' }}>Etapa Cliente / Contrato</span>
+              </p>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.4rem' }}>
+                <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
+                  <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>¿Aplica Render?</span>
+                  <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color: prospect.render_applies ? '#15803d' : '#dc2626' }}>
+                    {prospect.render_applies ? '✅ SÍ' : '❌ NO'}
+                  </p>
                 </div>
+                {prospect.render_applies && prospect.render_price && (
+                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
+                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Precio Render</span>
+                    <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color:'#1e293b' }}>${Number(prospect.render_price).toLocaleString()}</p>
+                  </div>
+                )}
+                {prospect.render_applies && prospect.render_delivery_time && (
+                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
+                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Tiempo Entrega</span>
+                    <p style={{ margin:0, fontWeight:'700', fontSize:'0.88rem', color:'#1e293b' }}>{prospect.render_delivery_time}</p>
+                  </div>
+                )}
+                {prospect.render_applies && prospect.render_total_price && (
+                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
+                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Total c/Render</span>
+                    <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color:'#1e293b' }}>${Number(prospect.render_total_price).toLocaleString()}</p>
+                  </div>
+                )}
               </div>
-            )}
-            {(prospect.reference_image_path || prospect.design_image_path) && (
-              <div style={{ border:'1px solid #e2e8f0', borderRadius:'8px', overflow:'hidden', backgroundColor:'white' }}>
-                <div style={{ padding:'4px 8px', fontSize:'0.72rem', fontWeight:'700', color:'#7c2d12', backgroundColor:'#fff7ed' }}>💡 Foto de Referencia</div>
-                <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'4px' }}>
-                  {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
-                      alt={`Referencia ${idx + 1}`} style={{ flex:'1 1 45%', width: '100%', height: 'auto', borderRadius:'4px' }} />
-                  ))}
+              {prospect.render_comments && (
+                <p style={{ margin:'0.5rem 0 0', fontSize:'0.82rem', color:'#166534', fontStyle:'italic' }}>💬 {prospect.render_comments}</p>
+              )}
+            </div>
+          )}
+
+          {/* ── FOTOS ─── */}
+          <div style={{ padding:'0.6rem 0.75rem', backgroundColor:'#f8f9fa', borderRadius:'12px', border:'1px solid #e2e8f0' }}>
+            {/* Encabezado que diferencia el origen de datos */}
+            <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.6rem', flexWrap:'wrap' }}>
+              <span style={{ fontSize:'0.68rem', color:'#94a3b8', textTransform:'uppercase', fontWeight:'700' }}>Diseño y Fotos del Proyecto</span>
+              <span style={{ fontSize:'0.6rem', padding:'2px 8px', borderRadius:'20px', background:'#dbeafe', color:'#1d4ed8', fontWeight:'700' }}>📋 Captura Prospecto</span>
+              {prospect.render_image_path && <span style={{ fontSize:'0.6rem', padding:'2px 8px', borderRadius:'20px', background:'#dcfce7', color:'#166534', fontWeight:'700' }}>🎨 Render — Etapa Contrato</span>}
+            </div>
+
+            {prospect.design_details && <p style={{ marginBottom:'0.6rem', fontSize:'0.82rem', color:'#334155' }}>{prospect.design_details}</p>}
+
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem' }}>
+              
+              {/* Foto del Espacio */}
+              {prospect.space_image_path && (
+                <div style={{ border:'2px solid #bfdbfe', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.85rem', fontWeight:'800', color:'#1d4ed8', backgroundColor:'#dbeafe', textAlign:'center', letterSpacing:'0.02em' }}>
+                    🏠 Foto del Espacio
+                  </div>
+                  <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
+                    {prospect.space_image_path.split(',').map((imgPath, idx) => (
+                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
+                        alt={`Espacio ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {prospect.render_image_path && (
-              <div style={{ border:'1px solid #e2e8f0', borderRadius:'8px', overflow:'hidden', backgroundColor:'white' }}>
-                <div style={{ padding:'4px 8px', fontSize:'0.72rem', fontWeight:'700', color:'#047857', backgroundColor:'#ecfdf5' }}>🎨 Imágenes de Render</div>
-                <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'4px' }}>
-                  {prospect.render_image_path.split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
-                      alt={`Render ${idx + 1}`} style={{ flex:'1 1 45%', width: '100%', height: 'auto', borderRadius:'4px' }} />
-                  ))}
+              )}
+
+              {/* Foto de Referencia */}
+              {(prospect.reference_image_path || prospect.design_image_path) && (
+                <div style={{ border:'2px solid #fed7aa', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.85rem', fontWeight:'800', color:'#c2410c', backgroundColor:'#fff7ed', textAlign:'center', letterSpacing:'0.02em' }}>
+                    💡 Foto de Referencia
+                  </div>
+                  <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
+                    {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
+                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
+                        alt={`Referencia ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Imágenes de Render */}
+              {prospect.render_image_path && (
+                <div style={{ border:'2px solid #86efac', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.85rem', fontWeight:'800', color:'#166534', backgroundColor:'#dcfce7', textAlign:'center', letterSpacing:'0.02em' }}>
+                    🎨 Imágenes de Render
+                  </div>
+                  <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
+                    {prospect.render_image_path.split(',').map((imgPath, idx) => (
+                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
+                        alt={`Render ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-      
+
       {prospect.render_pdf_path && (
         <div style={{ marginTop:'0.8rem', padding:'0.6rem 0.75rem', backgroundColor:'#f0fdf4', border: '1px solid #bbf7d0', borderRadius:'8px' }}>
           <p style={{ fontSize:'0.68rem', color:'#166534', margin:'0 0 0.4rem', textTransform:'uppercase', fontWeight:'700' }}>📄 Cotización de Render (PDF)</p>
