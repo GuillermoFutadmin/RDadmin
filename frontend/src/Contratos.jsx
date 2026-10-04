@@ -566,7 +566,7 @@ export default function Contratos({ startView = 'list' }) {
                     await fetch(`${API}/api/prospects/${renderModalFor.id}`, {
                       method: 'PUT', headers:{'Content-Type':'application/json'},
                       body: JSON.stringify({
-                        status: 'ESTIMACIÓN',
+                        status: 'RENDER SI/NO',
                         render_applies: renderApplies,
                         render_price: renderApplies ? Number(renderPrice) : null,
                         render_total_price: totalPrice,
@@ -1143,7 +1143,7 @@ function Estimacion({ prospect, onBack }) {
     try {
       await fetch(`${API}/api/prospects/${prospect.id}`, {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ estimation_data: JSON.stringify(data) })
+        body: JSON.stringify({ estimation_data: JSON.stringify(data), status: 'ESTIMACIÓN' })
       });
       setSaveMsg('✅ Guardado correctamente');
       setTimeout(() => setSaveMsg(''), 3000);
