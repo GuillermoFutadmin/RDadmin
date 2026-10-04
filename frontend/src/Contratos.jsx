@@ -218,6 +218,49 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
         </div>
       )}
 
+      {/* ── CROQUIS DIBUJADOS ── */}
+      {(() => {
+        if (!prospect.estimation_data) return null;
+        try {
+          const d = typeof prospect.estimation_data === 'string' ? JSON.parse(prospect.estimation_data) : prospect.estimation_data;
+          const hasPhotos = d.croquisPhotos && d.croquisPhotos.length > 0;
+          const hasData = !!d.croquis_data;
+          if (!hasPhotos && !hasData) return null;
+          return (
+            <div style={{ padding:'0.6rem 0.75rem', backgroundColor:'#f8f9fa', borderRadius:'12px', border:'1px solid #e2e8f0', marginTop: '0.8rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.6rem' }}>
+                <span style={{ fontSize:'0.68rem', color:'#94a3b8', textTransform:'uppercase', fontWeight:'700' }}>✏️ Croquis de Estimación</span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem' }}>
+                {hasPhotos && (
+                  <div style={{ border:'2px solid #cbd5e1', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                    <div style={{ padding:'8px', fontSize:'0.85rem', fontWeight:'800', color:'#475569', backgroundColor:'#f1f5f9', textAlign:'center' }}>
+                      📸 Dibujos Capturados
+                    </div>
+                    <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
+                      {d.croquisPhotos.map((img, idx) => (
+                        <img key={idx} src={img} alt={`Croquis ${idx+1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover', border:'1px solid #e2e8f0' }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {hasData && (
+                  <div style={{ border:'2px solid #cbd5e1', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                    <div style={{ padding:'8px', fontSize:'0.85rem', fontWeight:'800', color:'#475569', backgroundColor:'#f1f5f9', textAlign:'center' }}>
+                      ✏️ Lienzo Actual
+                    </div>
+                    <div style={{ padding:'6px' }}>
+                      <img src={d.croquis_data} alt="Lienzo" style={{ width:'100%', height:'auto', borderRadius:'6px', objectFit:'contain', border:'1px solid #e2e8f0', background:'#fff' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        } catch { return null; }
+      })()}
+
+
       {prospect.render_pdf_path && (
         <div style={{ marginTop:'0.8rem', padding:'0.6rem 0.75rem', backgroundColor:'#f0fdf4', border: '1px solid #bbf7d0', borderRadius:'8px' }}>
           <p style={{ fontSize:'0.68rem', color:'#166534', margin:'0 0 0.4rem', textTransform:'uppercase', fontWeight:'700' }}>📄 Cotización de Render (PDF)</p>
@@ -1089,6 +1132,8 @@ function Estimacion({ prospect, onBack }) {
     );
   };
 
+  const [saveMsg, setSaveMsg] = useState('');
+
   const handleSave = async () => {
     setSaving(true);
     const data = { 
@@ -1100,8 +1145,9 @@ function Estimacion({ prospect, onBack }) {
         method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ estimation_data: JSON.stringify(data) })
       });
-      alert('✅ Estimación guardada');
-    } catch { alert('Error guardando'); }
+      setSaveMsg('✅ Guardado correctamente');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch { setSaveMsg('❌ Error guardando'); setTimeout(() => setSaveMsg(''), 3000); }
     setSaving(false);
   };
 
@@ -1298,6 +1344,11 @@ function Estimacion({ prospect, onBack }) {
         </div>
       </div>
 
+      {saveMsg && (
+        <div style={{ padding: '0.8rem', background: saveMsg.includes('✅') ? '#dcfce7' : '#fee2e2', color: saveMsg.includes('✅') ? '#166534' : '#991b1b', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          {saveMsg}
+        </div>
+      )}
       <button onClick={handleSave} disabled={saving}
        style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
        {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
