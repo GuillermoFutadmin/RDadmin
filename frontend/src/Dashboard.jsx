@@ -10,9 +10,11 @@ const CLIENT_STAGES = [
 ];
 
 const PROSPECT_STAGES = [
-  { key: 'Prospecto',  label: 'Nuevo',     icon: '🆕', color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
-  { key: 'APROBADO',   label: 'Aprobado',  icon: '✅', color: '#166534', bg: '#dcfce7', border: '#86efac' },
-  { key: 'papelera',   label: 'Papelera',  icon: '🗑️', color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
+  { key: 'Prospecto',   label: 'Nuevo',        icon: '🆕', color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
+  { key: 'APROBADO',    label: 'Aprobado',      icon: '✅', color: '#166534', bg: '#dcfce7', border: '#86efac' },
+  { key: 'Valoración',  label: 'Valoración',    icon: '📊', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
+  { key: 'Cotización',  label: 'Cotización',    icon: '💰', color: '#14532d', bg: '#f0fdf4', border: '#86efac' },
+  { key: 'papelera',    label: 'Papelera',      icon: '🗑️', color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 ];
 
 function getClientStatus(c) {
@@ -56,7 +58,9 @@ function Dashboard() {
     count: prospects
       ? st.key === 'papelera'
         ? prospects.filter(p => p.is_papelera).length
-        : prospects.filter(p => !p.is_papelera && (p.status === st.key || (!p.status && st.key === 'Prospecto'))).length
+        : st.key === 'Valoración'
+          ? prospects.filter(p => !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length
+          : prospects.filter(p => !p.is_papelera && (p.status === st.key || (!p.status && st.key === 'Prospecto'))).length
       : null,
   }));
   const totalProspects = prospects ? prospects.length : null;
