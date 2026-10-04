@@ -419,7 +419,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 0 ? (layoutImages.length > 1 ? '1fr 280px' : '1fr 150px') : '1fr', gap: '2rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', alignItems: 'start' }}>
             <div>
               <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
@@ -442,51 +442,43 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                   <tbody>
                     {(() => {
                       const lines = quoteDesc.split('\n').filter(line => line.trim() !== '');
-                      const rowCount = lines.length;
+                      const hasImages = layoutImages.length > 0;
                       return lines.map((line, i) => {
                         const isHeader = line.endsWith(':') && !line.startsWith(' ');
                         
-                        // Right column for Layout Images
-                        let imageCell = null;
-                        if (i === 0 && layoutImages.length > 0) {
-                          imageCell = (
-                            <td rowSpan={rowCount} style={{ border: '1px solid #cbd5e1', padding: '0.6rem', width: '35%', background: '#fafafa', verticalAlign: 'top' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
-                                {layoutImages.map((img, idx2) => (
-                                  <div key={`lay-${idx2}`} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px', background: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                                    <img src={img.src} alt={img.name} style={{ maxWidth: '100%', maxHeight: '140px', objectFit: 'contain' }} />
-                                    <span style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '4px', fontWeight: 'bold' }}>{img.name}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          );
-                        }
-
                         if (isHeader) {
                           return (
                             <tr key={i}>
-                              <td colSpan={2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
+                              <td colSpan={hasImages ? 3 : 2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
                                 {line}
                               </td>
-                              {imageCell}
                             </tr>
                           );
                         }
                         const parts = line.split(':');
                         if (parts.length > 1) {
+                          const valStr = parts.slice(1).join(':').trim();
+                          const valUpper = valStr.toUpperCase();
+                          const matchedImg = layoutImages.find(img => img.name === valUpper);
                           return (
                             <tr key={i}>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '30%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '35%' }}>{parts.slice(1).join(':').trim()}</td>
-                              {imageCell}
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '25%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '40%' }}>{valStr}</td>
+                              {hasImages && (
+                                <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem', width: '35%', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
+                                  {matchedImg && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                      <img src={matchedImg.src} alt={matchedImg.name} style={{ maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' }} />
+                                    </div>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           );
                         }
                         return (
                           <tr key={i}>
-                            <td colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
-                            {imageCell}
+                            <td colSpan={hasImages ? 3 : 2} style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem' }}>{line}</td>
                           </tr>
                         );
                       });
@@ -496,18 +488,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               </div>
             </div>
 
-            {layoutImages.length > 0 && (
-              <div className="no-print">
-                <h4 style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: '700' }}>Distribución</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: layoutImages.length > 1 ? '1fr 1fr' : '1fr', gap: '0.8rem' }}>
-                  {layoutImages.map((img, i) => (
-                    <div key={i} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src={img.src} alt={img.name} style={{ maxWidth: '100%', maxHeight: '110px', objectFit: 'contain' }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -669,29 +650,6 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             </div>
           );
         })()}
-
-{/* Área de carga de imágenes manuales (solo para pantalla) */}
-        <div className="no-print" style={{ marginBottom: '2rem' }}>
-          <h3 style={secTitle}><span className="no-print">🖼️ </span>Imágenes de Referencia Adicionales</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
-            {[0, 1, 2, 3].map(idx => (
-              <div key={idx} style={{ position: 'relative', border: '2px dashed #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                {imagePreview[idx] ? (
-                  <>
-                    <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    <button onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                  </>
-                ) : (
-                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
-                    <span style={{ fontSize: '1.8rem' }}>📷</span>
-                    <span>Foto {idx + 1}</span>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
-                  </label>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Totales y Entregas */}
         {(() => {
@@ -933,15 +891,37 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           const hasFieldPhotos = Object.keys(fieldPhotos).length > 0;
           const hasCroquisPhotos = croquisPhotos.length > 0;
           
-          if (validPreviewImages.length === 0 && !hasFieldPhotos && !hasCroquisPhotos) return null;
-
           return (
             <div style={{ marginTop: '3rem', pageBreakInside: 'avoid' }}>
               <h3 style={{ ...secTitle, marginBottom: '1.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
                 <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias
               </h3>
+
+              {/* Controles de carga manual visibles solo en pantalla */}
+              <div className="no-print" style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.8rem' }}>Agregar fotos manuales al anexo:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
+                  {[0, 1, 2, 3].map(idx => (
+                    <div key={idx} style={{ position: 'relative', border: '2px dashed #cbd5e1', borderRadius: '6px', overflow: 'hidden', aspectRatio: '1', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      {imagePreview[idx] ? (
+                        <>
+                          <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <button onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </>
+                      ) : (
+                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
+                          <span style={{ fontSize: '1.5rem' }}>📷</span>
+                          <span>Subir {idx + 1}</span>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
+                        </label>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+              
+              {(validPreviewImages.length > 0 || hasFieldPhotos || hasCroquisPhotos) && <div className="print-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                 {validPreviewImages.map((src, i) => (
                   <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '1', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.7rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Referencia {i+1}</div>
@@ -962,7 +942,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                     <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           );
         })()}
