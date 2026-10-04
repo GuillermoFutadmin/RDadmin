@@ -650,7 +650,7 @@ export default function Contratos({ startView = 'list' }) {
                         {c.estimation_data ? '✅ Estimación' : '📐 Estimación'}
                       </button>
                       
-                      {/* Cotización button - disabled until estimation_data is filled */}
+                      {/* Contrato button - disabled until estimation_data is filled */}
                       { getStatus(c) === 'ESTIMACIÓN' && (
                         <button
                           disabled={!c.estimation_data}
@@ -659,7 +659,7 @@ export default function Contratos({ startView = 'list' }) {
                             await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'CONTRATO' }) });
                             fetchContratos();
                           }} 
-                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para cotizar.' : 'Avanzar a Cotización'}
+                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : 'Avanzar a Contrato'}
                           style={{ 
                             padding:'0.3rem 0.7rem', 
                             background: !c.estimation_data ? '#cbd5e1' : '#8b5cf6', 
@@ -670,7 +670,7 @@ export default function Contratos({ startView = 'list' }) {
                             opacity: !c.estimation_data ? 0.7 : 1,
                             transition: 'all 0.2s ease'
                           }}>
-                          {c.estimation_data ? '✅ Cotización' : '📄 Cotización'}
+                          {c.estimation_data ? '✅ Contrato' : '📝 Contrato'}
                         </button>
                       )}
                     </div>
