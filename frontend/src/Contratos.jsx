@@ -825,31 +825,37 @@ function Estimacion({ prospect, onBack }) {
     }
   }, [prospect]);
 
-  // Cargar machote si no hay info
+  // Cargar machote por CADA tipo de proyecto detectado en project_type
   useEffect(() => {
     if (templateLoaded || prospect.estimation_data) return;
     const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    const matchKey = TEMPLATE_KEYS.find(k => normalize(pt).includes(normalize(k)));
-    if (!matchKey) return;
-    
+    const ptRaw = prospect.project_type || '';
+    // Detectar todos los tipos presentes
+    const matchedKeys = TEMPLATE_KEYS.filter(k => normalize(ptRaw).includes(normalize(k)));
+    if (matchedKeys.length === 0) return;
+
     fetch(`${API}/api/templates/`)
       .then(r => r.json())
       .then(data => {
-        const tpl = data.find(t => normalize(t.name) === normalize(matchKey));
-        if (!tpl) return;
-        const parsed = JSON.parse(tpl.data);
-        
-        const mapItem = it => ({
-          id: Date.now() + Math.random(),
-          desc: it.desc || '',
-          qty: 1,
-          price: Number(it.price) || 0,
-          unit: it.unit || 'pza'
+        const allMat = [], allLab = [], allCon = [];
+        matchedKeys.forEach(key => {
+          const tpl = data.find(t => normalize(t.name) === normalize(key));
+          if (!tpl) return;
+          try {
+            const parsed = JSON.parse(tpl.data);
+            const mapItem = it => ({
+              id: Date.now() + Math.random(),
+              desc: '[' + key + '] ' + (it.desc || ''),
+              qty: 1, price: Number(it.price) || 0, unit: it.unit || 'pza'
+            });
+            if (parsed?.materiales?.length) allMat.push(...parsed.materiales.map(mapItem));
+            if (parsed?.mano_obra?.length)  allLab.push(...parsed.mano_obra.map(mapItem));
+            if (parsed?.conceptos?.length)  allCon.push(...parsed.conceptos.map(mapItem));
+          } catch {}
         });
-        
-        if (parsed?.materiales?.length) setMaterials(parsed.materiales.map(mapItem));
-        if (parsed?.mano_obra?.length)  setLabor(parsed.mano_obra.map(mapItem));
-        if (parsed?.conceptos?.length)  setConcepts(parsed.conceptos.map(mapItem));
+        if (allMat.length) setMaterials(allMat);
+        if (allLab.length) setLabor(allLab);
+        if (allCon.length) setConcepts(allCon);
         setTemplateLoaded(true);
       })
       .catch(() => {});
@@ -982,34 +988,8 @@ function Estimacion({ prospect, onBack }) {
         </div>
       </div>
 
-      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.5rem', marginBottom:'1.5rem' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.2rem' }}>
-          <h3 style={{ margin:0, color:'#8b5a2b', fontSize:'1.1rem', fontWeight:'800' }}>💰 Cotizador en Vivo</h3>
-          <div style={{ background:'#f5deb3', borderRadius:'8px', padding:'6px 14px', fontWeight:'800', fontSize:'0.95rem', border:'2px solid #8b5a2b', color:'#4a2c0a' }}>
-            {formatCurrency(totalWithMargin)}
-          </div>
-        </div>
-
-        {renderQuoteTable('Materiales', materials, 'mat', 'Material')}
-        {renderQuoteTable('Mano de obra', labor, 'lab', 'Mano de obra')}
-        {renderQuoteTable('Conceptos / Otros', concepts, 'con', 'Concepto')}
-
-        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'1rem' }}>
-          <div style={{ background:'#fff7ed', border:'2px dashed #fdba74', padding:'1rem 1.5rem', borderRadius:'8px', display:'flex', alignItems:'center', gap:'1.5rem' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
-              <label style={{ fontSize:'0.9rem', fontWeight:'700', color:'#9a3412' }}>Margen de ganancia (%):</label>
-              <input type="number" value={margin} onChange={e => setMargin(Number(e.target.value))}
-                style={{ width:'70px', padding:'6px 8px', borderRadius:'6px', border:'1px solid #fdba74', fontWeight:'700', fontSize:'1rem' }} />
-            </div>
-            <div style={{ textAlign:'right' }}>
-              <p style={{ margin:0, fontSize:'0.8rem', color:'#9a3412' }}>Costo total estimado: {formatCurrency(totalCost)}</p>
-              <p style={{ margin:0, fontSize:'1.1rem', fontWeight:'900', color:'#7c2d12' }}>Precio final: {formatCurrency(totalWithMargin)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem' }}>
+      {/* ── 1. NOTAS Y MEDIDAS ── */}
+      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginBottom:'1.5rem' }}>
          <h3 style={{ margin:'0 0 1rem', color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
          
          {formFields.length > 0 ? (
@@ -1064,21 +1044,29 @@ function Estimacion({ prospect, onBack }) {
          </div>
       </div>
 
-      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem' }}>
+      {/* ── 2. FOTOS GUARDADAS ── */}
+      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
-          <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📸 Fotos de Croquis Guardados</h3>
-          <button onClick={(e) => {
-            e.preventDefault();
-            if (croquisRef.current) {
-              const dataUrl = croquisRef.current.getSketchData();
-              if (dataUrl) {
-                setCroquisPhotos(prev => [...prev, dataUrl]);
-                croquisRef.current.clearCanvas();
+          <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📸 Fotos Guardadas</h3>
+          <div style={{ display:'flex', gap:'10px' }}>
+            <label style={{ cursor:'pointer', padding:'8px 12px', background:'#3b82f6', color:'white', border:'none', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem', display:'flex', alignItems:'center', gap:'6px' }}>
+              📸 Subir Foto
+              <input type='file' accept='image/*' multiple capture='environment' style={{ display:'none' }}
+                onChange={e => handleCroquisPhotoUpload(e.target.files)} />
+            </label>
+            <button onClick={(e) => {
+              e.preventDefault();
+              if (croquisRef.current) {
+                const dataUrl = croquisRef.current.getSketchData();
+                if (dataUrl) {
+                  setCroquisPhotos(prev => [...prev, dataUrl]);
+                  croquisRef.current.clearCanvas();
+                }
               }
-            }
-          }} style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
-            📸 Capturar Dibujo Actual
-          </button>
+            }} style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
+              📐 Capturar Croquis
+            </button>
+          </div>
         </div>
         
         {croquisPhotos.length > 0 ? (
@@ -1097,8 +1085,44 @@ function Estimacion({ prospect, onBack }) {
 
       <Croquis3D ref={croquisRef} />
 
+
+      {/* ── 4. COTIZADOR EN VIVO ── */}
+      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.5rem', marginTop:'1.5rem', marginBottom:'1.5rem' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.2rem' }}>
+          <div>
+            <h3 style={{ margin:0, color:'#8b5a2b', fontSize:'1.1rem', fontWeight:'800' }}>💰 Cotizador en Vivo</h3>
+            {prospect.project_type && (
+              <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:'#64748b' }}>
+                Proyectos: <strong>{prospect.project_type}</strong>
+              </p>
+            )}
+          </div>
+          <div style={{ background:'#f5deb3', borderRadius:'8px', padding:'6px 14px', fontWeight:'800', fontSize:'0.95rem', border:'2px solid #8b5a2b', color:'#4a2c0a' }}>
+            {formatCurrency(totalWithMargin)}
+          </div>
+        </div>
+
+        {renderQuoteTable('Materiales', materials, 'mat', 'Material')}
+        {renderQuoteTable('Mano de obra', labor, 'lab', 'Mano de obra')}
+        {renderQuoteTable('Conceptos / Otros', concepts, 'con', 'Concepto')}
+
+        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'1rem' }}>
+          <div style={{ background:'#fff7ed', border:'2px dashed #fdba74', padding:'1rem 1.5rem', borderRadius:'8px', display:'flex', alignItems:'center', gap:'1.5rem' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+              <label style={{ fontSize:'0.9rem', fontWeight:'700', color:'#9a3412' }}>Margen de ganancia (%):</label>
+              <input type="number" value={margin} onChange={e => setMargin(Number(e.target.value))}
+                style={{ width:'70px', padding:'6px 8px', borderRadius:'6px', border:'1px solid #fdba74', fontWeight:'700', fontSize:'1rem' }} />
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <p style={{ margin:0, fontSize:'0.8rem', color:'#9a3412' }}>Costo total estimado: {formatCurrency(totalCost)}</p>
+              <p style={{ margin:0, fontSize:'1.1rem', fontWeight:'900', color:'#7c2d12' }}>Precio final: {formatCurrency(totalWithMargin)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <button onClick={handleSave} disabled={saving}
-       style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '1.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
+       style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
        {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
       </button>
     </div>
