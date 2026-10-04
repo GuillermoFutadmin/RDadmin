@@ -608,13 +608,13 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           const hasInfo = colorEntries.length > 0 || materials.length > 0 || (p.countertop_type && p.countertop_type !== 'Sin considerar encimera' && p.countertop_type !== 'none') || (p.hardware_details && p.hardware_details !== 'none');
           if (!hasInfo) return null;
           return (
-            <div style={{ marginBottom: '2rem' }}>
+            <div style={{ marginBottom: '2rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <h3 style={secTitle}><span className="no-print">🎨 </span>Especificaciones de Acabados</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '2rem', marginTop: '1rem', alignItems: 'flex-start' }}>
 
                 {/* Materiales */}
                 {materials.length > 0 && (
-                  <div style={{ marginBottom: colorEntries.length > 0 ? '0.5rem' : 0 }}>
+                  <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Material Base</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
                       {materials.map((m, i) => {
@@ -664,7 +664,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
                 {/* Encimera y Herrajes */}
                 {((p.countertop_type && p.countertop_type !== 'Sin considerar encimera' && p.countertop_type !== 'none') || (p.hardware_details && p.hardware_details !== 'none')) && (
-                  <div style={{ display: 'flex', gap: '2.5rem', paddingTop: colorEntries.length > 0 ? '0.2rem' : 0 }}>
+                  <div style={{ display: 'flex', gap: '2.5rem' }}>
                     {p.countertop_type && p.countertop_type !== 'Sin considerar encimera' && p.countertop_type !== 'none' && (
                       <div>
                         <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Encimera</div>
@@ -984,7 +984,8 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         })()}
 
         {/* Pie de página oficial */}
-        <div style={{ textAlign: 'center', marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ textAlign: 'center', marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img src="/logo-leather.png" alt="Sello RD Carpinteria" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '0.8rem', borderRadius: '50%' }} />
           <p style={{ margin: '0 0 0.3rem 0', fontSize: '0.95rem', fontWeight: '700', color: '#334155' }}>
             Documento oficial de RD Carpintería
           </p>
