@@ -243,35 +243,68 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
   const generatePDF = () => {
     const element = document.getElementById('cotizacion-doc');
-    element.classList.add('pdf-exporting'); // Aplica reglas CSS de exportación
+    element.classList.add('pdf-exporting');
     
-    // Guardar estilos originales para restaurarlos
     const originalBorder = element.style.border;
     const originalPadding = element.style.padding;
     const originalBoxShadow = element.style.boxShadow;
     
-    // Aplicar estilos forzados para PDF limpio
     element.style.border = 'none';
     element.style.padding = '0.5rem';
     element.style.boxShadow = 'none';
     
+    const filename = `Cotizacion_${p.public_id || p.id}_${p.name}.pdf`;
+    const folio = p.public_id || p.id;
+    const clientName = p.name || '';
+    
     const opt = {
-      margin:       [0.3, 0.3, 0.3, 0.3], // Márgenes reducidos
-      filename:     `Cotizacion_${p.public_id || p.id}_${p.name}.pdf`,
+      margin:       [0.55, 0.3, 0.35, 0.3], // top mayor para el membrete
+      filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
       pagebreak:    { mode: ['css', 'legacy'] }
     };
     
-    // Generar y descargar, al finalizar restaurar estilos
-    window.html2pdf().set(opt).from(element).save().then(() => {
+    const cleanup = () => {
       element.classList.remove('pdf-exporting');
       element.style.border = originalBorder;
       element.style.padding = originalPadding;
       element.style.boxShadow = originalBoxShadow;
       setShowPdfModal(false);
-    });
+    };
+    
+    window.html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
+      const totalPages = pdf.internal.getNumberOfPages();
+      const pageW = pdf.internal.pageSize.getWidth();
+      
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        
+        // -- Línea naranja separadora --
+        pdf.setDrawColor(249, 115, 22);
+        pdf.setLineWidth(0.018);
+        pdf.line(0.3, 0.45, pageW - 0.3, 0.45);
+        
+        // -- Nombre empresa (izquierda, naranja) --
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(249, 115, 22);
+        pdf.text('RD Carpintería', 0.3, 0.33);
+        
+        // -- Folio + cliente (centro, gris) --
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(`Folio: ${folio}  —  ${clientName}`, pageW / 2, 0.33, { align: 'center' });
+        
+        // -- Hoja X / Y (derecha, gris) --
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(71, 85, 105);
+        pdf.text(`Hoja ${i} / ${totalPages}`, pageW - 0.3, 0.33, { align: 'right' });
+      }
+    }).save().then(cleanup).catch(cleanup);
   };
 
   const inputDash = { border: '1px dashed #cbd5e1', borderRadius: '4px', padding: '0.3rem 0.5rem', fontSize: '0.85rem', outline: 'none', background: saved ? '#f8fafc' : 'white' };
@@ -375,12 +408,9 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         </div>
 
 
-        {/* Datos del Proyecto + Descripción - lado a lado en PDF */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.5rem', alignItems: 'start', marginBottom: '2rem' }}>
-
-          {/* Columna izquierda: Datos del Proyecto */}
-          <div>
-            <h3 style={secTitle}><span className="no-print">📋 </span>Datos del Proyecto</h3>
+        {/* Datos del Proyecto */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}><span className="no-print">📋 </span>Datos del Proyecto</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
             <tbody>
               {(() => {
@@ -403,11 +433,11 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               })()}
             </tbody>
           </table>
-          </div>
+        </div>
 
-          {/* Columna derecha: Descripción de la Cotización */}
-          <div>
-            <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
+        {/* Descripción de la Cotización */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={secTitle}><span className="no-print">📝 </span>Descripción de la Cotización</h3>
           
           <div style={{ marginBottom: '1rem' }}>
             <label className="no-print" style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>Título del Proyecto:</label>
@@ -491,12 +521,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 </table>
               </div>
             </div>
+          </div> {/* fin inner grid */}
 
-          </div>
+        </div> {/* fin Descripción */}
 
-          </div> {/* fin columna derecha: Descripción */}
-
-        </div> {/* fin grid Datos + Descripción */}
 
         
         {/* ── Especificaciones de Acabados ── */}
