@@ -2674,12 +2674,7 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
         {colorChip('Color Ext. Inferior', prospect.exterior_inf_color_type, prospect.exterior_inf_color_code)}
         {colorChip('Color Ext. Superior', prospect.exterior_sup_color_type, prospect.exterior_sup_color_code)}
       </div>
-      {prospect.papelera_reason && (
-        <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'1px solid #fca5a5', borderRadius:'8px' }}>
-          <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
-          <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
-        </div>
-      )}
+
       {prospect.expectations && (
         <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.55rem', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
           <p style={{ fontSize: '0.64rem', color: '#94a3b8', margin: '0 0 0.1rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expectativas</p>
@@ -2687,37 +2682,62 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
         </div>
       )}
       {prospect.has_design && (
-        <div style={{ marginTop: '0.4rem', padding: '0.6rem 0.75rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-          <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700' }}>
-            Diseño y Fotos del Proyecto
-          </p>
-          {prospect.design_details && <p style={{ marginBottom: '0.6rem', fontSize: '0.82rem', color: '#334155' }}>{prospect.design_details}</p>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
-            {prospect.space_image_path && (
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
-                <div style={{ padding: '4px 8px', fontSize: '0.72rem', fontWeight: '700', color: '#0369a1', backgroundColor: '#f0f9ff' }}>
-                  🏠 Foto del Espacio
+        <div style={{ marginTop: '0.6rem' }}>
+
+          {/* ── MOTIVO DE RECHAZO — arriba de las fotos ── */}
+          {prospect.papelera_reason && (
+            <div style={{ marginBottom:'0.75rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'2px solid #fca5a5', borderRadius:'12px' }}>
+              <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'900', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
+              <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
+            </div>
+          )}
+
+          {/* ── FOTOS ── */}
+          <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#f8f9fa', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '0 0 0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700' }}>
+              Diseño y Fotos del Proyecto
+            </p>
+            {prospect.design_details && <p style={{ marginBottom: '0.6rem', fontSize: '0.82rem', color: '#334155' }}>{prospect.design_details}</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+
+              {/* Foto del Espacio */}
+              {prospect.space_image_path && (
+                <div style={{ border: '2px solid #bfdbfe', borderRadius: '10px', overflow: 'hidden', backgroundColor: 'white' }}>
+                  <div style={{ padding: '10px 12px', fontSize: '0.85rem', fontWeight: '800', color: '#1d4ed8', backgroundColor: '#dbeafe', textAlign: 'center', letterSpacing: '0.02em' }}>
+                    🏠 Foto del Espacio
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '6px' }}>
+                    {prospect.space_image_path.split(',').map((imgPath, idx) => (
+                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Espacio ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '6px', minWidth: '80px', objectFit: 'cover' }} />
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
-                  {prospect.space_image_path.split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Espacio ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '4px', minWidth: '80px' }} />
-                  ))}
+              )}
+
+              {/* Foto de Referencia */}
+              {(prospect.reference_image_path || prospect.design_image_path) && (
+                <div style={{ border: '2px solid #fed7aa', borderRadius: '10px', overflow: 'hidden', backgroundColor: 'white' }}>
+                  <div style={{ padding: '10px 12px', fontSize: '0.85rem', fontWeight: '800', color: '#c2410c', backgroundColor: '#fff7ed', textAlign: 'center', letterSpacing: '0.02em' }}>
+                    💡 Foto de Referencia
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '6px' }}>
+                    {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
+                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Referencia ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '6px', minWidth: '80px', objectFit: 'cover' }} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            {(prospect.reference_image_path || prospect.design_image_path) && (
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
-                <div style={{ padding: '4px 8px', fontSize: '0.72rem', fontWeight: '700', color: '#7c2d12', backgroundColor: '#fff7ed' }}>
-                  💡 Foto de Referencia
-                </div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '4px' }}>
-                  {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
-                    <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`} alt={`Referencia ${idx + 1}`} style={{ flex: '1 1 45%', width: '100%', height: 'auto', borderRadius: '4px', minWidth: '80px' }} />
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Motivo de rechazo fuera de has_design (para cuando no hay fotos) */}
+      {!prospect.has_design && prospect.papelera_reason && (
+        <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'2px solid #fca5a5', borderRadius:'12px' }}>
+          <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'900', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
+          <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
         </div>
       )}
     </div>
