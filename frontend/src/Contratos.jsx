@@ -59,7 +59,14 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh }) {
+function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh }) {
+  const [localProspect, setLocalProspect] = React.useState(_prospectProp);
+
+  React.useEffect(() => { setLocalProspect(_prospectProp); }, [_prospectProp]);
+
+  // Alias para que el resto del JSX no cambie
+  const prospect = localProspect;
+
   const chip = (label, value) => value ? (
     <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
       <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
@@ -77,7 +84,8 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, on
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contract_password: pwd })
       });
-      prospect.contract_password = pwd;
+      // Actualizar estado local inmediatamente para reflejar en UI
+      setLocalProspect(prev => ({ ...prev, contract_password: pwd }));
       if (onRefresh) onRefresh();
       alert(`Nueva contraseña guardada: ${pwd}`);
     } catch (e) {
@@ -399,6 +407,15 @@ export default function Contratos({ startView = 'list' }) {
           onEstimacion={() => setView('estimacion')}
           onDownloadCotizacion={() => setView('cotizacion_view')}
           onReturnToProspect={() => handleReturnToProspect(selected)}
+          onRefresh={async () => {
+            // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
+            const res = await fetch(`${API}/api/prospects`);
+            const data = await res.json();
+            const freshContratos = data.filter(p => p.is_contract);
+            setContratos(freshContratos);
+            const freshSelected = freshContratos.find(p => p.id === selected.id);
+            if (freshSelected) setSelected(freshSelected);
+          }}
         />
       </div>
     );
