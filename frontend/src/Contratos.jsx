@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ContratoPDFView } from './ContratoPDF';
+import { CotizacionView } from './Cotizacion';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -58,7 +59,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) {
+function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion }) {
   const chip = (label, value) => value ? (
     <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
       <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
@@ -69,11 +70,6 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
     .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
 
-  const handleDownloadCotizacion = async () => {
-    const { printProspect } = await import('./Prospects');
-    printProspect(prospect);
-  };
-
   return (
     <div className="card" style={{ marginBottom:'2rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem', flexWrap:'wrap', gap:'0.5rem' }}>
@@ -81,7 +77,7 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect }) 
         <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
           <button onClick={onBack} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#eee', border:'none', borderRadius:'6px', cursor:'pointer' }}>Volver</button>
           <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📐 Estimación</button>
-          <button onClick={handleDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📄 Descargar Cotización</button>
+          <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📄 Descargar Cotización</button>
           <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
         </div>
       </div>
@@ -341,6 +337,14 @@ export default function Contratos({ startView = 'list' }) {
     );
   }
 
+  if (view === 'cotizacion_view' && selected) {
+    return (
+      <div style={{ padding:'1rem' }}>
+        <CotizacionView prospect={selected} onBack={() => { setView('detail'); fetchContratos(); }} />
+      </div>
+    );
+  }
+
   if (view === 'detail' && selected) {
     return (
       <div style={{ padding:'1rem' }}>
@@ -348,6 +352,7 @@ export default function Contratos({ startView = 'list' }) {
           prospect={selected}
           onBack={() => { setView('list'); setSelected(null); }}
           onEstimacion={() => setView('estimacion')}
+          onDownloadCotizacion={() => setView('cotizacion_view')}
           onReturnToProspect={() => handleReturnToProspect(selected)}
         />
       </div>
