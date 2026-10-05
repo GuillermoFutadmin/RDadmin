@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LOGO_LEATHER_B64 } from './logoLeatherB64.js';
 
 const formatCurrency = (val) => {
   const num = Number(val);
@@ -205,7 +206,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         {/* ── Official footer ── */}
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-          <img src="/logo-leather.png" alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
+          <img src={LOGO_LEATHER_B64} alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
           <p style={{ margin: '10px 0 4px', fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>Documento oficial de RD Carpintería</p>
           <a href="https://rdcarpinteria.com/" style={{ fontSize: '0.85rem', color: '#2563eb', textDecoration: 'none' }}>https://rdcarpinteria.com/</a>
         </div>
@@ -277,7 +278,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         {/* ── Official footer ── */}
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', textAlign: 'center', pageBreakInside: 'avoid' }}>
-          <img src="/logo-leather.png" alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
+          <img src={LOGO_LEATHER_B64} alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
           <p style={{ margin: '10px 0 4px', fontWeight: 'bold', fontSize: '14px', color: '#1e293b' }}>Documento oficial de RD Carpintería</p>
           <p style={{ margin: 0, fontSize: '12px', color: '#2563eb' }}>https://rdcarpinteria.com/</p>
         </div>
