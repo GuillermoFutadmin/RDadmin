@@ -202,10 +202,16 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, on
                     🎨 Imágenes de Render
                   </div>
                   <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
-                    {prospect.render_image_path.split(',').map((imgPath, idx) => (
-                      <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
-                        alt={`Render ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
-                    ))}
+                    {prospect.render_image_path.split(',').map((imgPath, idx) => {
+                      let url = imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`;
+                      if (url.includes('res.cloudinary.com') && url.toLowerCase().endsWith('.pdf')) {
+                        url = url.substring(0, url.length - 4) + '.jpg';
+                      }
+                      return (
+                        <img key={idx} src={url}
+                          alt={`Render ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -593,7 +599,8 @@ export default function Contratos({ startView = 'list' }) {
                         render_total_price: totalPrice,
                         render_delivery_time: renderApplies ? renderDelivery : null,
                         render_comments: renderApplies ? renderComments : null,
-                        render_pdf_path: uploadedPdfUrl || null
+                        render_image_path: uploadedUrl || renderModalFor.render_image_path || null,
+                        render_pdf_path: uploadedPdfUrl || renderModalFor.render_pdf_path || null
                       })
                     });
                     
