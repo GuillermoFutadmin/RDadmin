@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
+import { ContratoPDFView } from './ContratoPDF';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -325,6 +325,22 @@ export default function Contratos({ startView = 'list' }) {
   };
 
   // ── Views ──
+  if (view === 'contrato_pdf' && selected) {
+    return (
+      <ContratoPDFView 
+        prospect={selected} 
+        onBack={() => { setView('list'); setSelected(null); }} 
+        onSaveStatus={async () => {
+          await fetch(`${API}/api/prospects/${selected.id}`, { 
+            method: 'PUT', headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify({ status: 'CONTRATO' }) 
+          });
+          fetchContratos();
+        }} 
+      />
+    );
+  }
+
   if (view === 'detail' && selected) {
     return (
       <div style={{ padding:'1rem' }}>
@@ -759,9 +775,9 @@ export default function Contratos({ startView = 'list' }) {
                           disabled={!c.estimation_data}
                           onClick={async () => {
                             if (!c.estimation_data) return;
-                            await fetch(`${API}/api/prospects/${c.id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: 'CONTRATO' }) });
-                            fetchContratos();
-                          }} 
+                            setSelected(c);
+                            setView('contrato_pdf');
+                          }}
                           title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : 'Avanzar a Contrato'}
                           style={{ 
                             padding:'0.3rem 0.7rem', 
