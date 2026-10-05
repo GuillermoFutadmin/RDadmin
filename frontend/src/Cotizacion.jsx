@@ -145,14 +145,14 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   const API = ''; // Relativo al host actual
   // Helper: si la URL ya es absoluta (Cloudinary) no le agrega el prefijo
   const resolveUrl = (path) => !path ? null : (path.startsWith('http') ? path : `${API}${path}`);
+  const spacePaths = p.space_image_path ? p.space_image_path.split(',') : [];
+  const refPaths = p.reference_image_path ? p.reference_image_path.split(',') : (p.design_image_path ? [p.design_image_path] : []);
+  
   const [imagePreview, setImagePreview] = React.useState([
-    p.quote_image_1 ? resolveUrl(p.quote_image_1)
-      : (p.space_image_path ? resolveUrl(p.space_image_path.split(',')[0]) : null),
-    p.quote_image_2 ? resolveUrl(p.quote_image_2)
-      : (p.reference_image_path ? resolveUrl(p.reference_image_path.split(',')[0])
-        : (p.design_image_path ? resolveUrl(p.design_image_path) : null)),
-    p.quote_image_3 ? resolveUrl(p.quote_image_3) : null,
-    p.quote_image_4 ? resolveUrl(p.quote_image_4) : null
+    p.quote_image_1 ? resolveUrl(p.quote_image_1) : resolveUrl(spacePaths[0]),
+    p.quote_image_2 ? resolveUrl(p.quote_image_2) : resolveUrl(spacePaths[1]),
+    p.quote_image_3 ? resolveUrl(p.quote_image_3) : resolveUrl(refPaths[0]),
+    p.quote_image_4 ? resolveUrl(p.quote_image_4) : resolveUrl(refPaths[1])
   ]);
 
   const handleImageChange = async (idx, e) => {
@@ -958,12 +958,16 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
               
               
               {(validPreviewImages.length > 0 || hasFieldPhotos || hasCroquisPhotos) && <div className="print-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-                {validPreviewImages.map((src, i) => (
-                  <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Referencia {i+1}</div>
-                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
-                  </div>
-                ))}
+                {imagePreview.map((src, i) => {
+                  if (!src) return null;
+                  const labelStr = i < 2 ? `Foto del Espacio ${i + 1}` : `Referencia ${i - 1}`;
+                  return (
+                    <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                      <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>{labelStr}</div>
+                      <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
+                    </div>
+                  );
+                })}
                 
                 {Object.entries(fieldPhotos).map(([key, src]) => (
                   <div key={`field-${key}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
