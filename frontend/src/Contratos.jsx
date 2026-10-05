@@ -770,7 +770,7 @@ export default function Contratos({ startView = 'list' }) {
                       </button>
                       
                       {/* Contrato button - disabled until estimation_data is filled */}
-                      { getStatus(c) === 'ESTIMACIÓN' && (
+                      { (getStatus(c) === 'ESTIMACIÓN' || getStatus(c) === 'CONTRATO') && (
                         <button
                           disabled={!c.estimation_data}
                           onClick={async () => {
@@ -778,10 +778,10 @@ export default function Contratos({ startView = 'list' }) {
                             setSelected(c);
                             setView('contrato_pdf');
                           }}
-                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : 'Avanzar a Contrato'}
+                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : (getStatus(c) === 'CONTRATO' ? 'Ver / Imprimir Contrato' : 'Avanzar a Contrato')}
                           style={{ 
                             padding:'0.3rem 0.7rem', 
-                            background: !c.estimation_data ? '#cbd5e1' : '#8b5cf6', 
+                            background: !c.estimation_data ? '#cbd5e1' : (getStatus(c) === 'CONTRATO' ? '#10b981' : '#8b5cf6'), 
                             color: !c.estimation_data ? '#94a3b8' : 'white', 
                             border:'none', borderRadius:'6px', 
                             cursor: !c.estimation_data ? 'not-allowed' : 'pointer', 
@@ -789,7 +789,7 @@ export default function Contratos({ startView = 'list' }) {
                             opacity: !c.estimation_data ? 0.7 : 1,
                             transition: 'all 0.2s ease'
                           }}>
-                          {c.estimation_data ? '✅ Contrato' : '📝 Contrato'}
+                          {getStatus(c) === 'CONTRATO' ? '✅ Contrato' : '📝 Contrato'}
                         </button>
                       )}
                     </div>
