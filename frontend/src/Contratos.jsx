@@ -99,17 +99,29 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, on
           <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.4rem' }}>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <div style={{ flex: 1 }}>{chip('ID', prospect.public_id)}</div>
-          <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px', display:'flex', flexDirection:'column', justifyContent:'center', minWidth:'140px' }}>
-             <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>Contraseña</p>
-             <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', justifyContent:'space-between' }}>
-               <p style={{ fontWeight:'600', fontSize:'0.82rem', color: prospect.contract_password ? '#1e293b' : '#94a3b8', margin:0 }}>{prospect.contract_password || 'Ninguna'}</p>
-               <button onClick={generatePassword} style={{ background:'#3b82f6', color:'white', border:'none', borderRadius:'4px', padding:'2px 6px', fontSize:'0.65rem', cursor:'pointer', fontWeight:'bold' }}>Generar</button>
-             </div>
+
+      {/* ── Contraseña del contrato ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'0.75rem', padding:'0.6rem 1rem', backgroundColor:'#f0fdf4', border:'1.5px solid #86efac', borderRadius:'8px', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flex:1, flexWrap:'wrap' }}>
+          <div>
+            <p style={{ fontSize:'0.62rem', color:'#16a34a', margin:'0 0 0.15rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>🔑 ID del Contrato</p>
+            <p style={{ fontWeight:'800', fontSize:'1rem', color:'#1e293b', margin:0, letterSpacing:'0.04em' }}>{prospect.public_id}</p>
+          </div>
+          <div style={{ width:'1px', height:'32px', background:'#bbf7d0' }} />
+          <div>
+            <p style={{ fontSize:'0.62rem', color:'#16a34a', margin:'0 0 0.15rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>🔒 Contraseña de Acceso</p>
+            <p style={{ fontWeight:'800', fontSize:'1.1rem', color: prospect.contract_password ? '#1e293b' : '#94a3b8', margin:0, letterSpacing:'0.1em', fontFamily:'monospace' }}>
+              {prospect.contract_password || '— Sin contraseña —'}
+            </p>
           </div>
         </div>
+        <button onClick={generatePassword}
+          style={{ padding:'0.4rem 0.9rem', background:'#16a34a', color:'white', border:'none', borderRadius:'7px', cursor:'pointer', fontWeight:'800', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+          🔄 Nueva Contraseña
+        </button>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.4rem' }}>
         {chip('Fecha Captura', fmtDate(prospect.capture_date))}
         {chip('Contacto', prospect.contact_info)}
         {chip('Ubicación', prospect.location)}
