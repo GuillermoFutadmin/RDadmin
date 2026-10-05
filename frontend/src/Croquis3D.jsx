@@ -22,14 +22,17 @@ const Croquis3D = forwardRef((props, ref) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [textInput, setTextInput]  = useState({ visible: false, x: 0, y: 0, text: '' });
   const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [measurePopup, setMeasurePopup] = useState({ visible: false, x1:0, y1:0, x2:0, y2:0, screenX:0, screenY:0, value:'', unit:'m' });
   const textInputRef = useRef(null);
+  const measureValueRef = useRef(null);
 
-  const erasing   = mode === 'erase';
-  const lineMode  = mode === 'line';
-  const arrowMode = mode === 'arrow';
-  const textMode  = mode === 'text';
-  const circleMode = mode === 'circle';
-  const rectMode  = mode === 'rect';
+  const erasing     = mode === 'erase';
+  const lineMode    = mode === 'line';
+  const arrowMode   = mode === 'arrow';
+  const textMode    = mode === 'text';
+  const circleMode  = mode === 'circle';
+  const rectMode    = mode === 'rect';
+  const measureMode = mode === 'measure';
 
   // ── Auto-save to localStorage ─────────────────────────────────────────────
   const scheduleAutoSave = useCallback(() => {
@@ -435,7 +438,7 @@ const Croquis3D = forwardRef((props, ref) => {
 
     pushState();
 
-    if (lineMode || arrowMode || circleMode || rectMode) {
+    if (lineMode || arrowMode || circleMode || rectMode || measureMode) {
       snapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
       startPosRef.current = pos;
     } else {
@@ -468,7 +471,7 @@ const Croquis3D = forwardRef((props, ref) => {
     const ctx = canvas.getContext('2d');
     const pos = getPos(e, canvas);
 
-    if ((lineMode || arrowMode || circleMode || rectMode) && snapshotRef.current && startPosRef.current) {
+    if ((lineMode || arrowMode || circleMode || rectMode || measureMode) && snapshotRef.current && startPosRef.current) {
       ctx.putImageData(snapshotRef.current, 0, 0);
       applyStroke(ctx);
 
@@ -484,6 +487,13 @@ const Croquis3D = forwardRef((props, ref) => {
         ctx.beginPath();
         ctx.strokeRect(startPosRef.current.x, startPosRef.current.y,
           pos.x - startPosRef.current.x, pos.y - startPosRef.current.y);
+      } else if (measureMode) {
+        // Draw live preview line for measure mode
+        ctx.save();
+        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 1.8; ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.moveTo(startPosRef.current.x, startPosRef.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
       } else {
         ctx.beginPath();
         ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
@@ -498,42 +508,105 @@ const Croquis3D = forwardRef((props, ref) => {
     }
   };
 
+  // Draw a finalized measurement line with arrows + label on canvas
+  const drawMeasureLine = (x1, y1, x2, y2, label) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    const col = '#16a34a';
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.setLineDash([]);
+    // Main line
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    // Arrowheads
+    const ang = Math.atan2(y2-y1, x2-x1), hs = 10;
+    [[x1,y1,ang+Math.PI],[x2,y2,ang]].forEach(([ax,ay,a]) => {
+      ctx.beginPath(); ctx.moveTo(ax,ay);
+      ctx.lineTo(ax - hs*Math.cos(a-0.4), ay - hs*Math.sin(a-0.4));
+      ctx.lineTo(ax - hs*Math.cos(a+0.4), ay - hs*Math.sin(a+0.4));
+      ctx.closePath(); ctx.fill();
+    });
+    // Tick marks perpendicular at ends
+    const perp = ang + Math.PI/2, tk = 8;
+    [x1,y1,x2,y2].forEach((_, i) => {
+      if (i % 2 !== 0) return;
+      const bx = [x1,x2][i/2], by = [y1,y2][i/2];
+      ctx.beginPath();
+      ctx.moveTo(bx + tk*Math.cos(perp), by + tk*Math.sin(perp));
+      ctx.lineTo(bx - tk*Math.cos(perp), by - tk*Math.sin(perp));
+      ctx.stroke();
+    });
+    // Label
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    ctx.font = 'bold 13px Inter,Arial,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw = ctx.measureText(label).width + 10;
+    ctx.fillStyle='white'; ctx.fillRect(mx-tw/2, my-11, tw, 22);
+    ctx.fillStyle=col; ctx.fillText(label, mx, my);
+    ctx.restore();
+  };
+
+  const commitMeasure = (value, unit) => {
+    if (!value.trim()) { setMeasurePopup(p => ({ ...p, visible: false })); scheduleAutoSave(); return; }
+    const { x1, y1, x2, y2 } = measurePopup;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    // Restore clean state (line already drawn in preview), just paint on top
+    drawMeasureLine(x1, y1, x2, y2, `${value} ${unit}`);
+    setMeasurePopup(p => ({ ...p, visible: false }));
+    scheduleAutoSave();
+  };
+
   const stopDrawing = (e) => {
     if (textMode || !isDrawing) return;
     if (e) { try { e.preventDefault(); } catch {} }
 
-    if ((lineMode || arrowMode || circleMode || rectMode) && snapshotRef.current && startPosRef.current) {
+    if ((lineMode || arrowMode || circleMode || rectMode || measureMode) && snapshotRef.current && startPosRef.current) {
       try {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         const pos = getPos(e, canvas);
-        ctx.putImageData(snapshotRef.current, 0, 0);
-        applyStroke(ctx);
 
-        if (circleMode) {
-          const rx = Math.abs(pos.x - startPosRef.current.x) / 2;
-          const ry = Math.abs(pos.y - startPosRef.current.y) / 2;
-          const cx = (pos.x + startPosRef.current.x) / 2;
-          const cy = (pos.y + startPosRef.current.y) / 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, 2*Math.PI);
-          ctx.stroke();
-        } else if (rectMode) {
-          ctx.beginPath();
-          ctx.strokeRect(startPosRef.current.x, startPosRef.current.y,
-            pos.x - startPosRef.current.x, pos.y - startPosRef.current.y);
+        if (measureMode) {
+          // Restore snapshot (clear preview dashes), commit solid line immediately
+          ctx.putImageData(snapshotRef.current, 0, 0);
+          drawMeasureLine(startPosRef.current.x, startPosRef.current.y, pos.x, pos.y, '?');
+          // Compute screen coords for popup (near midpoint of line)
+          const rect = canvas.getBoundingClientRect();
+          const sx = rect.width / canvas.width;
+          const sy = rect.height / canvas.height;
+          const screenX = rect.left + ((startPosRef.current.x + pos.x) / 2) * sx;
+          const screenY = rect.top  + ((startPosRef.current.y + pos.y) / 2) * sy;
+          setMeasurePopup({ visible: true, x1: startPosRef.current.x, y1: startPosRef.current.y,
+            x2: pos.x, y2: pos.y, screenX, screenY, value: '', unit: 'm' });
+          setTimeout(() => measureValueRef.current?.focus(), 60);
         } else {
-          ctx.beginPath();
-          ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
-          ctx.lineTo(pos.x, pos.y);
-          ctx.stroke();
-          if (arrowMode && !erasing) drawArrowhead(ctx, startPosRef.current.x, startPosRef.current.y, pos.x, pos.y);
+          ctx.putImageData(snapshotRef.current, 0, 0);
+          applyStroke(ctx);
+          if (circleMode) {
+            const rx = Math.abs(pos.x - startPosRef.current.x) / 2;
+            const ry = Math.abs(pos.y - startPosRef.current.y) / 2;
+            const cx = (pos.x + startPosRef.current.x) / 2;
+            const cy = (pos.y + startPosRef.current.y) / 2;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, Math.max(rx,1), Math.max(ry,1), 0, 0, 2*Math.PI);
+            ctx.stroke();
+          } else if (rectMode) {
+            ctx.beginPath();
+            ctx.strokeRect(startPosRef.current.x, startPosRef.current.y,
+              pos.x - startPosRef.current.x, pos.y - startPosRef.current.y);
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(startPosRef.current.x, startPosRef.current.y);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            if (arrowMode && !erasing) drawArrowhead(ctx, startPosRef.current.x, startPosRef.current.y, pos.x, pos.y);
+          }
         }
       } catch {}
       snapshotRef.current = null; startPosRef.current = null;
     }
     setIsDrawing(false);
-    scheduleAutoSave();
+    if (!measureMode) scheduleAutoSave();
   };
 
   const toggleFullscreen = () => {
@@ -548,7 +621,7 @@ const Croquis3D = forwardRef((props, ref) => {
     display:'flex', alignItems:'center', gap:'3px', whiteSpace:'nowrap', backdropFilter:'blur(4px)',
   });
 
-  const curStyle = textMode ? 'text' : erasing ? 'cell' : 'crosshair';
+  const curStyle = textMode ? 'text' : erasing ? 'cell' : measureMode ? 'crosshair' : 'crosshair';
 
   return (
     <div ref={containerRef} style={{ position:'relative', background:'white', borderRadius:'12px', border:'1px solid #e2e8f0', marginTop:'1rem', marginBottom:'1rem', overflow:'hidden' }}>
@@ -570,6 +643,7 @@ const Croquis3D = forwardRef((props, ref) => {
         <button onClick={() => setModeState('circle')} style={btn(mode==='circle','#7c3aed','#ede9fe')}>⭕</button>
         <button onClick={() => setModeState('rect')}   style={btn(mode==='rect','#0369a1','#e0f2fe')}>▭</button>
         <button onClick={() => setModeState('text')}   style={btn(mode==='text','#065f46','#d1fae5')}>🔤 Texto</button>
+        <button onClick={() => setModeState('measure')} style={btn(mode==='measure','#dc2626','#fef2f2')} title="Dibuja una línea y se abrirá un cuadro para anotar la medida">📐 Medida</button>
         <div style={{ width:'1px', height:'22px', background:'#e2e8f0', margin:'0 2px' }} />
         <button onClick={() => setGrid3D(!grid3D)} style={btn(grid3D,'#1d4ed8','#dbeafe')}>🧊 Iso</button>
         <button onClick={() => setModeState('erase')} style={btn(mode==='erase','#b45309','#fef9c3')}>🩹 Borrar</button>
@@ -624,6 +698,41 @@ const Croquis3D = forwardRef((props, ref) => {
               font:`bold ${lineWidth*6+12}px Inter,sans-serif`, lineHeight:1.25, padding:'2px 4px',
               resize:'both', overflow:'hidden', zIndex:10, borderRadius:'4px' }} />
         )}
+        {/* ── Measure popup ── */}
+        {measurePopup.visible && (() => {
+          const rect = containerRef.current?.getBoundingClientRect() || { left:0, top:0 };
+          const popX = measurePopup.screenX - rect.left;
+          const popY = measurePopup.screenY - rect.top;
+          return (
+            <div style={{ position:'absolute', left:`${popX}px`, top:`${popY}px`, transform:'translate(-50%,-110%)',
+              background:'white', border:'2px solid #16a34a', borderRadius:'12px', padding:'0.8rem 1rem',
+              boxShadow:'0 8px 28px rgba(0,0,0,0.18)', zIndex:20, display:'flex', flexDirection:'column', gap:'0.5rem', minWidth:'200px' }}>
+              <p style={{ margin:0, fontSize:'0.72rem', fontWeight:'800', color:'#16a34a', textTransform:'uppercase', letterSpacing:'0.06em' }}>📐 Medida de la línea</p>
+              <div style={{ display:'flex', gap:'0.5rem' }}>
+                <input ref={measureValueRef} type="text" inputMode="decimal" placeholder="Ej. 2.35"
+                  value={measurePopup.value}
+                  onChange={e => setMeasurePopup(p => ({ ...p, value: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') commitMeasure(measurePopup.value, measurePopup.unit); if (e.key === 'Escape') { setMeasurePopup(p => ({ ...p, visible:false })); scheduleAutoSave(); } }}
+                  style={{ flex:1, padding:'6px 8px', borderRadius:'6px', border:'1.5px solid #16a34a', fontSize:'0.95rem', fontWeight:'700', outline:'none', color:'#1e293b' }} />
+                <select value={measurePopup.unit} onChange={e => setMeasurePopup(p => ({ ...p, unit: e.target.value }))}
+                  style={{ padding:'6px 4px', borderRadius:'6px', border:'1.5px solid #16a34a', fontSize:'0.85rem', fontWeight:'700', color:'#16a34a', background:'#f0fdf4', cursor:'pointer' }}>
+                  <option value="m">m</option>
+                  <option value="cm">cm</option>
+                  <option value="mm">mm</option>
+                  <option value="pulg">pulg</option>
+                  <option value="pie">pie</option>
+                </select>
+              </div>
+              <div style={{ display:'flex', gap:'0.4rem' }}>
+                <button onClick={() => commitMeasure(measurePopup.value, measurePopup.unit)}
+                  style={{ flex:1, padding:'6px', background:'#16a34a', color:'white', border:'none', borderRadius:'7px', fontWeight:'800', cursor:'pointer', fontSize:'0.85rem' }}>✔ Aplicar</button>
+                <button onClick={() => { setMeasurePopup(p => ({ ...p, visible:false })); scheduleAutoSave(); }}
+                  style={{ padding:'6px 10px', background:'#f1f5f9', color:'#64748b', border:'none', borderRadius:'7px', fontWeight:'700', cursor:'pointer', fontSize:'0.85rem' }}>✕</button>
+              </div>
+              <p style={{ margin:0, fontSize:'0.65rem', color:'#94a3b8' }}>Enter para aplicar · Esc para cancelar</p>
+            </div>
+          );
+        })()}
       </div>
 
     </div>

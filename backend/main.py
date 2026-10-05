@@ -191,6 +191,7 @@ class ProspectCreate(BaseModel):
     render_pdf_path: Optional[str] = None
     render_delivery_time: Optional[str] = None
     render_comments: Optional[str] = None
+    contract_password: Optional[str] = None
 
 class ProspectUpdate(ProspectCreate):
     pass

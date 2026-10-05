@@ -99,6 +99,7 @@ class Prospect(Base):
     quote_image_2 = Column(String, nullable=True)
     quote_image_3 = Column(String, nullable=True)
     quote_image_4 = Column(String, nullable=True)
+    contract_password = Column(String, nullable=True)
 
 class Template(Base):
     __tablename__ = 'templates'

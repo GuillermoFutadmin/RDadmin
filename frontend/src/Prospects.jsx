@@ -10,9 +10,13 @@ function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
   const [reason, setReason] = useState('');
 
   const handleApprove = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+
     await fetch(`${API}/api/prospects/${prospect.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_contract: true, contract_date: new Date().toISOString(), status: 'APROBADO' }),
+      body: JSON.stringify({ is_contract: true, contract_date: new Date().toISOString(), status: 'APROBADO', contract_password: pwd }),
     });
     onClose(); fetchProspects();
   };

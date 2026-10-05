@@ -59,13 +59,31 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion }) {
+function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh }) {
   const chip = (label, value) => value ? (
     <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
       <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
       <p style={{ fontWeight:'600', fontSize:'0.82rem', color:'#1e293b', margin:0, lineHeight:'1.3' }}>{value}</p>
     </div>
   ) : null;
+
+  const generatePassword = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    try {
+      await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contract_password: pwd })
+      });
+      prospect.contract_password = pwd;
+      if (onRefresh) onRefresh();
+      alert(`Nueva contraseña guardada: ${pwd}`);
+    } catch (e) {
+      alert('Error al generar contraseña');
+    }
+  };
 
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
     .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
@@ -82,7 +100,16 @@ function ContratoDetail({ prospect, onBack, onEstimacion, onReturnToProspect, on
         </div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.4rem' }}>
-        {chip('ID', prospect.public_id)}
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <div style={{ flex: 1 }}>{chip('ID', prospect.public_id)}</div>
+          <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px', display:'flex', flexDirection:'column', justifyContent:'center', minWidth:'140px' }}>
+             <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>Contraseña</p>
+             <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', justifyContent:'space-between' }}>
+               <p style={{ fontWeight:'600', fontSize:'0.82rem', color: prospect.contract_password ? '#1e293b' : '#94a3b8', margin:0 }}>{prospect.contract_password || 'Ninguna'}</p>
+               <button onClick={generatePassword} style={{ background:'#3b82f6', color:'white', border:'none', borderRadius:'4px', padding:'2px 6px', fontSize:'0.65rem', cursor:'pointer', fontWeight:'bold' }}>Generar</button>
+             </div>
+          </div>
+        </div>
         {chip('Fecha Captura', fmtDate(prospect.capture_date))}
         {chip('Contacto', prospect.contact_info)}
         {chip('Ubicación', prospect.location)}
