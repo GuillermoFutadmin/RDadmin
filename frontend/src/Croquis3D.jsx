@@ -122,55 +122,139 @@ const Croquis3D = forwardRef((props, ref) => {
     return { x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy };
   };
 
-  // Draw isometric cube at center of canvas
-  const insertCube = () => {
-    pushState();
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const s = 120; // half size
-    const dx = s * Math.cos(Math.PI / 6);
-    const dy = s * Math.sin(Math.PI / 6);
-
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth + 1;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // Top face
-    ctx.fillStyle = 'rgba(186,220,254,0.5)';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - s);
-    ctx.lineTo(cx + dx, cy - s + dy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx - dx, cy - s + dy);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    // Right face
-    ctx.fillStyle = 'rgba(147,197,253,0.4)';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + dx, cy - s + dy);
-    ctx.lineTo(cx + dx, cy + dy);
-    ctx.lineTo(cx, cy + s);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    // Left face
-    ctx.fillStyle = 'rgba(96,165,250,0.3)';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx - dx, cy - s + dy);
-    ctx.lineTo(cx - dx, cy + dy);
-    ctx.lineTo(cx, cy + s);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    ctx.restore();
+  // ─── Isometric helpers ─────────────────────────────────────────────────────
+  const isoProject = (x, y, z, ox, oy, sc) => {
+    const a = Math.PI / 6;
+    return { x: ox + (x - z) * Math.cos(a) * sc, y: oy + (x + z) * Math.sin(a) * sc - y * sc };
   };
+
+  const drawIsoBox = (ctx, ox, oy, w, h, d, sc, cTop, cRight, cLeft, stroke) => {
+    const pts = (xs, ys, zs) => xs.map((x, i) => isoProject(x, ys[i], zs[i], ox, oy, sc));
+    const ftl=isoProject(0,0,0,ox,oy,sc), ftr=isoProject(w,0,0,ox,oy,sc);
+    const fbr=isoProject(w,0,d,ox,oy,sc), fbl=isoProject(0,0,d,ox,oy,sc);
+    const tl =isoProject(0,h,0,ox,oy,sc), tr =isoProject(w,h,0,ox,oy,sc);
+    const br =isoProject(w,h,d,ox,oy,sc), bl =isoProject(0,h,d,ox,oy,sc);
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    const face = (p, fill) => {
+      ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y);
+      p.slice(1).forEach(v => ctx.lineTo(v.x, v.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    };
+    face([ftl,ftr,tr,tl], cTop);
+    face([ftr,fbr,br,tr], cRight);
+    face([ftl,fbl,bl,tl], cLeft);
+    return { tl, tr, br, bl, ftl, ftr, fbr, fbl };
+  };
+
+  const drawDimArrow = (ctx, x1, y1, x2, y2, label, col = '#1e40af') => {
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const ang = Math.atan2(y2 - y1, x2 - x1), hs = 7;
+    [[x1, y1, ang + Math.PI], [x2, y2, ang]].forEach(([ax, ay, a]) => {
+      ctx.beginPath(); ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - hs * Math.cos(a - 0.4), ay - hs * Math.sin(a - 0.4));
+      ctx.lineTo(ax - hs * Math.cos(a + 0.4), ay - hs * Math.sin(a + 0.4));
+      ctx.closePath(); ctx.fill();
+    });
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    ctx.font = 'bold 11px Inter,Arial,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = 'white'; ctx.fillRect(mx - tw/2, my - 9, tw, 18);
+    ctx.fillStyle = col; ctx.fillText(label, mx, my);
+  };
+
+  // ─── Template draw functions ────────────────────────────────────────────────
+  const tplCocina = (ctx, cx, cy) => {
+    const sc=25, ox=cx-20, oy=cy+40, s='#334155';
+    drawIsoBox(ctx,ox,oy,8,3.5,2.8,sc,'rgba(209,213,219,.85)','rgba(156,163,175,.7)','rgba(175,180,190,.7)',s);
+    const d0=isoProject(8,3.5,0,ox,oy,sc),d1=isoProject(8,0,0,ox,oy,sc);
+    const d2=isoProject(8,0,2.8,ox,oy,sc),d3=isoProject(8,3.5,2.8,ox,oy,sc);
+    const mT={x:(d0.x+d2.x)/2,y:(d0.y+d2.y)/2},mB={x:(d1.x+d3.x)/2,y:(d1.y+d3.y)/2};
+    ctx.strokeStyle=s; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(mT.x,mT.y); ctx.lineTo(mB.x,mB.y); ctx.stroke();
+    [0.3,0.7].forEach(t => { const hx=d0.x+(d3.x-d0.x)*t,hy=d0.y+(d3.y-d0.y)*t; ctx.beginPath(); ctx.arc(hx,hy,3,0,2*Math.PI); ctx.fillStyle='#94a3b8'; ctx.fill(); });
+    drawIsoBox(ctx,ox,oy,8.2,0.3,2.95,sc,'rgba(248,250,252,.95)','rgba(226,232,240,.8)','rgba(226,232,240,.8)','#475569');
+    const ux=cx-20,uy=cy-70;
+    drawIsoBox(ctx,ux,uy,8,3,1.8,sc,'rgba(219,234,254,.85)','rgba(191,219,254,.7)','rgba(147,197,253,.6)',s);
+    const u0=isoProject(8,3,0,ux,uy,sc),u2=isoProject(8,0,1.8,ux,uy,sc);
+    const u1=isoProject(8,0,0,ux,uy,sc),u3=isoProject(8,3,1.8,ux,uy,sc);
+    const umT={x:(u0.x+u2.x)/2,y:(u0.y+u2.y)/2},umB={x:(u1.x+u3.x)/2,y:(u1.y+u3.y)/2};
+    ctx.strokeStyle=s; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(umT.x,umT.y); ctx.lineTo(umB.x,umB.y); ctx.stroke();
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(8,0,0,ox,oy,sc);
+    const bD=isoProject(0,0,2.8,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-12,bL.y,bD.x-12,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO BAJO','#7c3aed');
+    const uTp=isoProject(0,0,0,ux,uy,sc),uBt=isoProject(0,3,0,ux,uy,sc);
+    drawDimArrow(ctx,uTp.x-38,uTp.y,uBt.x-38,uBt.y,'ALTO ALTO','#7c3aed');
+    ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('MUEBLE BAJO',cx-20,cy+108); ctx.fillText('MUEBLE ALTO',cx-20,cy-122);
+  };
+
+  const tplCloset = (ctx, cx, cy) => {
+    const sc=25,ox=cx-40,oy=cy+80,s='#334155';
+    drawIsoBox(ctx,ox,oy,7,9,2.5,sc,'rgba(236,254,255,.85)','rgba(207,250,254,.7)','rgba(165,243,252,.6)',s);
+    const shL=isoProject(.2,4.5,.2,ox,oy,sc),shR=isoProject(6.8,4.5,.2,ox,oy,sc);
+    const shRb=isoProject(6.8,4.5,2.3,ox,oy,sc),shLb=isoProject(.2,4.5,2.3,ox,oy,sc);
+    ctx.fillStyle='rgba(186,230,253,.6)'; ctx.strokeStyle='#0ea5e9'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(shL.x,shL.y); ctx.lineTo(shR.x,shR.y); ctx.lineTo(shRb.x,shRb.y); ctx.lineTo(shLb.x,shLb.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const fTL=isoProject(0,9,0,ox,oy,sc),fBL=isoProject(0,0,0,ox,oy,sc);
+    const fTM=isoProject(0,9,1.25,ox,oy,sc),fBM=isoProject(0,0,1.25,ox,oy,sc);
+    const fTR=isoProject(0,9,2.5,ox,oy,sc),fBR=isoProject(0,0,2.5,ox,oy,sc);
+    ctx.fillStyle='rgba(224,242,254,.75)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(fTL.x,fTL.y); ctx.lineTo(fTM.x,fTM.y); ctx.lineTo(fBM.x,fBM.y); ctx.lineTo(fBL.x,fBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(186,230,253,.75)';
+    ctx.beginPath(); ctx.moveTo(fTM.x,fTM.y); ctx.lineTo(fTR.x,fTR.y); ctx.lineTo(fBR.x,fBR.y); ctx.lineTo(fBM.x,fBM.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    [[fTL,fBL,fTM,fBM],[fTM,fBM,fTR,fBR]].forEach(pts => {
+      const hx=(pts[0].x+pts[1].x+pts[2].x+pts[3].x)/4,hy=(pts[0].y+pts[1].y+pts[2].y+pts[3].y)/4;
+      ctx.beginPath(); ctx.arc(hx,hy,3.5,0,2*Math.PI); ctx.fillStyle='#0369a1'; ctx.fill();
+    });
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(7,0,0,ox,oy,sc);
+    const bD=isoProject(0,0,2.5,ox,oy,sc),bT=isoProject(0,9,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-12,bL.y,bD.x-12,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-40,bL.y,bT.x-40,bT.y,'ALTO','#7c3aed');
+    ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('CLÓSET / NICHO',cx-40,cy+142);
+    ctx.fillText('Puerta 1',(fTL.x+fTM.x)/2-5,fTL.y-10); ctx.fillText('Puerta 2',(fTM.x+fTR.x)/2-5,fTM.y-10);
+  };
+
+  const tplPuerta = (ctx, cx, cy, tipo) => {
+    const sc=28,ox=cx-70,oy=cy+90,s='#334155';
+    drawIsoBox(ctx,ox,oy,.6,7,.5,sc,'rgba(226,232,240,.7)','rgba(203,213,225,.6)','rgba(203,213,225,.6)',s);
+    const dPts=[isoProject(.6,7,0,ox,oy,sc),isoProject(.6,0,0,ox,oy,sc),isoProject(4,0,0,ox,oy,sc),isoProject(4,7,0,ox,oy,sc)];
+    ctx.fillStyle=tipo==='tambor'?'rgba(209,250,229,.85)':'rgba(254,243,199,.85)';
+    ctx.strokeStyle=tipo==='tambor'?'#065f46':'#b45309'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(dPts[0].x,dPts[0].y); dPts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const ins=0.25;
+    const ip=[isoProject(.6+ins,7-ins,0,ox,oy,sc),isoProject(.6+ins,ins,0,ox,oy,sc),isoProject(4-ins,ins,0,ox,oy,sc),isoProject(4-ins,7-ins,0,ox,oy,sc)];
+    ctx.strokeStyle=tipo==='tambor'?'#065f46':'#92400e'; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(ip[0].x,ip[0].y); ip.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.stroke();
+    if(tipo==='tambor'){ const mT=isoProject(.6+ins,3.5,0,ox,oy,sc),mR=isoProject(4-ins,3.5,0,ox,oy,sc); ctx.beginPath(); ctx.moveTo(mT.x,mT.y); ctx.lineTo(mR.x,mR.y); ctx.stroke(); }
+    const hPos=isoProject(3.5,3.5,0,ox,oy,sc);
+    ctx.beginPath(); ctx.arc(hPos.x,hPos.y,5,0,2*Math.PI); ctx.fillStyle=tipo==='tambor'?'#065f46':'#78350f'; ctx.fill();
+    if(tipo==='solida'){
+      const ht=isoProject(.6,7,0,ox,oy,sc),tt=isoProject(4,7,0,ox,oy,sc);
+      const r=Math.hypot(tt.x-ht.x,tt.y-ht.y),a0=Math.atan2(tt.y-ht.y,tt.x-ht.x);
+      ctx.strokeStyle='#b45309'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.arc(ht.x,ht.y,r,a0,a0+Math.PI/2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    const bL=isoProject(.6,0,0,ox,oy,sc),bR=isoProject(4,0,0,ox,oy,sc);
+    const bT=isoProject(.6,7,0,ox,oy,sc),bW0=isoProject(0,0,0,ox,oy,sc),bW=isoProject(0,0,.5,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-18,bL.y,bR.x-18,bR.y,'ANCHO VANO','#1e40af');
+    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO VANO','#7c3aed');
+    drawDimArrow(ctx,bW0.x+8,bW0.y,bW.x+8,bW.y,'ESPESOR','#0f766e');
+    ctx.setLineDash([]); ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText(tipo==='tambor'?'PUERTA TAMBOR':'PUERTA SÓLIDA',cx-30,cy+132);
+  };
+
+  const TEMPLATES = [
+    { id:'cocina',   label:'Cocina',        icon:'🍳', desc:'Mueble alto + bajo + encimera', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy) => tplCocina(ctx,cx,cy) },
+    { id:'closet',   label:'Clóset',         icon:'🚪', desc:'Nicho + puertas corredizas',  color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy) => tplCloset(ctx,cx,cy) },
+    { id:'p_solida', label:'Puerta Sólida',  icon:'🪵', desc:'Vano + hoja + abatimiento',   color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'solida') },
+    { id:'p_tambor', label:'Puerta Tambor',  icon:'🟩', desc:'Vano + hoja liviana',          color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'tambor') },
+  ];
+
 
   const startDrawing = (e) => {
     e.preventDefault();
@@ -326,6 +410,34 @@ const Croquis3D = forwardRef((props, ref) => {
         </div>
       </div>
 
+      {/* Template Croquis gallery */}
+      <div style={{ marginBottom:'0.75rem' }}>
+        <p style={{ fontSize:'0.7rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.45rem' }}>
+          📐 Insertar Croquis Isométrico — 1 clic
+        </p>
+        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+          {TEMPLATES.map(tpl => (
+            <button key={tpl.id} title={tpl.desc}
+              onClick={() => {
+                pushState();
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                ctx.save();
+                tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30);
+                ctx.restore();
+              }}
+              style={{ padding:'7px 13px', background:tpl.bg, border:`2px solid ${tpl.color}44`, borderRadius:'10px', cursor:'pointer', fontSize:'0.8rem', fontWeight:'700', color:tpl.color, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px', transition:'all 0.15s', minWidth:'95px' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 6px 16px ${tpl.color}33`; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor=`${tpl.color}44`; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}
+            >
+              <span style={{ fontSize:'1.35rem', lineHeight:1 }}>{tpl.icon}</span>
+              <span>{tpl.label}</span>
+              <span style={{ fontSize:'0.6rem', fontWeight:'500', color:`${tpl.color}99` }}>{tpl.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div style={{ display:'flex', gap:'0.35rem', alignItems:'center', marginBottom:'0.8rem', flexWrap:'wrap', background:'#f8fafc', padding:'8px 10px', borderRadius:'10px', border:'1px solid #e2e8f0' }}>
         {/* Color & size */}
@@ -348,12 +460,6 @@ const Croquis3D = forwardRef((props, ref) => {
 
         <div style={{ width:'1px', height:'26px', background:'#e2e8f0', margin:'0 2px' }} />
 
-        {/* Cube insert */}
-        <button onClick={insertCube} style={{ ...btnStyle(false, '#92400e', '#fef3c7'), border:'1.5px solid #fcd34d', color:'#78350f', background:'#fef9c3' }}>
-          🧊 Insertar Cubo
-        </button>
-
-        <div style={{ width:'1px', height:'26px', background:'#e2e8f0', margin:'0 2px' }} />
 
         <button onClick={() => setModeState('erase')} style={btnStyle(mode==='erase', '#b45309', '#fef9c3')}>🩹 Borrar</button>
         <button onClick={undo}         style={btnStyle(false)}>↩️ Deshacer</button>
@@ -388,9 +494,9 @@ const Croquis3D = forwardRef((props, ref) => {
 
       {/* Hint bar */}
       <div style={{ marginTop:'0.5rem', fontSize:'0.72rem', color:'#94a3b8', display:'flex', gap:'1.5rem', flexWrap:'wrap' }}>
-        <span>💡 <b>Círculo:</b> arrastra para definir el tamaño</span>
-        <span>🧊 <b>Insertar Cubo:</b> coloca un cubo isométrico en el centro — muévelo luego con Libre</span>
-        <span>🔤 <b>Texto:</b> click donde quieres escribir, Enter para confirmar</span>
+        <span>📐 <b>Croquis:</b> clic en una plantilla para insertar el dibujo isométrico con cotas</span>
+        <span>🔤 <b>Texto:</b> clic donde quieres escribir la medida, Enter para confirmar</span>
+        <span>➡️ <b>Flecha:</b> arrastra para marcar cotas adicionales</span>
         <span>⛶ Pantalla Completa para más espacio</span>
       </div>
     </div>
