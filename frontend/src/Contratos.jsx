@@ -1642,15 +1642,15 @@ function Estimacion({ prospect, onBack }) {
                          </div>
                          <div style={{ flex:'1 1 140px' }}>
                            <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Interior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.interior_color_type ? ${prospect.interior_color_type} ·  : 'N/A'}</div>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.interior_color_type ? `${prospect.interior_color_type} · ${prospect.interior_color_code}` : 'N/A'}</div>
                          </div>
                          <div style={{ flex:'1 1 140px' }}>
                            <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Inferior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_inf_color_type ? ${prospect.exterior_inf_color_type} ·  : 'N/A'}</div>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_inf_color_type ? `${prospect.exterior_inf_color_type} · ${prospect.exterior_inf_color_code}` : 'N/A'}</div>
                          </div>
                          <div style={{ flex:'1 1 140px' }}>
                            <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Superior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_sup_color_type ? ${prospect.exterior_sup_color_type} ·  : 'N/A'}</div>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_sup_color_type ? `${prospect.exterior_sup_color_type} · ${prospect.exterior_sup_color_code}` : 'N/A'}</div>
                          </div>
                          <div style={{ flex:'1 1 140px' }}>
                            <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Encimera</label>
