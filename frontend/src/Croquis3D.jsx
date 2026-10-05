@@ -1,20 +1,27 @@
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+
+const STORAGE_KEY = 'croquis3d_autosave';
 
 const Croquis3D = forwardRef((props, ref) => {
+  // props.contractId can be passed to namespace localStorage per contract
+  const storageKey = props.contractId ? `${STORAGE_KEY}_${props.contractId}` : STORAGE_KEY;
+
   const canvasRef     = useRef(null);
   const gridCanvasRef = useRef(null);
   const containerRef  = useRef(null);
   const snapshotRef   = useRef(null);
   const startPosRef   = useRef(null);
   const historyRef    = useRef([]);
+  const saveTimerRef  = useRef(null);
 
-  const [color, setColor]       = useState('#1e293b');
-  const [lineWidth, setLineWidth] = useState(2);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [mode, setModeState]    = useState('libre'); // libre|line|arrow|text|erase|circle|rect
-  const [grid3D, setGrid3D]     = useState(false);
+  const [color, setColor]         = useState('#1e293b');
+  const [lineWidth, setLineWidth]  = useState(2);
+  const [isDrawing, setIsDrawing]  = useState(false);
+  const [mode, setModeState]       = useState('libre');
+  const [grid3D, setGrid3D]        = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [textInput, setTextInput] = useState({ visible: false, x: 0, y: 0, text: '' });
+  const [textInput, setTextInput]  = useState({ visible: false, x: 0, y: 0, text: '' });
+  const [toolbarOpen, setToolbarOpen] = useState(false);
   const textInputRef = useRef(null);
 
   const erasing   = mode === 'erase';
@@ -24,11 +31,48 @@ const Croquis3D = forwardRef((props, ref) => {
   const circleMode = mode === 'circle';
   const rectMode  = mode === 'rect';
 
+  // ── Auto-save to localStorage ─────────────────────────────────────────────
+  const scheduleAutoSave = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      try {
+        const data = canvas.toDataURL('image/png');
+        localStorage.setItem(storageKey, data);
+      } catch(e) {}
+    }, 800);
+  }, [storageKey]);
+
+  // ── Load saved sketch on mount ────────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = saved;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFs);
     return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
+
+  const initCanvas = () => {
+    const c = canvasRef.current;
+    if (c) {
+      c.getContext('2d').clearRect(0, 0, c.width, c.height);
+      localStorage.removeItem(storageKey);
+    }
+  };
 
   useImperativeHandle(ref, () => ({
     getSketchData: () => {
@@ -47,7 +91,7 @@ const Croquis3D = forwardRef((props, ref) => {
       if (!canvas || !dataUrl) return;
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, 0, 0); };
+      img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, 0, 0); scheduleAutoSave(); };
       img.src = dataUrl;
     },
     clearCanvas: () => initCanvas()
@@ -58,13 +102,17 @@ const Croquis3D = forwardRef((props, ref) => {
     if (!gc) return;
     const ctx = gc.getContext('2d');
     ctx.clearRect(0, 0, gc.width, gc.height);
-    if (grid3D) drawIsometricGrid(ctx, gc.width, gc.height);
+    if (grid3D) {
+      ctx.save(); ctx.strokeStyle = '#bfdbfe'; ctx.lineWidth = 0.7; ctx.beginPath();
+      const size = 40, dx = size * Math.cos(Math.PI / 6);
+      const w = gc.width, h = gc.height;
+      for (let x = -w; x < w * 2; x += dx) {
+        ctx.moveTo(x, 0); ctx.lineTo(x + h * Math.tan(Math.PI / 3), h);
+        ctx.moveTo(x, 0); ctx.lineTo(x - h * Math.tan(Math.PI / 3), h);
+      }
+      ctx.stroke(); ctx.restore();
+    }
   }, [grid3D]);
-
-  const initCanvas = () => {
-    const c = canvasRef.current;
-    if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height);
-  };
 
   const drawIsometricGrid = (ctx, w, h) => {
     ctx.save();
@@ -248,11 +296,120 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.fillText(tipo==='tambor'?'PUERTA TAMBOR':'PUERTA SÓLIDA',cx-30,cy+132);
   };
 
+  const tplCajonera = (ctx, cx, cy) => {
+    const sc=32, ox=cx-30, oy=cy+60, s='#334155';
+    // Body
+    drawIsoBox(ctx,ox,oy,5,8,2.2,sc,'rgba(226,232,240,.85)','rgba(203,213,225,.7)','rgba(203,213,225,.7)',s);
+    // 4 drawers
+    [1.5,3,4.5,6].forEach(yOff => {
+      const dTL=isoProject(0.15,yOff+1.2,0.1,ox,oy,sc), dTR=isoProject(4.85,yOff+1.2,0.1,ox,oy,sc);
+      const dBL=isoProject(0.15,yOff,0.1,ox,oy,sc),    dBR=isoProject(4.85,yOff,0.1,ox,oy,sc);
+      ctx.fillStyle='rgba(248,250,252,.9)'; ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(dTL.x,dTL.y); ctx.lineTo(dTR.x,dTR.y); ctx.lineTo(dBR.x,dBR.y); ctx.lineTo(dBL.x,dBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Handle
+      const hL=isoProject(1.8,yOff+0.65,0.1,ox,oy,sc), hR=isoProject(3.2,yOff+0.65,0.1,ox,oy,sc);
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(hL.x,hL.y); ctx.lineTo(hR.x,hR.y); ctx.stroke();
+    });
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(5,0,0,ox,oy,sc);
+    const bD=isoProject(0,0,2.2,ox,oy,sc),bT=isoProject(0,8,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO','#7c3aed');
+    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('CAJONERA',cx-30,cy+130);
+  };
+
+  const tplMarco = (ctx, cx, cy) => {
+    const sc=32, ox=cx-80, oy=cy+60, s='#334155';
+    // Left jamb
+    drawIsoBox(ctx,ox,oy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
+    // Right jamb
+    drawIsoBox(ctx,ox,oy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
+    const rx=isoProject(4,0,0,ox,oy,sc);
+    const rox=ox+rx.x-isoProject(0,0,0,ox,oy,sc).x;
+    const roy=oy+rx.y-isoProject(0,0,0,ox,oy,sc).y;
+    drawIsoBox(ctx,rox,roy+isoProject(0,7.5,0,0,0,sc).y*-1,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
+    // Top header
+    const htL=isoProject(0,7.5,0,ox,oy,sc), htR=isoProject(4.5,7.5,0,ox,oy,sc);
+    const hbL=isoProject(0,7,0,ox,oy,sc),   hbR=isoProject(4.5,7,0,ox,oy,sc);
+    const hbRd=isoProject(4.5,7,0.4,ox,oy,sc), hbLd=isoProject(0,7,0.4,ox,oy,sc);
+    const htRd=isoProject(4.5,7.5,0.4,ox,oy,sc), htLd=isoProject(0,7.5,0.4,ox,oy,sc);
+    ctx.fillStyle='rgba(226,232,240,.85)'; ctx.strokeStyle=s; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htR.x,htR.y); ctx.lineTo(hbR.x,hbR.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htLd.x,htLd.y); ctx.lineTo(hbLd.x,hbLd.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(4.5,0,0,ox,oy,sc);
+    const bT=isoProject(0,7.5,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'ANCHO VANO','#1e40af');
+    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO VANO','#7c3aed');
+    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('MARCO DE PUERTA',cx-30,cy+130);
+  };
+
+  const tplIsla = (ctx, cx, cy) => {
+    const sc=22, ox=cx-50, oy=cy+70, s='#334155';
+    // Island body
+    drawIsoBox(ctx,ox,oy,10,3.5,4,sc,'rgba(241,245,249,.9)','rgba(226,232,240,.75)','rgba(203,213,225,.75)',s);
+    // Countertop
+    drawIsoBox(ctx,ox,oy,10.2,0.3,4.2,sc,'rgba(255,255,255,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569');
+    // Door lines on front face
+    const f0=isoProject(0,3.5,0,ox,oy,sc), f1=isoProject(10,3.5,0,ox,oy,sc);
+    const f2=isoProject(10,0,0,ox,oy,sc),  f3=isoProject(0,0,0,ox,oy,sc);
+    const fm=isoProject(5,3.5,0,ox,oy,sc), fmb=isoProject(5,0,0,ox,oy,sc);
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(fm.x,fm.y); ctx.lineTo(fmb.x,fmb.y); ctx.stroke();
+    // Handles
+    [[1.5,3.5],[6.5,3.5]].forEach(([xp]) => {
+      const h1=isoProject(xp,1.8,0,ox,oy,sc), h2=isoProject(xp+1,1.8,0,ox,oy,sc);
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(h1.x,h1.y); ctx.lineTo(h2.x,h2.y); ctx.stroke();
+    });
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(10,0,0,ox,oy,sc);
+    const bD=isoProject(0,0,4,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'LARGO','#1e40af');
+    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'ANCHO','#0f766e');
+    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO','#7c3aed');
+    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('ISLA DE COCINA',cx-20,cy+130);
+  };
+
+  const tplFregadero = (ctx, cx, cy) => {
+    const sc=28, ox=cx-25, oy=cy+50, s='#334155';
+    // Cabinet body
+    drawIsoBox(ctx,ox,oy,7,3.5,2.8,sc,'rgba(241,245,249,.85)','rgba(226,232,240,.7)','rgba(226,232,240,.7)',s);
+    // Countertop
+    drawIsoBox(ctx,ox,oy,7.2,0.25,3,sc,'rgba(248,250,252,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569');
+    // Sink basin
+    const bsnTL=isoProject(1.5,0.25,0.6,ox,oy,sc), bsnTR=isoProject(5.5,0.25,0.6,ox,oy,sc);
+    const bsnBL=isoProject(1.5,0.25,2.4,ox,oy,sc), bsnBR=isoProject(5.5,0.25,2.4,ox,oy,sc);
+    ctx.fillStyle='rgba(186,230,253,.6)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(bsnTL.x,bsnTL.y); ctx.lineTo(bsnTR.x,bsnTR.y); ctx.lineTo(bsnBR.x,bsnBR.y); ctx.lineTo(bsnBL.x,bsnBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Faucet
+    const fBase=isoProject(3.5,0.25,1.5,ox,oy,sc);
+    ctx.fillStyle='#94a3b8'; ctx.beginPath(); ctx.arc(fBase.x,fBase.y-18,4,0,2*Math.PI); ctx.fill();
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y); ctx.lineTo(fBase.x,fBase.y-18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y-18); ctx.lineTo(fBase.x+12,fBase.y-18); ctx.stroke();
+    // Doors
+    const dm=isoProject(3.5,3.5,0,ox,oy,sc), dmb=isoProject(3.5,0,0,ox,oy,sc);
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(dm.x,dm.y); ctx.lineTo(dmb.x,dmb.y); ctx.stroke();
+    const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(7,0,0,ox,oy,sc);
+    const bD=isoProject(0,0,2.8,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
+    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO','#7c3aed');
+    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
+    ctx.fillText('MUEBLE FREGADERO',cx-25,cy+120);
+  };
+
   const TEMPLATES = [
-    { id:'cocina',   label:'Cocina',        icon:'🍳', desc:'Mueble alto + bajo + encimera', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy) => tplCocina(ctx,cx,cy) },
-    { id:'closet',   label:'Clóset',         icon:'🚪', desc:'Nicho + puertas corredizas',  color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy) => tplCloset(ctx,cx,cy) },
-    { id:'p_solida', label:'Puerta Sólida',  icon:'🪵', desc:'Vano + hoja + abatimiento',   color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'solida') },
-    { id:'p_tambor', label:'Puerta Tambor',  icon:'🟩', desc:'Vano + hoja liviana',          color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'tambor') },
+    { id:'cocina',    label:'Cocina',           icon:'🍳', desc:'Mueble alto+bajo+encimera', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy) => tplCocina(ctx,cx,cy) },
+    { id:'closet',    label:'Clóset',            icon:'🚪', desc:'Nicho + puertas corredizas', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy) => tplCloset(ctx,cx,cy) },
+    { id:'p_solida',  label:'Puerta Sólida',     icon:'🪵', desc:'Vano + hoja + abatimiento',  color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'solida') },
+    { id:'p_tambor',  label:'Puerta Tambor',     icon:'🟩', desc:'Vano + hoja liviana',         color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy) => tplPuerta(ctx,cx,cy,'tambor') },
+    { id:'cajonera',  label:'Cajonera',          icon:'🗄️', desc:'4 cajones con jaladores',     color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy) => tplCajonera(ctx,cx,cy) },
+    { id:'marco',     label:'Marco Puerta',      icon:'🖼️', desc:'Marco + vano con cotas',      color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy) => tplMarco(ctx,cx,cy) },
+    { id:'isla',      label:'Isla Cocina',       icon:'🏝️', desc:'Isla + encimera + puertas',   color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy) => tplIsla(ctx,cx,cy) },
+    { id:'fregadero', label:'Mueble Fregadero',  icon:'🚿', desc:'Fregadero + gabinete',        color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy) => tplFregadero(ctx,cx,cy) },
   ];
 
 
@@ -369,6 +526,7 @@ const Croquis3D = forwardRef((props, ref) => {
       snapshotRef.current = null; startPosRef.current = null;
     }
     setIsDrawing(false);
+    scheduleAutoSave();
   };
 
   const toggleFullscreen = () => {
@@ -376,129 +534,123 @@ const Croquis3D = forwardRef((props, ref) => {
     else document.exitFullscreen();
   };
 
-  const btnStyle = (active, activeColor = '#1d4ed8', activeBg = '#dbeafe') => ({
-    padding: '5px 11px',
-    background: active ? activeBg : '#f8fafc',
-    border: `1.5px solid ${active ? activeColor : '#e2e8f0'}`,
-    borderRadius: '7px',
-    cursor: 'pointer',
-    fontSize: '0.8rem',
-    fontWeight: '700',
-    color: active ? activeColor : '#475569',
-    display: 'flex', alignItems: 'center', gap: '4px',
-    transition: 'all 0.15s',
-    whiteSpace: 'nowrap',
+  const btn = (active, ac='#1d4ed8', ab='#dbeafe') => ({
+    padding:'4px 10px', background:active?ab:'rgba(255,255,255,0.9)',
+    border:`1.5px solid ${active?ac:'#e2e8f0'}`, borderRadius:'7px', cursor:'pointer',
+    fontSize:'0.78rem', fontWeight:'700', color:active?ac:'#475569',
+    display:'flex', alignItems:'center', gap:'3px', whiteSpace:'nowrap', backdropFilter:'blur(4px)',
   });
 
-  const curStyle = textMode ? 'text' : (lineMode||arrowMode||circleMode||rectMode) ? 'crosshair' : erasing ? 'cell' : 'crosshair';
+  const curStyle = textMode ? 'text' : erasing ? 'cell' : 'crosshair';
 
   return (
-    <div ref={containerRef} style={{ background:'white', borderRadius:'12px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop:'1.5rem', marginBottom:'1.5rem' }}>
-      {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.8rem', gap:'1rem', flexWrap:'wrap' }}>
-        <h3 style={{ margin:0, color:'#1e293b', fontSize:'0.95rem', fontWeight:'800', display:'flex', alignItems:'center', gap:'6px' }}>
-          ✏️ <span>Croquis y Dibujo</span>
-          <span style={{ background:'#e0e7ff', color:'#3730a3', fontSize:'0.65rem', padding:'2px 7px', borderRadius:'20px', fontWeight:'700' }}>2D / 3D Isométrico</span>
-        </h3>
-        <div style={{ display:'flex', gap:'0.5rem' }}>
-          <button onClick={() => setGrid3D(!grid3D)} style={btnStyle(grid3D, '#1d4ed8', '#dbeafe')}>
-            🧊 {grid3D ? 'Ocultar Guía 3D' : 'Guía 3D'}
-          </button>
-          <button onClick={toggleFullscreen} style={btnStyle(false)}>
-            {isFullscreen ? '↘️ Salir' : '⛶ Pantalla Completa'}
-          </button>
+    <div ref={containerRef} style={{ position:'relative', background:'white', borderRadius:'12px', border:'1px solid #e2e8f0', marginTop:'1rem', marginBottom:'1rem', overflow:'hidden' }}>
+
+      {/* ── Canvas area — sin barras de scroll ── */}
+      <div style={{ overflow:'hidden', width:'100%', position:'relative', height: isFullscreen ? '100vh' : '680px', background:'#ffffff' }}>
+        <canvas ref={gridCanvasRef} width={1400} height={1050}
+          style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
+        <canvas ref={canvasRef} width={1400} height={1050}
+          style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
+          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
+          onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+        {textInput.visible && (
+          <textarea ref={textInputRef}
+            value={textInput.text}
+            onChange={e => setTextInput(p => ({ ...p, text: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } }}
+            onBlur={commitText}
+            style={{ position:'absolute', left:`${(textInput.x/1400)*100}%`, top:`${(textInput.y/1050)*100}%`,
+              minWidth:'200px', minHeight:'40px',
+              background:'rgba(255,255,255,0.95)', color:color, border:'2px dashed #94a3b8', outline:'none',
+              font:`bold ${lineWidth*6+12}px Inter,sans-serif`, lineHeight:1.25, padding:'2px 4px',
+              resize:'both', overflow:'hidden', zIndex:10, borderRadius:'4px' }} />
+        )}
+      </div>
+
+      {/* ── Floating toggle button (top-right corner) ── */}
+      <button
+        onClick={() => setToolbarOpen(o => !o)}
+        title={toolbarOpen ? 'Cerrar herramientas' : 'Abrir herramientas'}
+        style={{
+          position:'absolute', top:'10px', right:'10px', zIndex:20,
+          width:'38px', height:'38px', borderRadius:'50%',
+          background: toolbarOpen ? '#1d4ed8' : 'rgba(255,255,255,0.92)',
+          border:`2px solid ${toolbarOpen ? '#1d4ed8' : '#e2e8f0'}`,
+          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:'1.1rem', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', backdropFilter:'blur(6px)',
+          transition:'all 0.2s',
+        }}
+      >
+        {toolbarOpen ? '✕' : '🎨'}
+      </button>
+
+      {/* ── Auto-save indicator ── */}
+      <div style={{ position:'absolute', bottom:'8px', left:'10px', zIndex:20, fontSize:'0.65rem', color:'#94a3b8', display:'flex', alignItems:'center', gap:'4px', pointerEvents:'none' }}>
+        <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#22c55e', display:'inline-block' }} />
+        Guardado automático
+      </div>
+
+      {/* ── Collapsible floating toolbar panel ── */}
+      {toolbarOpen && (
+        <div style={{
+          position:'absolute', top:'10px', right:'56px', zIndex:19,
+          background:'rgba(255,255,255,0.97)', border:'1px solid #e2e8f0',
+          borderRadius:'12px', padding:'0.8rem', boxShadow:'0 8px 32px rgba(0,0,0,0.14)',
+          backdropFilter:'blur(8px)', width:'360px', maxHeight:'82vh', overflowY:'auto',
+        }}>
+
+          {/* Croquis templates */}
+          <p style={{ fontSize:'0.68rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.4rem' }}>📐 Plantillas Isométricas</p>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.35rem', marginBottom:'0.75rem' }}>
+            {TEMPLATES.map(tpl => (
+              <button key={tpl.id} title={tpl.desc}
+                onClick={() => {
+                  pushState();
+                  const canvas = canvasRef.current;
+                  const ctx = canvas.getContext('2d');
+                  ctx.save(); tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30); ctx.restore();
+                  scheduleAutoSave();
+                }}
+                style={{ padding:'6px 8px', background:tpl.bg, border:`1.5px solid ${tpl.color}44`, borderRadius:'8px', cursor:'pointer', fontSize:'0.78rem', fontWeight:'700', color:tpl.color, display:'flex', alignItems:'center', gap:'6px', transition:'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='scale(1.02)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=`${tpl.color}44`; e.currentTarget.style.transform=''; }}
+              >
+                <span style={{ fontSize:'1.1rem' }}>{tpl.icon}</span>
+                <div><div>{tpl.label}</div><div style={{ fontSize:'0.6rem', fontWeight:'500', color:`${tpl.color}88` }}>{tpl.desc}</div></div>
+              </button>
+            ))}
+          </div>
+
+          {/* Drawing tools */}
+          <p style={{ fontSize:'0.68rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.4rem' }}>✏️ Herramientas</p>
+          <div style={{ display:'flex', gap:'0.3rem', flexWrap:'wrap', marginBottom:'0.5rem' }}>
+            <input type="color" value={color} onChange={e => setColor(e.target.value)}
+              style={{ width:'28px', height:'28px', padding:0, border:'2px solid #e2e8f0', borderRadius:'5px', cursor:'pointer', flexShrink:0 }} />
+            <select value={lineWidth} onChange={e => setLineWidth(Number(e.target.value))}
+              style={{ padding:'3px 5px', borderRadius:'5px', border:'1px solid #e2e8f0', fontSize:'0.75rem', background:'white' }}>
+              {[1,2,3,5,8,12].map(n => <option key={n} value={n}>{n}px</option>)}
+            </select>
+            <button onClick={() => setModeState('libre')}  style={btn(mode==='libre')}>✍️ Libre</button>
+            <button onClick={() => setModeState('line')}   style={btn(mode==='line')}>📏 Recta</button>
+            <button onClick={() => setModeState('arrow')}  style={btn(mode==='arrow')}>➡️ Flecha</button>
+            <button onClick={() => setModeState('circle')} style={btn(mode==='circle','#7c3aed','#ede9fe')}>⭕</button>
+            <button onClick={() => setModeState('rect')}   style={btn(mode==='rect','#0369a1','#e0f2fe')}>▭</button>
+            <button onClick={() => setModeState('text')}   style={btn(mode==='text','#065f46','#d1fae5')}>🔤 Texto</button>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display:'flex', gap:'0.3rem', flexWrap:'wrap', borderTop:'1px solid #f1f5f9', paddingTop:'0.5rem' }}>
+            <button onClick={() => setGrid3D(!grid3D)} style={btn(grid3D,'#1d4ed8','#dbeafe')}>🧊 Guía Iso</button>
+            <button onClick={() => setModeState('erase')} style={btn(mode==='erase','#b45309','#fef9c3')}>🩹 Borrar</button>
+            <button onClick={undo} style={btn(false)}>↩️ Deshacer</button>
+            <button onClick={toggleFullscreen} style={btn(false)}>{isFullscreen?'↘️':'⛶'}</button>
+            <button onClick={() => {
+              if (window.confirm('¿Limpiar el lienzo? Se borrará el guardado automático.')) { pushState(); initCanvas(); }
+            }} style={{ ...btn(false), color:'#dc2626', borderColor:'#fca5a5', background:'#fff1f2' }}>🗑️ Limpiar</button>
+          </div>
         </div>
-      </div>
-
-      {/* Template Croquis gallery */}
-      <div style={{ marginBottom:'0.75rem' }}>
-        <p style={{ fontSize:'0.7rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.45rem' }}>
-          📐 Insertar Croquis Isométrico — 1 clic
-        </p>
-        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
-          {TEMPLATES.map(tpl => (
-            <button key={tpl.id} title={tpl.desc}
-              onClick={() => {
-                pushState();
-                const canvas = canvasRef.current;
-                const ctx = canvas.getContext('2d');
-                ctx.save();
-                tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30);
-                ctx.restore();
-              }}
-              style={{ padding:'7px 13px', background:tpl.bg, border:`2px solid ${tpl.color}44`, borderRadius:'10px', cursor:'pointer', fontSize:'0.8rem', fontWeight:'700', color:tpl.color, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px', transition:'all 0.15s', minWidth:'95px' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 6px 16px ${tpl.color}33`; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor=`${tpl.color}44`; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}
-            >
-              <span style={{ fontSize:'1.35rem', lineHeight:1 }}>{tpl.icon}</span>
-              <span>{tpl.label}</span>
-              <span style={{ fontSize:'0.6rem', fontWeight:'500', color:`${tpl.color}99` }}>{tpl.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div style={{ display:'flex', gap:'0.35rem', alignItems:'center', marginBottom:'0.8rem', flexWrap:'wrap', background:'#f8fafc', padding:'8px 10px', borderRadius:'10px', border:'1px solid #e2e8f0' }}>
-        {/* Color & size */}
-        <input type="color" value={color} onChange={e => { setColor(e.target.value); setModeState('libre'); }}
-          style={{ width:'30px', height:'30px', padding:0, border:'2px solid #e2e8f0', borderRadius:'6px', cursor:'pointer', flexShrink:0 }} />
-        <select value={lineWidth} onChange={e => setLineWidth(Number(e.target.value))}
-          style={{ padding:'4px 6px', borderRadius:'6px', border:'1px solid #e2e8f0', fontSize:'0.78rem', background:'white' }}>
-          {[1,2,3,5,8,12].map(n => <option key={n} value={n}>{n}px</option>)}
-        </select>
-
-        <div style={{ width:'1px', height:'26px', background:'#e2e8f0', margin:'0 2px' }} />
-
-        {/* Draw modes */}
-        <button onClick={() => setModeState('libre')} style={btnStyle(mode==='libre')}>✍️ Libre</button>
-        <button onClick={() => setModeState('line')}  style={btnStyle(mode==='line')}>📏 Recta</button>
-        <button onClick={() => setModeState('arrow')} style={btnStyle(mode==='arrow')}>➡️ Flecha</button>
-        <button onClick={() => setModeState('circle')} style={btnStyle(mode==='circle', '#7c3aed', '#ede9fe')}>⭕ Círculo</button>
-        <button onClick={() => setModeState('rect')}  style={btnStyle(mode==='rect', '#0369a1', '#e0f2fe')}>▭ Rectángulo</button>
-        <button onClick={() => setModeState('text')}  style={btnStyle(mode==='text', '#065f46', '#d1fae5')}>🔤 Texto</button>
-
-        <div style={{ width:'1px', height:'26px', background:'#e2e8f0', margin:'0 2px' }} />
-
-
-        <button onClick={() => setModeState('erase')} style={btnStyle(mode==='erase', '#b45309', '#fef9c3')}>🩹 Borrar</button>
-        <button onClick={undo}         style={btnStyle(false)}>↩️ Deshacer</button>
-        <button onClick={() => { pushState(); initCanvas(); }}
-          style={{ ...btnStyle(false), color:'#dc2626', border:'1.5px solid #fca5a5', background:'#fff1f2' }}>
-          🗑️ Limpiar
-        </button>
-      </div>
-
-      {/* Canvas area */}
-      <div style={{ overflow:'auto', width:'100%', position:'relative', height: isFullscreen ? 'calc(100vh - 120px)' : '780px', border:'1.5px solid #cbd5e1', borderRadius:'10px', background:'#fafafa' }}>
-        <div style={{ position:'relative', width:'1400px', height:'1050px', flexShrink:0, background:'#ffffff', boxShadow: isFullscreen ? '0 4px 20px rgba(0,0,0,0.1)' : 'none' }}>
-          <canvas ref={gridCanvasRef} width={1400} height={1050}
-            style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1 }} />
-          <canvas ref={canvasRef} width={1400} height={1050}
-            style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2 }}
-            onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
-            onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
-          {textInput.visible && (
-            <textarea ref={textInputRef}
-              value={textInput.text}
-              onChange={e => setTextInput(p => ({ ...p, text: e.target.value }))}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } }}
-              onBlur={commitText}
-              style={{ position:'absolute', left:textInput.x, top:textInput.y, minWidth:'220px', minHeight:'44px',
-                background:'rgba(255,255,255,0.95)', color:color, border:'2px dashed #94a3b8', outline:'none',
-                font:`bold ${lineWidth*6+12}px Inter, sans-serif`, lineHeight:1.25, padding:'2px 4px',
-                resize:'both', overflow:'hidden', zIndex:10, borderRadius:'4px' }} />
-          )}
-        </div>
-      </div>
-
-      {/* Hint bar */}
-      <div style={{ marginTop:'0.5rem', fontSize:'0.72rem', color:'#94a3b8', display:'flex', gap:'1.5rem', flexWrap:'wrap' }}>
-        <span>📐 <b>Croquis:</b> clic en una plantilla para insertar el dibujo isométrico con cotas</span>
-        <span>🔤 <b>Texto:</b> clic donde quieres escribir la medida, Enter para confirmar</span>
-        <span>➡️ <b>Flecha:</b> arrastra para marcar cotas adicionales</span>
-        <span>⛶ Pantalla Completa para más espacio</span>
-      </div>
+      )}
     </div>
   );
 });
