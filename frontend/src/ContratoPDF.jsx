@@ -131,7 +131,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #b45309', paddingBottom: '12px', marginBottom: '20px' }}>
           <div style={{ width: '160px' }}>
-             <img src="/logo-orange.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
+             <img src="/logo-rd-membrete.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.82rem', lineHeight: '1.5' }}>
             Tijuana, Baja California {getDateStr()}<br/>
@@ -208,7 +208,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       <div id="contrato-doc-export" style={{ display: 'none', background: 'white', color: '#000', fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.5' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #b45309', paddingBottom: '12px', marginBottom: '20px' }}>
           <div style={{ width: '160px' }}>
-             <img src="/logo-orange.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
+             <img src="/logo-rd-membrete.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
           </div>
           <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: '1.5' }}>
             Tijuana, Baja California {getDateStr()}<br/>
