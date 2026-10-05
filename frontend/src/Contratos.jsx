@@ -866,6 +866,184 @@ const MEASUREMENT_FIELDS = {
   ]
 };
 
+// ─── Secciones detalladas de medidas por tipo de proyecto ────────
+const MEASURE_SECTIONS = {
+  'Cocina': [
+    { key:'espacio', label:'📐 Medidas del Espacio', color:'#1d4ed8', bg:'#eff6ff', fields:[
+      { id:'alto_plafon',  label:'Alto piso a plafón',   type:'number', suffix:'cm' },
+      { id:'ancho_muro',   label:'Ancho muro principal', type:'number', suffix:'cm' },
+      { id:'ancho_izq',    label:'Muro lateral izq.',    type:'number', suffix:'cm' },
+      { id:'ancho_der',    label:'Muro lateral der.',    type:'number', suffix:'cm' },
+      { id:'prof_bajo',    label:'Prof. mueble bajo',    type:'number', suffix:'cm' },
+      { id:'prof_alto',    label:'Prof. mueble alto',    type:'number', suffix:'cm' },
+      { id:'zona_trabajo', label:'Estado de muros',      type:'select', options:['Terminado / Pulido','Irregular','Obra Negra'] },
+      { id:'ventana',      label:'Medidas ventana',      type:'text', placeholder:'Ej. 120×80 cm' },
+      { id:'contactos',    label:'Contactos eléctricos', type:'text', placeholder:'Cant. y ubicación' },
+      { id:'agua_drenaje', label:'Agua / Drenaje',       type:'text', placeholder:'Ubicación toma y drenaje' },
+      { id:'encimera',     label:'Encimera',             type:'text', placeholder:'Tipo y medidas' },
+      { id:'campana',      label:'Campana extractora',   type:'text', placeholder:'Marca / modelo' },
+    ]},
+    { key:'puertas', label:'🚪 Puertas', color:'#0f766e', bg:'#f0fdfa', fields:[
+      { id:'puertas_cant',    label:'Cant. total puertas', type:'number', suffix:'pza' },
+      { id:'tipo_puerta',     label:'Tipo de apertura',    type:'select', options:['Abatible','Corrediza','Batiente','Sin puerta'] },
+      { id:'p1_alto',         label:'Puerta 1 — Alto',     type:'number', suffix:'cm' },
+      { id:'p1_ancho',        label:'Puerta 1 — Ancho',    type:'number', suffix:'cm' },
+      { id:'p2_alto',         label:'Puerta 2 — Alto',     type:'number', suffix:'cm' },
+      { id:'p2_ancho',        label:'Puerta 2 — Ancho',    type:'number', suffix:'cm' },
+      { id:'p3_alto',         label:'Puerta 3 — Alto',     type:'number', suffix:'cm' },
+      { id:'p3_ancho',        label:'Puerta 3 — Ancho',    type:'number', suffix:'cm' },
+      { id:'herrajes_puertas',label:'Herrajes / Jaladeras',type:'text', placeholder:'Tipo y acabado' },
+    ]},
+    { key:'cajoneras', label:'🗄️ Cajoneras', color:'#7c3aed', bg:'#faf5ff', fields:[
+      { id:'caj_cantidad',    label:'Cant. cajoneras',       type:'number', suffix:'pza' },
+      { id:'caj_cajones',     label:'Cajones por cajonera',  type:'number', suffix:'pza' },
+      { id:'caj_alto',        label:'Alto cajón',            type:'number', suffix:'cm' },
+      { id:'caj_ancho',       label:'Ancho cajón',           type:'number', suffix:'cm' },
+      { id:'caj_prof',        label:'Profundidad cajón',     type:'number', suffix:'cm' },
+      { id:'caj_corredera',   label:'Tipo corredera',        type:'select', options:['Normal','Cierre suave (soft close)','Sin corredera'] },
+      { id:'caj_ubicacion',   label:'Ubicación',             type:'text', placeholder:'Frente, lateral, isla...' },
+      { id:'caj_material_int',label:'Material interior cajón',type:'select', options:['MDF','Melamina','Madera sólida','Otro'] },
+    ]},
+    { key:'materiales', label:'🪵 Materiales y Acabado', color:'#b45309', bg:'#fffbeb', fields:[
+      { id:'material_cuerpo', label:'Material cuerpo',   type:'select', options:['MDF','Melamina','Triplay','Madera sólida'] },
+      { id:'acabado',         label:'Acabado',           type:'select', options:['Poliuretano','Laca','Natural','Pintado','Foliado'] },
+      { id:'color_acabado',   label:'Color / Tono',      type:'text', placeholder:'Nombre o código de color' },
+      { id:'herrajes_general',label:'Herrajes generales',type:'text', placeholder:'Bisagras, correderas, etc.' },
+      { id:'incluye_zoclo',   label:'Incluye zócalo',    type:'select', options:['Sí','No'] },
+      { id:'estilo',          label:'Estilo',            type:'select', options:['Moderno','Clásico','Minimalista','Rústico','Industrial'] },
+    ]},
+  ],
+  'Clóset': [
+    { key:'espacio', label:'📐 Medidas del Nicho', color:'#1d4ed8', bg:'#eff6ff', fields:[
+      { id:'alto_total',   label:'Alto total',            type:'number', suffix:'cm' },
+      { id:'ancho_nicho',  label:'Ancho nicho',           type:'number', suffix:'cm' },
+      { id:'profundidad',  label:'Profundidad',           type:'number', suffix:'cm' },
+      { id:'cond_nicho',   label:'Condición del nicho',   type:'select', options:['Escuadra perfecta','Irregular / Falsa escuadra','Obra negra'] },
+      { id:'num_cuerpos',  label:'Núm. de cuerpos',       type:'number', suffix:'pza' },
+      { id:'piso_tipo',    label:'Tipo de piso',          type:'select', options:['Nivelado','Con desnivel','Sin acabado'] },
+    ]},
+    { key:'puertas', label:'🚪 Puertas', color:'#0f766e', bg:'#f0fdfa', fields:[
+      { id:'puertas_cant',    label:'Cant. total puertas', type:'number', suffix:'pza' },
+      { id:'tipo_puerta',     label:'Tipo de apertura',    type:'select', options:['Corrediza','Abatible','Plegable','Sin puerta'] },
+      { id:'num_hojas',       label:'Núm. de hojas',       type:'number', suffix:'pza' },
+      { id:'p1_alto',         label:'Puerta 1 — Alto',     type:'number', suffix:'cm' },
+      { id:'p1_ancho',        label:'Puerta 1 — Ancho',    type:'number', suffix:'cm' },
+      { id:'p2_alto',         label:'Puerta 2 — Alto',     type:'number', suffix:'cm' },
+      { id:'p2_ancho',        label:'Puerta 2 — Ancho',    type:'number', suffix:'cm' },
+      { id:'p3_alto',         label:'Puerta 3 — Alto',     type:'number', suffix:'cm' },
+      { id:'p3_ancho',        label:'Puerta 3 — Ancho',    type:'number', suffix:'cm' },
+      { id:'herrajes_puertas',label:'Herrajes / Jaladeras',type:'text', placeholder:'Tipo y acabado' },
+      { id:'riel_tipo',       label:'Tipo de riel',        type:'select', options:['Superior','Inferior','Ambos','N/A'] },
+    ]},
+    { key:'cajoneras', label:'🗄️ Cajoneras', color:'#7c3aed', bg:'#faf5ff', fields:[
+      { id:'caj_cantidad',    label:'Cant. cajoneras',       type:'number', suffix:'pza' },
+      { id:'caj_cajones',     label:'Cajones por cajonera',  type:'number', suffix:'pza' },
+      { id:'caj_alto',        label:'Alto cajón',            type:'number', suffix:'cm' },
+      { id:'caj_ancho',       label:'Ancho cajón',           type:'number', suffix:'cm' },
+      { id:'caj_prof',        label:'Profundidad cajón',     type:'number', suffix:'cm' },
+      { id:'caj_corredera',   label:'Tipo corredera',        type:'select', options:['Normal','Cierre suave (soft close)','Sin corredera'] },
+      { id:'caj_ubicacion',   label:'Ubicación',             type:'text', placeholder:'Frente, lateral, central...' },
+      { id:'caj_material_int',label:'Material interior',     type:'select', options:['MDF','Melamina','Madera sólida','Otro'] },
+    ]},
+    { key:'distribucion', label:'📦 Distribución Interior', color:'#0369a1', bg:'#f0f9ff', fields:[
+      { id:'zarzo_cant',      label:'Cant. zarzos',         type:'number', suffix:'pza' },
+      { id:'zarzo_alto',      label:'Alto zarzo',           type:'number', suffix:'cm' },
+      { id:'zapatero',        label:'Zapatero',             type:'select', options:['Sí — Fijo','Sí — Abatible','No'] },
+      { id:'zapatero_medidas',label:'Medidas zapatero',     type:'text', placeholder:'Alto×Ancho cm' },
+      { id:'tubo_colgar',     label:'Tubo para colgar',     type:'select', options:['Sí','No'] },
+      { id:'tubo_alto',       label:'Alto tubo',            type:'number', suffix:'cm' },
+      { id:'espejo',          label:'Espejo',               type:'select', options:['Sí','No'] },
+      { id:'luz_led',         label:'Iluminación LED',      type:'select', options:['Sí','No'] },
+      { id:'entrepa_cant',    label:'Cant. entrepáños',    type:'number', suffix:'pza' },
+      { id:'colgador_acces',  label:'Accesorios colgador',  type:'text', placeholder:'Gravata, cinturón, etc.' },
+    ]},
+    { key:'materiales', label:'🪵 Materiales y Acabado', color:'#b45309', bg:'#fffbeb', fields:[
+      { id:'material_cuerpo', label:'Material cuerpo',  type:'select', options:['MDF','Melamina','Triplay','Madera sólida'] },
+      { id:'acabado',         label:'Acabado exterior', type:'select', options:['Poliuretano','Laca','Natural','Pintado','Foliado'] },
+      { id:'color_acabado',   label:'Color / Tono',     type:'text', placeholder:'Nombre o código de color' },
+      { id:'estilo',          label:'Estilo',           type:'select', options:['Moderno','Clásico','Minimalista','Rústico'] },
+    ]},
+  ],
+  'Puerta': [
+    { key:'espacio', label:'📐 Medidas por Vano', color:'#1d4ed8', bg:'#eff6ff', fields:[
+      { id:'puertas_cant',   label:'Cant. total puertas',    type:'number', suffix:'pza' },
+      { id:'p1_alto',        label:'Puerta 1 — Alto vano',   type:'number', suffix:'cm' },
+      { id:'p1_ancho',       label:'Puerta 1 — Ancho vano',  type:'number', suffix:'cm' },
+      { id:'p1_espesor',     label:'Puerta 1 — Esp. pared',  type:'number', suffix:'cm' },
+      { id:'p1_abatimiento', label:'Puerta 1 — Abatimiento', type:'select', options:['Izquierda','Derecha','Doble hoja'] },
+      { id:'p2_alto',        label:'Puerta 2 — Alto vano',   type:'number', suffix:'cm' },
+      { id:'p2_ancho',       label:'Puerta 2 — Ancho vano',  type:'number', suffix:'cm' },
+      { id:'p2_espesor',     label:'Puerta 2 — Esp. pared',  type:'number', suffix:'cm' },
+      { id:'p2_abatimiento', label:'Puerta 2 — Abatimiento', type:'select', options:['Izquierda','Derecha','Doble hoja'] },
+      { id:'p3_alto',        label:'Puerta 3 — Alto vano',   type:'number', suffix:'cm' },
+      { id:'p3_ancho',       label:'Puerta 3 — Ancho vano',  type:'number', suffix:'cm' },
+      { id:'p3_espesor',     label:'Puerta 3 — Esp. pared',  type:'number', suffix:'cm' },
+      { id:'p3_abatimiento', label:'Puerta 3 — Abatimiento', type:'select', options:['Izquierda','Derecha','Doble hoja'] },
+      { id:'p4_alto',        label:'Puerta 4 — Alto vano',   type:'number', suffix:'cm' },
+      { id:'p4_ancho',       label:'Puerta 4 — Ancho vano',  type:'number', suffix:'cm' },
+      { id:'p4_abatimiento', label:'Puerta 4 — Abatimiento', type:'select', options:['Izquierda','Derecha','Doble hoja'] },
+    ]},
+    { key:'tipo', label:'🚪 Tipo y Acabado', color:'#0f766e', bg:'#f0fdfa', fields:[
+      { id:'tipo_puerta',   label:'Tipo de puerta',  type:'select', options:['Sólida','Tambor','Vidrio + Marco','Corrediza','Acordeón'] },
+      { id:'material',      label:'Material',        type:'select', options:['MDF','Madera sólida','Pino','Cedro','Triplay'] },
+      { id:'acabado',       label:'Acabado',         type:'select', options:['Poliuretano','Laca','Barniz','Natural','Pintado'] },
+      { id:'color_acabado', label:'Color / Tono',    type:'text', placeholder:'Nombre o código de color' },
+      { id:'diseno',        label:'Diseño / Tabla',  type:'text', placeholder:'Lisa, ranurada, con tablero...' },
+    ]},
+    { key:'herrajes', label:'🔩 Herrajes', color:'#b45309', bg:'#fffbeb', fields:[
+      { id:'cerradura',      label:'Cerradura',          type:'select', options:['Con llave','Pestillo','Magnética','Sin cerradura'] },
+      { id:'bisagras',       label:'Bisagras',           type:'select', options:['Normales','Ocultas','Cierre suave','Pivote'] },
+      { id:'jaladora',       label:'Jaladora / Manija',  type:'text', placeholder:'Tipo y acabado' },
+      { id:'marco_incluido', label:'Marco incluido',     type:'select', options:['Sí','No — solo hoja'] },
+      { id:'marco_medidas',  label:'Medidas del marco',  type:'text', placeholder:'Ancho × perfil' },
+    ]},
+  ],
+  'General': [
+    { key:'espacio', label:'📐 Medidas Generales', color:'#1d4ed8', bg:'#eff6ff', fields:[
+      { id:'alto_total',   label:'Alto total',             type:'number', suffix:'cm' },
+      { id:'ancho_total',  label:'Ancho total',            type:'number', suffix:'cm' },
+      { id:'profundidad',  label:'Profundidad',            type:'number', suffix:'cm' },
+      { id:'cond_espacio', label:'Condición del espacio',  type:'select', options:['Terminado','Irregular','Obra Negra'] },
+    ]},
+    { key:'puertas', label:'🚪 Puertas', color:'#0f766e', bg:'#f0fdfa', fields:[
+      { id:'puertas_cant',    label:'Cant. puertas', type:'number', suffix:'pza' },
+      { id:'tipo_puerta',     label:'Tipo apertura', type:'select', options:['Abatible','Corrediza','Sin puerta'] },
+      { id:'p1_alto',         label:'Puerta 1 — Alto',  type:'number', suffix:'cm' },
+      { id:'p1_ancho',        label:'Puerta 1 — Ancho', type:'number', suffix:'cm' },
+      { id:'p2_alto',         label:'Puerta 2 — Alto',  type:'number', suffix:'cm' },
+      { id:'p2_ancho',        label:'Puerta 2 — Ancho', type:'number', suffix:'cm' },
+      { id:'p3_alto',         label:'Puerta 3 — Alto',  type:'number', suffix:'cm' },
+      { id:'p3_ancho',        label:'Puerta 3 — Ancho', type:'number', suffix:'cm' },
+      { id:'herrajes_puertas',label:'Herrajes',      type:'text' },
+    ]},
+    { key:'cajoneras', label:'🗄️ Cajoneras', color:'#7c3aed', bg:'#faf5ff', fields:[
+      { id:'caj_cantidad',    label:'Cant. cajoneras',      type:'number', suffix:'pza' },
+      { id:'caj_cajones',     label:'Cajones por cajonera', type:'number', suffix:'pza' },
+      { id:'caj_alto',        label:'Alto cajón',           type:'number', suffix:'cm' },
+      { id:'caj_ancho',       label:'Ancho cajón',          type:'number', suffix:'cm' },
+      { id:'caj_prof',        label:'Profundidad cajón',    type:'number', suffix:'cm' },
+      { id:'caj_corredera',   label:'Tipo corredera',       type:'select', options:['Normal','Cierre suave (soft close)','Sin corredera'] },
+      { id:'caj_ubicacion',   label:'Ubicación',            type:'text' },
+      { id:'caj_material_int',label:'Material interior',    type:'select', options:['MDF','Melamina','Madera sólida','Otro'] },
+    ]},
+    { key:'materiales', label:'🪵 Materiales y Acabado', color:'#b45309', bg:'#fffbeb', fields:[
+      { id:'material_cuerpo', label:'Material cuerpo',  type:'select', options:['MDF','Melamina','Triplay','Madera sólida'] },
+      { id:'acabado',         label:'Acabado',          type:'select', options:['Poliuretano','Laca','Natural','Pintado','Foliado'] },
+      { id:'color_acabado',   label:'Color / Tono',     type:'text', placeholder:'Nombre o código de color' },
+      { id:'herrajes_general',label:'Herrajes generales',type:'text' },
+      { id:'estilo',          label:'Estilo',           type:'select', options:['Moderno','Clásico','Minimalista','Rústico','Industrial'] },
+    ]},
+  ],
+};
+
+function getMeasureSections(projectType) {
+  const pt = (projectType || '').toLowerCase();
+  if (pt.includes('cocina')) return MEASURE_SECTIONS['Cocina'];
+  if (pt.includes('closet') || pt.includes('clóset')) return MEASURE_SECTIONS['Clóset'];
+  if (pt.includes('puerta')) return MEASURE_SECTIONS['Puerta'];
+  return MEASURE_SECTIONS['General'];
+}
+
 // Modal Edit Item
 function EditItemModal({ item, onSave, onClose }) {
   const [desc, setDesc] = useState(item.desc);
@@ -1205,50 +1383,55 @@ function Estimacion({ prospect, onBack }) {
       <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginBottom:'1.5rem' }}>
          <h3 style={{ margin:'0 0 1rem', color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
          
-         {formFields.length > 0 ? (
-           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'0.8rem' }}>
-             {formFields.map(f => (
-                <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                  <label style={{ fontSize:'0.75rem', fontWeight:'700', color:'#475569' }}>{f.label}</label>
-                  <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
-                    <div style={{ flex:1 }}>
-                      {f.type === 'select' ? (
-                        <select value={measures[f.id]||''} onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                         style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem' }}>
-                           <option value=''>Selecciona</option>
-                           {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      ) : (
-                        <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-                          <input type={f.type} placeholder={f.placeholder} value={measures[f.id]||''}
-                           onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                           style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '30px' : '8px', boxSizing:'border-box' }} />
-                          {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.75rem', color:'#94a3b8' }}>{f.suffix}</span>}
-                        </div>
-                      )}
-                    </div>
-                    <label style={{ cursor:'pointer', padding:'5px 8px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'4px', fontSize:'0.78rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }} title='Tomar o subir foto'>
-                      📷 Foto
-                      <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
-                        onChange={e => handlePhotoUpload(f.id, e.target.files[0])} />
-                    </label>
-                  </div>
-                  {photos[f.id] && (
-                    <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
-                      <img src={photos[f.id]} onClick={() => setViewPhoto(photos[f.id])}
-                        style={{ width:'64px', height:'64px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd', display:'block' }} />
-                      <button onClick={() => setPhotos(p => { const np={...p}; delete np[f.id]; return np; })}
-                        style={{ position:'absolute', top:'-7px', right:'-7px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', fontSize:'11px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-
-           </div>
-         ) : (
-           <p style={{ fontSize:'0.85rem', color:'#64748b' }}>No hay campos específicos para este proyecto.</p>
-         )}
+         {(() => {
+           const sections = getMeasureSections(prospect.project_type);
+           const renderField = (f) => (
+             <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+               <label style={{ fontSize:'0.72rem', fontWeight:'700', color:'#475569', textTransform:'uppercase', letterSpacing:'0.03em' }}>{f.label}</label>
+               <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
+                 <div style={{ flex:1 }}>
+                   {f.type === 'select' ? (
+                     <select value={measures[f.id]||''} onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
+                       style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', background:'white' }}>
+                       <option value=''>Selecciona</option>
+                       {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                     </select>
+                   ) : (
+                     <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+                       <input type={f.type} placeholder={f.placeholder||''} value={measures[f.id]||''}
+                         onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
+                         style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '32px' : '8px', boxSizing:'border-box' }} />
+                       {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.72rem', color:'#94a3b8', pointerEvents:'none' }}>{f.suffix}</span>}
+                     </div>
+                   )}
+                 </div>
+                 <label style={{ cursor:'pointer', padding:'5px 7px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.75rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }}>
+                   📷
+                   <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
+                     onChange={e => handlePhotoUpload(f.id, e.target.files[0])} />
+                 </label>
+               </div>
+               {photos[f.id] && (
+                 <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
+                   <img src={photos[f.id]} onClick={() => setViewPhoto(photos[f.id])}
+                     style={{ width:'60px', height:'60px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd' }} />
+                   <button onClick={() => setPhotos(p => { const np={...p}; delete np[f.id]; return np; })}
+                     style={{ position:'absolute', top:'-7px', right:'-7px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', fontSize:'11px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
+                 </div>
+               )}
+             </div>
+           );
+           return sections.map(sec => (
+             <div key={sec.key} style={{ marginBottom:'1rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden' }}>
+               <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                 <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
+               </div>
+               <div style={{ padding:'0.75rem 0.9rem', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
+                 {sec.fields.map(f => renderField(f))}
+               </div>
+             </div>
+           ));
+         })()}
 
          <div style={{ marginTop:'1rem' }}>
            <label style={{ fontSize:'0.75rem', fontWeight:'700', color:'#475569', display:'block', marginBottom:'4px' }}>Otras Observaciones</label>
