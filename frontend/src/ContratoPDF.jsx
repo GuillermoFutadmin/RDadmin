@@ -131,7 +131,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #b45309', paddingBottom: '12px', marginBottom: '20px' }}>
           <div style={{ width: '160px' }}>
-             <img src="/logo-leather.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
+             <img src="/logo-orange.png" alt="RD Carpintería" style={{ width: '140px', objectFit: 'contain' }} />
           </div>
           <div style={{ textAlign: 'right', fontSize: '0.82rem', lineHeight: '1.5' }}>
             Tijuana, Baja California {getDateStr()}<br/>
