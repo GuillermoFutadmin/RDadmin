@@ -212,16 +212,16 @@ const Croquis3D = forwardRef((props, ref) => {
 
   // ─── Template draw functions ────────────────────────────────────────────────
   const tplCocina = (ctx, cx, cy) => {
-    const sc=25, ox=cx-20, oy=cy+40, s='#334155';
+    const sc=50, ox=cx-20, oy=cy+80, s='#334155';
     drawIsoBox(ctx,ox,oy,8,3.5,2.8,sc,'rgba(209,213,219,.85)','rgba(156,163,175,.7)','rgba(175,180,190,.7)',s);
     const d0=isoProject(8,3.5,0,ox,oy,sc),d1=isoProject(8,0,0,ox,oy,sc);
     const d2=isoProject(8,0,2.8,ox,oy,sc),d3=isoProject(8,3.5,2.8,ox,oy,sc);
     const mT={x:(d0.x+d2.x)/2,y:(d0.y+d2.y)/2},mB={x:(d1.x+d3.x)/2,y:(d1.y+d3.y)/2};
     ctx.strokeStyle=s; ctx.lineWidth=1; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(mT.x,mT.y); ctx.lineTo(mB.x,mB.y); ctx.stroke();
-    [0.3,0.7].forEach(t => { const hx=d0.x+(d3.x-d0.x)*t,hy=d0.y+(d3.y-d0.y)*t; ctx.beginPath(); ctx.arc(hx,hy,3,0,2*Math.PI); ctx.fillStyle='#94a3b8'; ctx.fill(); });
+    [0.3,0.7].forEach(t => { const hx=d0.x+(d3.x-d0.x)*t,hy=d0.y+(d3.y-d0.y)*t; ctx.beginPath(); ctx.arc(hx,hy,5,0,2*Math.PI); ctx.fillStyle='#94a3b8'; ctx.fill(); });
     drawIsoBox(ctx,ox,oy,8.2,0.3,2.95,sc,'rgba(248,250,252,.95)','rgba(226,232,240,.8)','rgba(226,232,240,.8)','#475569');
-    const ux=cx-20,uy=cy-70;
+    const ux=cx-20,uy=cy-160;
     drawIsoBox(ctx,ux,uy,8,3,1.8,sc,'rgba(219,234,254,.85)','rgba(191,219,254,.7)','rgba(147,197,253,.6)',s);
     const u0=isoProject(8,3,0,ux,uy,sc),u2=isoProject(8,0,1.8,ux,uy,sc);
     const u1=isoProject(8,0,0,ux,uy,sc),u3=isoProject(8,3,1.8,ux,uy,sc);
@@ -230,17 +230,15 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.beginPath(); ctx.moveTo(umT.x,umT.y); ctx.lineTo(umB.x,umB.y); ctx.stroke();
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(8,0,0,ox,oy,sc);
     const bD=isoProject(0,0,2.8,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
-    drawDimArrow(ctx,bL.x-12,bL.y,bD.x-12,bD.y,'PROF','#0f766e');
-    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO BAJO','#7c3aed');
+    drawDimArrow(ctx,bL.x-30,bL.y,bR.x-30,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-15,bL.y,bD.x-15,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-55,bL.y,bT.x-55,bT.y,'ALTO BAJO','#7c3aed');
     const uTp=isoProject(0,0,0,ux,uy,sc),uBt=isoProject(0,3,0,ux,uy,sc);
-    drawDimArrow(ctx,uTp.x-38,uTp.y,uBt.x-38,uBt.y,'ALTO ALTO','#7c3aed');
-    ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('MUEBLE BAJO',cx-20,cy+108); ctx.fillText('MUEBLE ALTO',cx-20,cy-122);
+    drawDimArrow(ctx,uTp.x-55,uTp.y,uBt.x-55,uBt.y,'ALTO ALTO','#7c3aed');
   };
 
   const tplCloset = (ctx, cx, cy) => {
-    const sc=25,ox=cx-40,oy=cy+80,s='#334155';
+    const sc=50,ox=cx-40,oy=cy+180,s='#334155';
     drawIsoBox(ctx,ox,oy,7,9,2.5,sc,'rgba(236,254,255,.85)','rgba(207,250,254,.7)','rgba(165,243,252,.6)',s);
     const shL=isoProject(.2,4.5,.2,ox,oy,sc),shR=isoProject(6.8,4.5,.2,ox,oy,sc);
     const shRb=isoProject(6.8,4.5,2.3,ox,oy,sc),shLb=isoProject(.2,4.5,2.3,ox,oy,sc);
@@ -255,20 +253,17 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.beginPath(); ctx.moveTo(fTM.x,fTM.y); ctx.lineTo(fTR.x,fTR.y); ctx.lineTo(fBR.x,fBR.y); ctx.lineTo(fBM.x,fBM.y); ctx.closePath(); ctx.fill(); ctx.stroke();
     [[fTL,fBL,fTM,fBM],[fTM,fBM,fTR,fBR]].forEach(pts => {
       const hx=(pts[0].x+pts[1].x+pts[2].x+pts[3].x)/4,hy=(pts[0].y+pts[1].y+pts[2].y+pts[3].y)/4;
-      ctx.beginPath(); ctx.arc(hx,hy,3.5,0,2*Math.PI); ctx.fillStyle='#0369a1'; ctx.fill();
+      ctx.beginPath(); ctx.arc(hx,hy,5,0,2*Math.PI); ctx.fillStyle='#0369a1'; ctx.fill();
     });
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(7,0,0,ox,oy,sc);
     const bD=isoProject(0,0,2.5,ox,oy,sc),bT=isoProject(0,9,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
-    drawDimArrow(ctx,bL.x-12,bL.y,bD.x-12,bD.y,'PROF','#0f766e');
-    drawDimArrow(ctx,bL.x-40,bL.y,bT.x-40,bT.y,'ALTO','#7c3aed');
-    ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('CLÓSET / NICHO',cx-40,cy+142);
-    ctx.fillText('Puerta 1',(fTL.x+fTM.x)/2-5,fTL.y-10); ctx.fillText('Puerta 2',(fTM.x+fTR.x)/2-5,fTM.y-10);
+    drawDimArrow(ctx,bL.x-30,bL.y,bR.x-30,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-15,bL.y,bD.x-15,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-55,bL.y,bT.x-55,bT.y,'ALTO','#7c3aed');
   };
 
   const tplPuerta = (ctx, cx, cy, tipo) => {
-    const sc=28,ox=cx-70,oy=cy+90,s='#334155';
+    const sc=56,ox=cx-100,oy=cy+180,s='#334155';
     drawIsoBox(ctx,ox,oy,.6,7,.5,sc,'rgba(226,232,240,.7)','rgba(203,213,225,.6)','rgba(203,213,225,.6)',s);
     const dPts=[isoProject(.6,7,0,ox,oy,sc),isoProject(.6,0,0,ox,oy,sc),isoProject(4,0,0,ox,oy,sc),isoProject(4,7,0,ox,oy,sc)];
     ctx.fillStyle=tipo==='tambor'?'rgba(209,250,229,.85)':'rgba(254,243,199,.85)';
@@ -280,125 +275,96 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.beginPath(); ctx.moveTo(ip[0].x,ip[0].y); ip.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.stroke();
     if(tipo==='tambor'){ const mT=isoProject(.6+ins,3.5,0,ox,oy,sc),mR=isoProject(4-ins,3.5,0,ox,oy,sc); ctx.beginPath(); ctx.moveTo(mT.x,mT.y); ctx.lineTo(mR.x,mR.y); ctx.stroke(); }
     const hPos=isoProject(3.5,3.5,0,ox,oy,sc);
-    ctx.beginPath(); ctx.arc(hPos.x,hPos.y,5,0,2*Math.PI); ctx.fillStyle=tipo==='tambor'?'#065f46':'#78350f'; ctx.fill();
+    ctx.beginPath(); ctx.arc(hPos.x,hPos.y,7,0,2*Math.PI); ctx.fillStyle=tipo==='tambor'?'#065f46':'#78350f'; ctx.fill();
     if(tipo==='solida'){
       const ht=isoProject(.6,7,0,ox,oy,sc),tt=isoProject(4,7,0,ox,oy,sc);
       const r=Math.hypot(tt.x-ht.x,tt.y-ht.y),a0=Math.atan2(tt.y-ht.y,tt.x-ht.x);
-      ctx.strokeStyle='#b45309'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+      ctx.strokeStyle='#b45309'; ctx.lineWidth=1.5; ctx.setLineDash([6,4]);
       ctx.beginPath(); ctx.arc(ht.x,ht.y,r,a0,a0+Math.PI/2); ctx.stroke(); ctx.setLineDash([]);
     }
     const bL=isoProject(.6,0,0,ox,oy,sc),bR=isoProject(4,0,0,ox,oy,sc);
     const bT=isoProject(.6,7,0,ox,oy,sc),bW0=isoProject(0,0,0,ox,oy,sc),bW=isoProject(0,0,.5,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-18,bL.y,bR.x-18,bR.y,'ANCHO VANO','#1e40af');
-    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO VANO','#7c3aed');
-    drawDimArrow(ctx,bW0.x+8,bW0.y,bW.x+8,bW.y,'ESPESOR','#0f766e');
-    ctx.setLineDash([]); ctx.font='bold 12px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText(tipo==='tambor'?'PUERTA TAMBOR':'PUERTA SÓLIDA',cx-30,cy+132);
+    drawDimArrow(ctx,bL.x-25,bL.y,bR.x-25,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-50,bL.y,bT.x-50,bT.y,'ALTO','#7c3aed');
+    drawDimArrow(ctx,bW0.x+10,bW0.y,bW.x+10,bW.y,'ESP','#0f766e');
+    ctx.setLineDash([]);
   };
 
   const tplCajonera = (ctx, cx, cy) => {
-    const sc=32, ox=cx-30, oy=cy+60, s='#334155';
-    // Body
+    const sc=60, ox=cx-30, oy=cy+120, s='#334155';
     drawIsoBox(ctx,ox,oy,5,8,2.2,sc,'rgba(226,232,240,.85)','rgba(203,213,225,.7)','rgba(203,213,225,.7)',s);
-    // 4 drawers
     [1.5,3,4.5,6].forEach(yOff => {
       const dTL=isoProject(0.15,yOff+1.2,0.1,ox,oy,sc), dTR=isoProject(4.85,yOff+1.2,0.1,ox,oy,sc);
       const dBL=isoProject(0.15,yOff,0.1,ox,oy,sc),    dBR=isoProject(4.85,yOff,0.1,ox,oy,sc);
       ctx.fillStyle='rgba(248,250,252,.9)'; ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(dTL.x,dTL.y); ctx.lineTo(dTR.x,dTR.y); ctx.lineTo(dBR.x,dBR.y); ctx.lineTo(dBL.x,dBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // Handle
       const hL=isoProject(1.8,yOff+0.65,0.1,ox,oy,sc), hR=isoProject(3.2,yOff+0.65,0.1,ox,oy,sc);
-      ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(hL.x,hL.y); ctx.lineTo(hR.x,hR.y); ctx.stroke();
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(hL.x,hL.y); ctx.lineTo(hR.x,hR.y); ctx.stroke();
     });
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(5,0,0,ox,oy,sc);
     const bD=isoProject(0,0,2.2,ox,oy,sc),bT=isoProject(0,8,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-22,bL.y,bR.x-22,bR.y,'ANCHO','#1e40af');
-    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'PROF','#0f766e');
-    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO','#7c3aed');
-    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('CAJONERA',cx-30,cy+130);
+    drawDimArrow(ctx,bL.x-30,bL.y,bR.x-30,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-15,bL.y,bD.x-15,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-55,bL.y,bT.x-55,bT.y,'ALTO','#7c3aed');
   };
 
   const tplMarco = (ctx, cx, cy) => {
-    const sc=32, ox=cx-80, oy=cy+60, s='#334155';
-    // Left jamb
+    const sc=56, ox=cx-120, oy=cy+180, s='#334155';
     drawIsoBox(ctx,ox,oy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
-    // Right jamb
-    drawIsoBox(ctx,ox,oy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
-    const rx=isoProject(4,0,0,ox,oy,sc);
-    const rox=ox+rx.x-isoProject(0,0,0,ox,oy,sc).x;
-    const roy=oy+rx.y-isoProject(0,0,0,ox,oy,sc).y;
-    drawIsoBox(ctx,rox,roy+isoProject(0,7.5,0,0,0,sc).y*-1,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
-    // Top header
+    const rx=isoProject(4,0,0,ox,oy,sc), orig=isoProject(0,0,0,ox,oy,sc);
+    const rox=ox+(rx.x-orig.x), roy=oy+(rx.y-orig.y);
+    drawIsoBox(ctx,rox,roy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
     const htL=isoProject(0,7.5,0,ox,oy,sc), htR=isoProject(4.5,7.5,0,ox,oy,sc);
     const hbL=isoProject(0,7,0,ox,oy,sc),   hbR=isoProject(4.5,7,0,ox,oy,sc);
-    const hbRd=isoProject(4.5,7,0.4,ox,oy,sc), hbLd=isoProject(0,7,0.4,ox,oy,sc);
-    const htRd=isoProject(4.5,7.5,0.4,ox,oy,sc), htLd=isoProject(0,7.5,0.4,ox,oy,sc);
+    const htLd=isoProject(0,7.5,0.4,ox,oy,sc), hbLd=isoProject(0,7,0.4,ox,oy,sc);
     ctx.fillStyle='rgba(226,232,240,.85)'; ctx.strokeStyle=s; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htR.x,htR.y); ctx.lineTo(hbR.x,hbR.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htLd.x,htLd.y); ctx.lineTo(hbLd.x,hbLd.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(4.5,0,0,ox,oy,sc);
     const bT=isoProject(0,7.5,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'ANCHO VANO','#1e40af');
-    drawDimArrow(ctx,bL.x-38,bL.y,bT.x-38,bT.y,'ALTO VANO','#7c3aed');
-    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('MARCO DE PUERTA',cx-30,cy+130);
+    drawDimArrow(ctx,bL.x-30,bL.y,bR.x-30,bR.y,'ANCHO VANO','#1e40af');
+    drawDimArrow(ctx,bL.x-55,bL.y,bT.x-55,bT.y,'ALTO VANO','#7c3aed');
   };
 
   const tplIsla = (ctx, cx, cy) => {
-    const sc=22, ox=cx-50, oy=cy+70, s='#334155';
-    // Island body
+    const sc=40, ox=cx-80, oy=cy+100, s='#334155';
     drawIsoBox(ctx,ox,oy,10,3.5,4,sc,'rgba(241,245,249,.9)','rgba(226,232,240,.75)','rgba(203,213,225,.75)',s);
-    // Countertop
     drawIsoBox(ctx,ox,oy,10.2,0.3,4.2,sc,'rgba(255,255,255,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569');
-    // Door lines on front face
-    const f0=isoProject(0,3.5,0,ox,oy,sc), f1=isoProject(10,3.5,0,ox,oy,sc);
-    const f2=isoProject(10,0,0,ox,oy,sc),  f3=isoProject(0,0,0,ox,oy,sc);
     const fm=isoProject(5,3.5,0,ox,oy,sc), fmb=isoProject(5,0,0,ox,oy,sc);
     ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(fm.x,fm.y); ctx.lineTo(fmb.x,fmb.y); ctx.stroke();
-    // Handles
     [[1.5,3.5],[6.5,3.5]].forEach(([xp]) => {
       const h1=isoProject(xp,1.8,0,ox,oy,sc), h2=isoProject(xp+1,1.8,0,ox,oy,sc);
-      ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(h1.x,h1.y); ctx.lineTo(h2.x,h2.y); ctx.stroke();
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(h1.x,h1.y); ctx.lineTo(h2.x,h2.y); ctx.stroke();
     });
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(10,0,0,ox,oy,sc);
     const bD=isoProject(0,0,4,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'LARGO','#1e40af');
-    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'ANCHO','#0f766e');
-    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO','#7c3aed');
-    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('ISLA DE COCINA',cx-20,cy+130);
+    drawDimArrow(ctx,bL.x-28,bL.y,bR.x-28,bR.y,'LARGO','#1e40af');
+    drawDimArrow(ctx,bL.x-14,bL.y,bD.x-14,bD.y,'ANCHO','#0f766e');
+    drawDimArrow(ctx,bL.x-50,bL.y,bT.x-50,bT.y,'ALTO','#7c3aed');
   };
 
   const tplFregadero = (ctx, cx, cy) => {
-    const sc=28, ox=cx-25, oy=cy+50, s='#334155';
-    // Cabinet body
+    const sc=52, ox=cx-50, oy=cy+100, s='#334155';
     drawIsoBox(ctx,ox,oy,7,3.5,2.8,sc,'rgba(241,245,249,.85)','rgba(226,232,240,.7)','rgba(226,232,240,.7)',s);
-    // Countertop
     drawIsoBox(ctx,ox,oy,7.2,0.25,3,sc,'rgba(248,250,252,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569');
-    // Sink basin
     const bsnTL=isoProject(1.5,0.25,0.6,ox,oy,sc), bsnTR=isoProject(5.5,0.25,0.6,ox,oy,sc);
     const bsnBL=isoProject(1.5,0.25,2.4,ox,oy,sc), bsnBR=isoProject(5.5,0.25,2.4,ox,oy,sc);
     ctx.fillStyle='rgba(186,230,253,.6)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(bsnTL.x,bsnTL.y); ctx.lineTo(bsnTR.x,bsnTR.y); ctx.lineTo(bsnBR.x,bsnBR.y); ctx.lineTo(bsnBL.x,bsnBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Faucet
     const fBase=isoProject(3.5,0.25,1.5,ox,oy,sc);
-    ctx.fillStyle='#94a3b8'; ctx.beginPath(); ctx.arc(fBase.x,fBase.y-18,4,0,2*Math.PI); ctx.fill();
-    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y); ctx.lineTo(fBase.x,fBase.y-18); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y-18); ctx.lineTo(fBase.x+12,fBase.y-18); ctx.stroke();
-    // Doors
+    ctx.fillStyle='#94a3b8'; ctx.beginPath(); ctx.arc(fBase.x,fBase.y-25,6,0,2*Math.PI); ctx.fill();
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y); ctx.lineTo(fBase.x,fBase.y-25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fBase.x,fBase.y-25); ctx.lineTo(fBase.x+18,fBase.y-25); ctx.stroke();
     const dm=isoProject(3.5,3.5,0,ox,oy,sc), dmb=isoProject(3.5,0,0,ox,oy,sc);
     ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(dm.x,dm.y); ctx.lineTo(dmb.x,dmb.y); ctx.stroke();
     const bL=isoProject(0,0,0,ox,oy,sc),bR=isoProject(7,0,0,ox,oy,sc);
     const bD=isoProject(0,0,2.8,ox,oy,sc),bT=isoProject(0,3.5,0,ox,oy,sc);
-    drawDimArrow(ctx,bL.x-20,bL.y,bR.x-20,bR.y,'ANCHO','#1e40af');
-    drawDimArrow(ctx,bL.x-10,bL.y,bD.x-10,bD.y,'PROF','#0f766e');
-    drawDimArrow(ctx,bL.x-36,bL.y,bT.x-36,bT.y,'ALTO','#7c3aed');
-    ctx.font='bold 13px Inter,Arial,sans-serif'; ctx.fillStyle='#1e293b'; ctx.textAlign='center';
-    ctx.fillText('MUEBLE FREGADERO',cx-25,cy+120);
+    drawDimArrow(ctx,bL.x-28,bL.y,bR.x-28,bR.y,'ANCHO','#1e40af');
+    drawDimArrow(ctx,bL.x-14,bL.y,bD.x-14,bD.y,'PROF','#0f766e');
+    drawDimArrow(ctx,bL.x-50,bL.y,bT.x-50,bT.y,'ALTO','#7c3aed');
   };
 
   const TEMPLATES = [
@@ -546,7 +512,58 @@ const Croquis3D = forwardRef((props, ref) => {
   return (
     <div ref={containerRef} style={{ position:'relative', background:'white', borderRadius:'12px', border:'1px solid #e2e8f0', marginTop:'1rem', marginBottom:'1rem', overflow:'hidden' }}>
 
-      {/* ── Canvas area — sin barras de scroll ── */}
+      {/* ── Top toolbar bar ── */}
+      <div style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0', padding:'6px 10px', display:'flex', gap:'0.3rem', flexWrap:'wrap', alignItems:'center' }}>
+        {/* Color + size */}
+        <input type="color" value={color} onChange={e => setColor(e.target.value)}
+          style={{ width:'26px', height:'26px', padding:0, border:'2px solid #e2e8f0', borderRadius:'5px', cursor:'pointer', flexShrink:0 }} />
+        <select value={lineWidth} onChange={e => setLineWidth(Number(e.target.value))}
+          style={{ padding:'2px 4px', borderRadius:'5px', border:'1px solid #e2e8f0', fontSize:'0.73rem', background:'white' }}>
+          {[1,2,3,5,8,12].map(n => <option key={n} value={n}>{n}px</option>)}
+        </select>
+        <div style={{ width:'1px', height:'22px', background:'#e2e8f0', margin:'0 2px' }} />
+        {/* Draw modes */}
+        <button onClick={() => setModeState('libre')}  style={btn(mode==='libre')}>✍️ Libre</button>
+        <button onClick={() => setModeState('line')}   style={btn(mode==='line')}>📏 Recta</button>
+        <button onClick={() => setModeState('arrow')}  style={btn(mode==='arrow')}>➡️ Flecha</button>
+        <button onClick={() => setModeState('circle')} style={btn(mode==='circle','#7c3aed','#ede9fe')}>⭕</button>
+        <button onClick={() => setModeState('rect')}   style={btn(mode==='rect','#0369a1','#e0f2fe')}>▭</button>
+        <button onClick={() => setModeState('text')}   style={btn(mode==='text','#065f46','#d1fae5')}>🔤 Texto</button>
+        <div style={{ width:'1px', height:'22px', background:'#e2e8f0', margin:'0 2px' }} />
+        <button onClick={() => setGrid3D(!grid3D)} style={btn(grid3D,'#1d4ed8','#dbeafe')}>🧊 Iso</button>
+        <button onClick={() => setModeState('erase')} style={btn(mode==='erase','#b45309','#fef9c3')}>🩹 Borrar</button>
+        <button onClick={undo} style={btn(false)}>↩️</button>
+        <button onClick={toggleFullscreen} style={btn(false)}>{isFullscreen?'↘️':'⛶'}</button>
+        <button onClick={() => { if(window.confirm('¿Limpiar lienzo?')){ pushState(); initCanvas(); } }} style={{ ...btn(false), color:'#dc2626', borderColor:'#fca5a5', background:'#fff1f2' }}>🗑️</button>
+        <div style={{ flex:1 }} />
+        {/* auto-save indicator */}
+        <span style={{ fontSize:'0.62rem', color:'#94a3b8', display:'flex', alignItems:'center', gap:'3px' }}>
+          <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:'#22c55e', display:'inline-block' }} />
+          Auto-guardado
+        </span>
+      </div>
+
+      {/* ── Templates row ── */}
+      <div style={{ background:'#ffffff', borderBottom:'1px solid #e2e8f0', padding:'5px 10px', display:'flex', gap:'0.3rem', flexWrap:'wrap', alignItems:'center' }}>
+        <span style={{ fontSize:'0.65rem', fontWeight:'800', color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.04em', marginRight:'4px' }}>📐 Croquis:</span>
+        {TEMPLATES.map(tpl => (
+          <button key={tpl.id} title={tpl.desc}
+            onClick={() => {
+              pushState();
+              const canvas = canvasRef.current;
+              const ctx = canvas.getContext('2d');
+              ctx.save(); tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30); ctx.restore();
+              scheduleAutoSave();
+            }}
+            style={{ padding:'3px 9px', background:tpl.bg, border:`1.5px solid ${tpl.color}44`, borderRadius:'6px', cursor:'pointer', fontSize:'0.75rem', fontWeight:'700', color:tpl.color, display:'flex', alignItems:'center', gap:'4px', transition:'all 0.12s', whiteSpace:'nowrap' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=`${tpl.color}44`; e.currentTarget.style.transform=''; }}
+          >
+            <span>{tpl.icon}</span> {tpl.label}
+          </button>
+        ))}
+      </div>
+
       <div style={{ overflow:'hidden', width:'100%', position:'relative', height: isFullscreen ? '100vh' : '680px', background:'#ffffff' }}>
         <canvas ref={gridCanvasRef} width={1400} height={1050}
           style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
@@ -568,89 +585,6 @@ const Croquis3D = forwardRef((props, ref) => {
         )}
       </div>
 
-      {/* ── Floating toggle button (top-right corner) ── */}
-      <button
-        onClick={() => setToolbarOpen(o => !o)}
-        title={toolbarOpen ? 'Cerrar herramientas' : 'Abrir herramientas'}
-        style={{
-          position:'absolute', top:'10px', right:'10px', zIndex:20,
-          width:'38px', height:'38px', borderRadius:'50%',
-          background: toolbarOpen ? '#1d4ed8' : 'rgba(255,255,255,0.92)',
-          border:`2px solid ${toolbarOpen ? '#1d4ed8' : '#e2e8f0'}`,
-          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:'1.1rem', boxShadow:'0 2px 10px rgba(0,0,0,0.12)', backdropFilter:'blur(6px)',
-          transition:'all 0.2s',
-        }}
-      >
-        {toolbarOpen ? '✕' : '🎨'}
-      </button>
-
-      {/* ── Auto-save indicator ── */}
-      <div style={{ position:'absolute', bottom:'8px', left:'10px', zIndex:20, fontSize:'0.65rem', color:'#94a3b8', display:'flex', alignItems:'center', gap:'4px', pointerEvents:'none' }}>
-        <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#22c55e', display:'inline-block' }} />
-        Guardado automático
-      </div>
-
-      {/* ── Collapsible floating toolbar panel ── */}
-      {toolbarOpen && (
-        <div style={{
-          position:'absolute', top:'10px', right:'56px', zIndex:19,
-          background:'rgba(255,255,255,0.97)', border:'1px solid #e2e8f0',
-          borderRadius:'12px', padding:'0.8rem', boxShadow:'0 8px 32px rgba(0,0,0,0.14)',
-          backdropFilter:'blur(8px)', width:'360px', maxHeight:'82vh', overflowY:'auto',
-        }}>
-
-          {/* Croquis templates */}
-          <p style={{ fontSize:'0.68rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.4rem' }}>📐 Plantillas Isométricas</p>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.35rem', marginBottom:'0.75rem' }}>
-            {TEMPLATES.map(tpl => (
-              <button key={tpl.id} title={tpl.desc}
-                onClick={() => {
-                  pushState();
-                  const canvas = canvasRef.current;
-                  const ctx = canvas.getContext('2d');
-                  ctx.save(); tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30); ctx.restore();
-                  scheduleAutoSave();
-                }}
-                style={{ padding:'6px 8px', background:tpl.bg, border:`1.5px solid ${tpl.color}44`, borderRadius:'8px', cursor:'pointer', fontSize:'0.78rem', fontWeight:'700', color:tpl.color, display:'flex', alignItems:'center', gap:'6px', transition:'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='scale(1.02)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor=`${tpl.color}44`; e.currentTarget.style.transform=''; }}
-              >
-                <span style={{ fontSize:'1.1rem' }}>{tpl.icon}</span>
-                <div><div>{tpl.label}</div><div style={{ fontSize:'0.6rem', fontWeight:'500', color:`${tpl.color}88` }}>{tpl.desc}</div></div>
-              </button>
-            ))}
-          </div>
-
-          {/* Drawing tools */}
-          <p style={{ fontSize:'0.68rem', fontWeight:'800', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 0.4rem' }}>✏️ Herramientas</p>
-          <div style={{ display:'flex', gap:'0.3rem', flexWrap:'wrap', marginBottom:'0.5rem' }}>
-            <input type="color" value={color} onChange={e => setColor(e.target.value)}
-              style={{ width:'28px', height:'28px', padding:0, border:'2px solid #e2e8f0', borderRadius:'5px', cursor:'pointer', flexShrink:0 }} />
-            <select value={lineWidth} onChange={e => setLineWidth(Number(e.target.value))}
-              style={{ padding:'3px 5px', borderRadius:'5px', border:'1px solid #e2e8f0', fontSize:'0.75rem', background:'white' }}>
-              {[1,2,3,5,8,12].map(n => <option key={n} value={n}>{n}px</option>)}
-            </select>
-            <button onClick={() => setModeState('libre')}  style={btn(mode==='libre')}>✍️ Libre</button>
-            <button onClick={() => setModeState('line')}   style={btn(mode==='line')}>📏 Recta</button>
-            <button onClick={() => setModeState('arrow')}  style={btn(mode==='arrow')}>➡️ Flecha</button>
-            <button onClick={() => setModeState('circle')} style={btn(mode==='circle','#7c3aed','#ede9fe')}>⭕</button>
-            <button onClick={() => setModeState('rect')}   style={btn(mode==='rect','#0369a1','#e0f2fe')}>▭</button>
-            <button onClick={() => setModeState('text')}   style={btn(mode==='text','#065f46','#d1fae5')}>🔤 Texto</button>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display:'flex', gap:'0.3rem', flexWrap:'wrap', borderTop:'1px solid #f1f5f9', paddingTop:'0.5rem' }}>
-            <button onClick={() => setGrid3D(!grid3D)} style={btn(grid3D,'#1d4ed8','#dbeafe')}>🧊 Guía Iso</button>
-            <button onClick={() => setModeState('erase')} style={btn(mode==='erase','#b45309','#fef9c3')}>🩹 Borrar</button>
-            <button onClick={undo} style={btn(false)}>↩️ Deshacer</button>
-            <button onClick={toggleFullscreen} style={btn(false)}>{isFullscreen?'↘️':'⛶'}</button>
-            <button onClick={() => {
-              if (window.confirm('¿Limpiar el lienzo? Se borrará el guardado automático.')) { pushState(); initCanvas(); }
-            }} style={{ ...btn(false), color:'#dc2626', borderColor:'#fca5a5', background:'#fff1f2' }}>🗑️ Limpiar</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 });
