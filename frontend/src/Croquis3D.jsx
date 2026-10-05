@@ -215,34 +215,34 @@ const Croquis3D = forwardRef((props, ref) => {
 
   // ─── 2D orthographic helpers ──────────────────────────────────────────────
   const dim2H = (ctx, x1, x2, y, label, col='#1e40af') => {
-    const yL=y-18, hs=5; ctx.save();
-    ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=0.9; ctx.setLineDash([]);
+    const yL=y-22, hs=6; ctx.save();
+    ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1; ctx.setLineDash([]);
     [x1,x2].forEach(ax => { ctx.beginPath(); ctx.moveTo(ax,y); ctx.lineTo(ax,yL); ctx.stroke(); });
     ctx.beginPath(); ctx.moveTo(x1,yL); ctx.lineTo(x2,yL); ctx.stroke();
-    [[x1,1],[x2,-1]].forEach(([ax,d]) => { ctx.beginPath(); ctx.moveTo(ax,yL); ctx.lineTo(ax+d*hs,yL-3); ctx.lineTo(ax+d*hs,yL+3); ctx.closePath(); ctx.fill(); });
-    const mx=(x1+x2)/2; ctx.font='bold 11px Inter,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const tw=ctx.measureText(label).width+8; ctx.fillStyle='#fff'; ctx.fillRect(mx-tw/2,yL-9,tw,18); ctx.fillStyle=col; ctx.fillText(label,mx,yL);
+    [[x1,1],[x2,-1]].forEach(([ax,d]) => { ctx.beginPath(); ctx.moveTo(ax,yL); ctx.lineTo(ax+d*hs,yL-4); ctx.lineTo(ax+d*hs,yL+4); ctx.closePath(); ctx.fill(); });
+    const mx=(x1+x2)/2; ctx.font='bold 13px Inter,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw=ctx.measureText(label).width+10; ctx.fillStyle='#fff'; ctx.fillRect(mx-tw/2,yL-10,tw,20); ctx.fillStyle=col; ctx.fillText(label,mx,yL);
     ctx.restore();
   };
   const dim2V = (ctx, x, y1, y2, label, col='#7c3aed') => {
-    const xL=x-18, hs=5; ctx.save();
-    ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=0.9; ctx.setLineDash([]);
+    const xL=x-22, hs=6; ctx.save();
+    ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1; ctx.setLineDash([]);
     [y1,y2].forEach(ay => { ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(xL,ay); ctx.stroke(); });
     ctx.beginPath(); ctx.moveTo(xL,y1); ctx.lineTo(xL,y2); ctx.stroke();
-    [[y1,1],[y2,-1]].forEach(([ay,d]) => { ctx.beginPath(); ctx.moveTo(xL,ay); ctx.lineTo(xL-3,ay+d*hs); ctx.lineTo(xL+3,ay+d*hs); ctx.closePath(); ctx.fill(); });
+    [[y1,1],[y2,-1]].forEach(([ay,d]) => { ctx.beginPath(); ctx.moveTo(xL,ay); ctx.lineTo(xL-4,ay+d*hs); ctx.lineTo(xL+4,ay+d*hs); ctx.closePath(); ctx.fill(); });
     ctx.save(); ctx.translate(xL,(y1+y2)/2); ctx.rotate(-Math.PI/2);
-    ctx.font='bold 11px Inter,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const tw=ctx.measureText(label).width+8; ctx.fillStyle='#fff'; ctx.fillRect(-tw/2,-9,tw,18); ctx.fillStyle=col; ctx.fillText(label,0,0);
+    ctx.font='bold 13px Inter,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw=ctx.measureText(label).width+10; ctx.fillStyle='#fff'; ctx.fillRect(-tw/2,-10,tw,20); ctx.fillStyle=col; ctx.fillText(label,0,0);
     ctx.restore(); ctx.restore();
   };
   const viewPanel = (ctx, x, y, w, h, title) => {
     ctx.fillStyle='#ffffff'; ctx.fillRect(x,y,w,h);
-    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.8; ctx.setLineDash([]); ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle='#64748b'; ctx.font='bold 12px Inter,Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
-    ctx.fillText(title, x+5, y+5);
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.setLineDash([]); ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#475569'; ctx.font='bold 15px Inter,Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(title, x+8, y+8);
   };
   const multiView = (ctx, cx, cy, W, H, D, fillColors, details, isoFn) => {
-    const PW=400, PH=300, G=24;
+    const PW=600, PH=450, G=30;
     const x0=cx-PW-G/2, y0=cy-PH-G/2;
     const ps = { planta:{x:x0,y:y0}, iso:{x:x0+PW+G,y:y0}, lateral:{x:x0,y:y0+PH+G}, frontal:{x:x0+PW+G,y:y0+PH+G} };
     viewPanel(ctx,ps.planta.x, ps.planta.y, PW,PH,'[S]  PLANTA  (Vista Superior)');
@@ -680,9 +680,9 @@ const Croquis3D = forwardRef((props, ref) => {
       </div>
 
       <div style={{ overflow:'hidden', width:'100%', position:'relative', height: isFullscreen ? '100vh' : '680px', background:'#ffffff' }}>
-        <canvas ref={gridCanvasRef} width={1400} height={1050}
+        <canvas ref={gridCanvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
-        <canvas ref={canvasRef} width={1400} height={1050}
+        <canvas ref={canvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
           onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
           onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
