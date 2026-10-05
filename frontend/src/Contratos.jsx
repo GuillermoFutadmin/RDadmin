@@ -1434,6 +1434,7 @@ function Estimacion({ prospect, onBack }) {
 
   const [saveMsg, setSaveMsg] = useState('');
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
+  const [activeFields, setActiveFields] = useState({});
 
   // Auto-guardado al servidor en segundo plano
   useEffect(() => {
@@ -1713,7 +1714,7 @@ function Estimacion({ prospect, onBack }) {
                          </div>
                        </div>
                      ) : (
-                       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
+                       <div style={{ display:'flex', flexWrap:'wrap', gap:'0.65rem' }}>
                          {sec.fields.map(f => renderField(f, sec.key))}
                        </div>
                      )}
