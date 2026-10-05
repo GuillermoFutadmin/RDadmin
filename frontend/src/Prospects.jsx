@@ -2942,16 +2942,23 @@ function printProspect(p) {
     <div class="card-title">Dise&ntilde;o y Fotograf&iacute;as</div>
     ${p.design_details ? `<div class="field" style="margin-bottom: 10px;">${p.design_details}</div>` : ''}
     <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-      ${p.space_image_path ? `
-        <div style="flex: 1; min-width: 220px;">
-          <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 4px;">FOTO DEL ESPACIO</div>
-          <img src="${getDesignImg(p.space_image_path)}" class="design-img" style="max-height: 220px; width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 6px;" />
-        </div>` : ''}
-      ${(p.reference_image_path || p.design_image_path) ? `
-        <div style="flex: 1; min-width: 220px;">
-          <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 4px;">FOTO DE REFERENCIA</div>
-          <img src="${getDesignImg(p.reference_image_path || p.design_image_path)}" class="design-img" style="max-height: 220px; width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 6px;" />
-        </div>` : ''}
+      ${p.space_image_path ? (() => {
+        const imgs = p.space_image_path.split(',').map(s => s.trim()).filter(Boolean).slice(0, 2);
+        return imgs.map((src, i) => `
+          <div style="flex: 1; min-width: 200px;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 4px;">FOTO DEL ESPACIO${imgs.length > 1 ? ' ' + (i+1) : ''}</div>
+            <img src="${getDesignImg(src)}" class="design-img" style="max-height: 220px; width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 6px;" />
+          </div>`).join('');
+      })() : ''}
+      ${(p.reference_image_path || p.design_image_path) ? (() => {
+        const refPath = p.reference_image_path || p.design_image_path;
+        const imgs = refPath.split(',').map(s => s.trim()).filter(Boolean).slice(0, 2);
+        return imgs.map((src, i) => `
+          <div style="flex: 1; min-width: 200px;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 4px;">FOTO DE REFERENCIA${imgs.length > 1 ? ' ' + (i+1) : ''}</div>
+            <img src="${getDesignImg(src)}" class="design-img" style="max-height: 220px; width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 6px;" />
+          </div>`).join('');
+      })() : ''}
     </div>
   </div>` : ''}
 
