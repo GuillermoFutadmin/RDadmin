@@ -1630,7 +1630,7 @@ function Estimacion({ prospect, onBack }) {
                      <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
                    </div>
                    <div style={{ padding:'0.75rem 0.9rem' }}>
-                     {sec.key === 'materiales' ? (
+                     {sec.key.includes('materiales') ? (
                        <div style={{ background:'#fffbeb', padding:'0.8rem', borderRadius:'8px', border:'1px dashed #fcd34d', display:'flex', flexWrap:'wrap', gap:'1rem' }}>
                          <div style={{ flex:'1 1 140px' }}>
                            <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Principal</label>
