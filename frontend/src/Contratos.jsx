@@ -317,7 +317,7 @@ export default function Contratos({ startView = 'list' }) {
     if (!window.confirm('¿Estás seguro de regresar este contrato a prospecto?')) return;
     await fetch(`${API}/api/prospects/${p.id}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ is_contract:false, contract_date:null })
+      body: JSON.stringify({ is_contract:false, contract_date:null, has_quote:false, status:'Valoración' })
     });
     fetchContratos();
     setView('list');
