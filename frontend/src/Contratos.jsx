@@ -923,6 +923,32 @@ const MEASUREMENT_FIELDS = {
 };
 
 // ─── Secciones detalladas de medidas por tipo de proyecto ────────
+
+const KITCHEN_LAYOUTS = [
+  { id: 'LINEAL', label: 'Lineal', img: '/layouts/cocina_lineal.png', desc: 'Sobre una sola pared' },
+  { id: 'EN L', label: 'En "L"', img: '/layouts/cocina_l.png', desc: 'En escuadra de dos muros' },
+  { id: 'PARALELO', label: 'Paralelo', img: '/layouts/cocina_paralelo.png', desc: 'Dos frentes enfrentados' },
+  { id: 'EN U', label: 'En "U"', img: '/layouts/cocina_u.png', desc: 'En tres paredes contiguas' },
+];
+
+const KITCHEN_ADDONS = [
+  { id: 'CON ISLA', label: 'Con Isla', icon: '🏝️', img: '/layouts/cocina_isla.png', desc: 'Módulo central exento de trabajo o barra' },
+  { id: 'CON PENÍNSULA', label: 'Con Península', icon: '🍹', img: '/layouts/cocina_peninsula.png', desc: 'Extensión fija unida a un lateral o muro' },
+];
+
+const CLOSET_LAYOUTS = [
+  { id: 'LINEAL', label: 'Lineal', img: '/layouts/closet_lineal.png', desc: 'Frontal a lo largo de un muro' },
+  { id: 'EN L', label: 'En "L"', img: '/layouts/closet_l.png', desc: 'Aprovechamiento en escuadra' },
+  { id: 'PARALELO', label: 'Paralelo', img: '/layouts/closet_paralelo.png', desc: 'Doble frente con pasillo central' },
+  { id: 'EN U', label: 'En "U"', img: '/layouts/closet_u.png', desc: 'Tres lados de almacenamiento' },
+  { id: 'WALK-IN CLÓSET', label: 'Walk-in Clóset', img: '/layouts/closet_walkin.png', desc: 'Vestidor exclusivo transitable' },
+];
+
+const CLOSET_ADDONS = [
+  { id: 'CON ISLA CENTRAL', label: 'Con Isla Central', icon: '🗄️', img: '/layouts/closet_isla.png', desc: 'Cajonera o mesa de accesorios al centro' },
+  { id: 'CON VANITY', label: 'Con Vanity (Tocador)', icon: '🪞', img: '/layouts/closet_vanity.png', desc: 'Área de peinador, espejo y maquillaje' },
+];
+
 const MEASURE_SECTIONS = {
   'Cocina': [
     { key:'espacio', label:'📐 Medidas del Espacio', color:'#1d4ed8', bg:'#eff6ff', fields:[
@@ -1562,6 +1588,42 @@ function Estimacion({ prospect, onBack }) {
                    <span style={{ fontSize:'0.85rem', fontWeight:'800', color:'#f8fafc', letterSpacing:'0.04em' }}>{group._groupLabel}</span>
                  </div>
                )}
+
+               {group._groupLabel && group._groupLabel.includes('Cocina') && prospect.kitchen_layout && (
+                 <div style={{ marginBottom:'1rem', background:'#fffaf5', padding:'1rem', borderRadius:'8px', border:'1px solid #fed7aa' }}>
+                   <h5 style={{ margin:'0 0 0.5rem', color:'#9a3412', fontSize:'0.85rem', fontWeight:'800' }}>🍳 Distribución de Cocina Capturada</h5>
+                   <div style={{ display:'flex', gap:'1rem', overflowX:'auto' }}>
+                     {[
+                       KITCHEN_LAYOUTS.find(l => l.id === prospect.kitchen_layout),
+                       ...(prospect.kitchen_addons ? prospect.kitchen_addons.split(', ').map(a => KITCHEN_ADDONS.find(k => k.id === a)) : [])
+                     ].filter(Boolean).map((item, idx) => (
+                       <div key={idx} style={{ minWidth:'120px', background:'white', border:'1px solid #fed7aa', borderRadius:'8px', padding:'0.5rem', textAlign:'center' }}>
+                         {item.img && <img src={item.img} alt={item.label} style={{ width:'100%', height:'60px', objectFit:'contain', marginBottom:'4px' }} />}
+                         <div style={{ fontSize:'0.75rem', fontWeight:'700', color:'#ea580c' }}>{item.icon} {item.label}</div>
+                         <div style={{ fontSize:'0.65rem', color:'#64748b' }}>{item.desc}</div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+               {group._groupLabel && group._groupLabel.includes('Clóset') && prospect.closet_layout && (
+                 <div style={{ marginBottom:'1rem', background:'#fbf8f5', padding:'1rem', borderRadius:'8px', border:'1px solid #e7dcd1' }}>
+                   <h5 style={{ margin:'0 0 0.5rem', color:'#633b18', fontSize:'0.85rem', fontWeight:'800' }}>🚪 Distribución de Clóset Capturada</h5>
+                   <div style={{ display:'flex', gap:'1rem', overflowX:'auto' }}>
+                     {[
+                       CLOSET_LAYOUTS.find(l => l.id === prospect.closet_layout),
+                       ...(prospect.closet_addons ? prospect.closet_addons.split(', ').map(a => CLOSET_ADDONS.find(k => k.id === a)) : [])
+                     ].filter(Boolean).map((item, idx) => (
+                       <div key={idx} style={{ minWidth:'120px', background:'white', border:'1px solid #e7dcd1', borderRadius:'8px', padding:'0.5rem', textAlign:'center' }}>
+                         {item.img && <img src={item.img} alt={item.label} style={{ width:'100%', height:'60px', objectFit:'contain', marginBottom:'4px' }} />}
+                         <div style={{ fontSize:'0.75rem', fontWeight:'700', color:'#7c4a1e' }}>{item.icon} {item.label}</div>
+                         <div style={{ fontSize:'0.65rem', color:'#64748b' }}>{item.desc}</div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+               
                {group.sections.map(sec => (
                  <div key={sec.key} style={{ marginBottom:'0.75rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden' }}>
                    <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
