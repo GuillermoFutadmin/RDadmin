@@ -1629,8 +1629,43 @@ function Estimacion({ prospect, onBack }) {
                    <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
                      <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
                    </div>
-                   <div style={{ padding:'0.75rem 0.9rem', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
-                     {sec.fields.map(f => renderField(f, sec.key))}
+                   <div style={{ padding:'0.75rem 0.9rem' }}>
+                     {sec.key === 'materiales' ? (
+                       <div style={{ background:'#fffbeb', padding:'0.8rem', borderRadius:'8px', border:'1px dashed #fcd34d', display:'flex', flexWrap:'wrap', gap:'1rem' }}>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Principal</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type || 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Secundario</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type_2 || 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Interior</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.interior_color_type ? ${prospect.interior_color_type} ·  : 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Inferior</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_inf_color_type ? ${prospect.exterior_inf_color_type} ·  : 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Superior</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_sup_color_type ? ${prospect.exterior_sup_color_type} ·  : 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Encimera</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.countertop_type || 'N/A'}</div>
+                         </div>
+                         <div style={{ flex:'1 1 140px' }}>
+                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Herrajes</label>
+                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.hardware_details || 'N/A'}</div>
+                         </div>
+                       </div>
+                     ) : (
+                       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
+                         {sec.fields.map(f => renderField(f, sec.key))}
+                       </div>
+                     )}
                    </div>
                  </div>
                ))}
