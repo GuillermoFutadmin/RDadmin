@@ -1566,12 +1566,30 @@ function Estimacion({ prospect, onBack }) {
          
          {(() => {
            const groups = getMeasureSections(prospect.project_type);
-           const renderField = (f, prefix) => {
+                      const renderField = (f, prefix) => {
              const fieldKey = prefix ? `${prefix}_${f.id}` : f.id;
+             const hasValue = measures[fieldKey] !== undefined && measures[fieldKey] !== '';
+             const hasPhoto = !!photos[fieldKey];
+             const isActive = activeFields[fieldKey] || hasValue || hasPhoto;
+
+             if (!isActive) {
+               return (
+                 <button key={fieldKey} onClick={() => setActiveFields(p => ({...p, [fieldKey]: true}))}
+                   style={{ background:'#f8fafc', border:'1px dashed #cbd5e1', padding:'6px 12px', borderRadius:'20px', cursor:'pointer', color:'#475569', fontSize:'0.75rem', fontWeight:'600', display:'flex', alignItems:'center', gap:'6px', transition:'all 0.2s', whiteSpace:'nowrap' }}>
+                   <span style={{color:'#3b82f6', fontSize:'1rem', fontWeight:'800', lineHeight:'1'}}>+</span> {f.label}
+                 </button>
+               );
+             }
+
              return (
-               <div key={fieldKey} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                 <label style={{ fontSize:'0.72rem', fontWeight:'700', color:'#475569', textTransform:'uppercase', letterSpacing:'0.03em' }}>{f.label}</label>
-                 <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
+               <div key={fieldKey} style={{ display:'flex', flexDirection:'column', gap:'4px', background:'#f8fafc', padding:'10px', borderRadius:'10px', border:'1px solid #e2e8f0', flex:'1 1 220px', position:'relative' }}>
+                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                   <label style={{ fontSize:'0.7rem', fontWeight:'800', color:'#475569', textTransform:'uppercase', letterSpacing:'0.03em' }}>{f.label}</label>
+                   {!hasValue && !hasPhoto && (
+                     <button onClick={() => setActiveFields(p => ({...p, [fieldKey]: false}))} style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:'0.7rem', padding:0, fontWeight:'600' }}>✕ Ocultar</button>
+                   )}
+                 </div>
+                 <div style={{ display:'flex', gap:'6px', alignItems:'flex-start', marginTop:'2px' }}>
                    <div style={{ flex:1 }}>
                      {f.type === 'select' ? (
                        <select value={measures[fieldKey]||''} onChange={e => setMeasures(p => ({...p,[fieldKey]:e.target.value}))}
@@ -1588,14 +1606,14 @@ function Estimacion({ prospect, onBack }) {
                        </div>
                      )}
                    </div>
-                   <label style={{ cursor:'pointer', padding:'5px 7px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.75rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }}>
+                   <label style={{ cursor:'pointer', padding:'5px 7px', background:'#eff6ff', borderRadius:'6px', border:'1px solid #bfdbfe', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.75rem', fontWeight:'600', color:'#1d4ed8', whiteSpace:'nowrap', flexShrink:0 }}>
                      📷
                      <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
                        onChange={e => handlePhotoUpload(fieldKey, e.target.files[0])} />
                    </label>
                  </div>
                  {photos[fieldKey] && (
-                   <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
+                   <div style={{ marginTop:'6px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
                      <img src={photos[fieldKey]} onClick={() => setViewPhoto(photos[fieldKey])}
                        style={{ width:'60px', height:'60px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd' }} />
                      <button onClick={() => setPhotos(p => { const np={...p}; delete np[fieldKey]; return np; })}
