@@ -38,6 +38,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_pdf_path VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_password VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
