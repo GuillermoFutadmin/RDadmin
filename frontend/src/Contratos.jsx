@@ -1093,11 +1093,23 @@ const MEASURE_SECTIONS = {
 };
 
 function getMeasureSections(projectType) {
-  const pt = (projectType || '').toLowerCase();
-  if (pt.includes('cocina')) return MEASURE_SECTIONS['Cocina'];
-  if (pt.includes('closet') || pt.includes('clóset')) return MEASURE_SECTIONS['Clóset'];
-  if (pt.includes('puerta')) return MEASURE_SECTIONS['Puerta'];
-  return MEASURE_SECTIONS['General'];
+  const normalize = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const pt = normalize(projectType);
+  // Detectar todos los tipos seleccionados y combinar sus secciones
+  const result = [];
+  const addedKeys = new Set();
+  const addSections = (label, secs) => {
+    result.push({ _groupLabel: label, sections: secs.map(s => ({ ...s, key: label.toLowerCase().replace(/\s/g,'_') + '_' + s.key })) });
+  };
+  if (pt.includes('cocina')) addSections('🍳 Cocina', MEASURE_SECTIONS['Cocina']);
+  if (pt.includes('closet') || pt.includes('cl') && pt.includes('set')) addSections('🚪 Clóset / Vestidor', MEASURE_SECTIONS['Cl\u00f3set']);
+  if (pt.includes('puerta solida') || pt.includes('puerta s')) addSections('🚪 Puerta Sólida', MEASURE_SECTIONS['Puerta']);
+  if (pt.includes('puerta de tambor') || pt.includes('tambor')) addSections('🚪 Puerta de Tambor', MEASURE_SECTIONS['Puerta']);
+  if (pt.includes('restauraci')) addSections('🪵 Restauraciones', MEASURE_SECTIONS['General']);
+  if (pt.includes('otros') || pt.includes('otro')) addSections('📦 Otros', MEASURE_SECTIONS['General']);
+  // fallback: si no detectó nada, devolver general como grupo único
+  if (result.length === 0) return [{ _groupLabel: null, sections: MEASURE_SECTIONS['General'] }];
+  return result;
 }
 
 // Modal Edit Item
@@ -1435,56 +1447,131 @@ function Estimacion({ prospect, onBack }) {
         </div>
       </div>
 
+      {/* ── INFO DEL PROSPECTO ── */}
+      <div style={{ background:'linear-gradient(135deg,#1e293b 0%,#334155 100%)', borderRadius:'12px', padding:'1rem 1.3rem', marginBottom:'1.2rem', color:'white', display:'flex', flexWrap:'wrap', gap:'0.8rem 2rem', alignItems:'flex-start' }}>
+        <div style={{ minWidth:'200px' }}>
+          <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Cliente</div>
+          <div style={{ fontSize:'1rem', fontWeight:'800' }}>{prospect.name}</div>
+          {prospect.contact_info && <div style={{ fontSize:'0.82rem', color:'#cbd5e1', marginTop:'2px' }}>📞 {prospect.contact_info}</div>}
+        </div>
+        {prospect.location && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Ubicación</div>
+            <div style={{ fontSize:'0.88rem', fontWeight:'600' }}>📍 {prospect.location}</div>
+          </div>
+        )}
+        {prospect.project_type && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Tipo de Proyecto</div>
+            <div style={{ fontSize:'0.88rem', fontWeight:'700', color:'#fbbf24' }}>🏗️ {prospect.project_type}</div>
+          </div>
+        )}
+        {prospect.inhabited_house && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Casa Habitada</div>
+            <div style={{ fontSize:'0.88rem', fontWeight:'600' }}>{prospect.inhabited_house}</div>
+          </div>
+        )}
+        {prospect.material_type && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Material</div>
+            <div style={{ fontSize:'0.88rem', fontWeight:'600' }}>🪵 {prospect.material_type}{prospect.material_type_2 ? ` / ${prospect.material_type_2}` : ''}</div>
+          </div>
+        )}
+        {prospect.estimated_price && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Precio Est.</div>
+            <div style={{ fontSize:'0.95rem', fontWeight:'800', color:'#4ade80' }}>💲{prospect.estimated_price}</div>
+          </div>
+        )}
+        {prospect.start_date && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Inicio</div>
+            <div style={{ fontSize:'0.85rem', fontWeight:'600' }}>📅 {prospect.start_date}</div>
+          </div>
+        )}
+        {prospect.delivery_date && (
+          <div>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Entrega</div>
+            <div style={{ fontSize:'0.85rem', fontWeight:'600' }}>🎯 {prospect.delivery_date}</div>
+          </div>
+        )}
+        {prospect.measurements && (
+          <div style={{ flex:'1 1 100%' }}>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Medidas del Prospecto</div>
+            <div style={{ fontSize:'0.82rem', color:'#e2e8f0', lineHeight:'1.5', background:'rgba(255,255,255,0.07)', padding:'0.5rem 0.75rem', borderRadius:'8px' }}>{prospect.measurements}</div>
+          </div>
+        )}
+        {prospect.expectations && (
+          <div style={{ flex:'1 1 100%' }}>
+            <div style={{ fontSize:'0.65rem', fontWeight:'700', letterSpacing:'0.08em', color:'#94a3b8', textTransform:'uppercase', marginBottom:'2px' }}>Expectativas / Notas</div>
+            <div style={{ fontSize:'0.82rem', color:'#e2e8f0', lineHeight:'1.5', background:'rgba(255,255,255,0.07)', padding:'0.5rem 0.75rem', borderRadius:'8px' }}>{prospect.expectations}</div>
+          </div>
+        )}
+      </div>
+
       {/* ── 1. NOTAS Y MEDIDAS ── */}
       <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginBottom:'1.5rem' }}>
          <h3 style={{ margin:'0 0 1rem', color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
          
          {(() => {
-           const sections = getMeasureSections(prospect.project_type);
-           const renderField = (f) => (
-             <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-               <label style={{ fontSize:'0.72rem', fontWeight:'700', color:'#475569', textTransform:'uppercase', letterSpacing:'0.03em' }}>{f.label}</label>
-               <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
-                 <div style={{ flex:1 }}>
-                   {f.type === 'select' ? (
-                     <select value={measures[f.id]||''} onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                       style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', background:'white' }}>
-                       <option value=''>Selecciona</option>
-                       {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                     </select>
-                   ) : (
-                     <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-                       <input type={f.type} placeholder={f.placeholder||''} value={measures[f.id]||''}
-                         onChange={e => setMeasures(p => ({...p,[f.id]:e.target.value}))}
-                         style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '32px' : '8px', boxSizing:'border-box' }} />
-                       {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.72rem', color:'#94a3b8', pointerEvents:'none' }}>{f.suffix}</span>}
-                     </div>
-                   )}
+           const groups = getMeasureSections(prospect.project_type);
+           const renderField = (f, prefix) => {
+             const fieldKey = prefix ? `${prefix}_${f.id}` : f.id;
+             return (
+               <div key={fieldKey} style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                 <label style={{ fontSize:'0.72rem', fontWeight:'700', color:'#475569', textTransform:'uppercase', letterSpacing:'0.03em' }}>{f.label}</label>
+                 <div style={{ display:'flex', gap:'6px', alignItems:'flex-start' }}>
+                   <div style={{ flex:1 }}>
+                     {f.type === 'select' ? (
+                       <select value={measures[fieldKey]||''} onChange={e => setMeasures(p => ({...p,[fieldKey]:e.target.value}))}
+                         style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', background:'white' }}>
+                         <option value=''>Selecciona</option>
+                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                       </select>
+                     ) : (
+                       <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+                         <input type={f.type} placeholder={f.placeholder||''} value={measures[fieldKey]||''}
+                           onChange={e => setMeasures(p => ({...p,[fieldKey]:e.target.value}))}
+                           style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '32px' : '8px', boxSizing:'border-box' }} />
+                         {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.72rem', color:'#94a3b8', pointerEvents:'none' }}>{f.suffix}</span>}
+                       </div>
+                     )}
+                   </div>
+                   <label style={{ cursor:'pointer', padding:'5px 7px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.75rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }}>
+                     📷
+                     <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
+                       onChange={e => handlePhotoUpload(fieldKey, e.target.files[0])} />
+                   </label>
                  </div>
-                 <label style={{ cursor:'pointer', padding:'5px 7px', background:'#f0f9ff', borderRadius:'6px', border:'1px solid #bae6fd', display:'flex', alignItems:'center', gap:'3px', fontSize:'0.75rem', fontWeight:'600', color:'#0369a1', whiteSpace:'nowrap', flexShrink:0 }}>
-                   📷
-                   <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
-                     onChange={e => handlePhotoUpload(f.id, e.target.files[0])} />
-                 </label>
+                 {photos[fieldKey] && (
+                   <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
+                     <img src={photos[fieldKey]} onClick={() => setViewPhoto(photos[fieldKey])}
+                       style={{ width:'60px', height:'60px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd' }} />
+                     <button onClick={() => setPhotos(p => { const np={...p}; delete np[fieldKey]; return np; })}
+                       style={{ position:'absolute', top:'-7px', right:'-7px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', fontSize:'11px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
+                   </div>
+                 )}
                </div>
-               {photos[f.id] && (
-                 <div style={{ marginTop:'4px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
-                   <img src={photos[f.id]} onClick={() => setViewPhoto(photos[f.id])}
-                     style={{ width:'60px', height:'60px', objectFit:'cover', borderRadius:'6px', cursor:'pointer', border:'2px solid #bae6fd' }} />
-                   <button onClick={() => setPhotos(p => { const np={...p}; delete np[f.id]; return np; })}
-                     style={{ position:'absolute', top:'-7px', right:'-7px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', fontSize:'11px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
+             );
+           };
+           return groups.map((group, gi) => (
+             <div key={gi} style={{ marginBottom:'1.2rem' }}>
+               {group._groupLabel && (
+                 <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.6rem', padding:'0.45rem 0.8rem', background:'linear-gradient(90deg,#1e293b,#334155)', borderRadius:'8px' }}>
+                   <span style={{ fontSize:'0.85rem', fontWeight:'800', color:'#f8fafc', letterSpacing:'0.04em' }}>{group._groupLabel}</span>
                  </div>
                )}
-             </div>
-           );
-           return sections.map(sec => (
-             <div key={sec.key} style={{ marginBottom:'1rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden' }}>
-               <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                 <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
-               </div>
-               <div style={{ padding:'0.75rem 0.9rem', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
-                 {sec.fields.map(f => renderField(f))}
-               </div>
+               {group.sections.map(sec => (
+                 <div key={sec.key} style={{ marginBottom:'0.75rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden' }}>
+                   <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                     <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
+                   </div>
+                   <div style={{ padding:'0.75rem 0.9rem', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'0.65rem' }}>
+                     {sec.fields.map(f => renderField(f, sec.key))}
+                   </div>
+                 </div>
+               ))}
              </div>
            ));
          })()}
