@@ -1454,6 +1454,7 @@ function Estimacion({ prospect, onBack }) {
   const [saveMsg, setSaveMsg] = useState('');
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   const [activeFields, setActiveFields] = useState({});
+  const [showCotizadorModal, setShowCotizadorModal] = useState(false);
 
   // Auto-guardado al servidor en segundo plano
   useEffect(() => {
@@ -1630,6 +1631,9 @@ function Estimacion({ prospect, onBack }) {
                      <input type='file' accept='image/*' capture='environment' style={{ display:'none' }}
                        onChange={e => handlePhotoUpload(fieldKey, e.target.files[0])} />
                    </label>
+                   <button onClick={() => setShowCotizadorModal(true)} title="Abrir Cotizador en Vivo" style={{ cursor:'pointer', padding:'4px 7px', background:'#fffbeb', borderRadius:'6px', border:'1px solid #fcd34d', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.9rem', flexShrink:0, transition:'all 0.2s' }}>
+                     💰
+                   </button>
                  </div>
                  {photos[fieldKey] && (
                    <div style={{ marginTop:'6px', position:'relative', display:'inline-block', alignSelf:'flex-start' }}>
@@ -1812,10 +1816,22 @@ function Estimacion({ prospect, onBack }) {
 
 
       {/* ── 4. COTIZADOR EN VIVO ── */}
-      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.5rem', marginTop:'1.5rem', marginBottom:'1.5rem' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.2rem' }}>
-          <div>
-            <h3 style={{ margin:0, color:'#8b5a2b', fontSize:'1.1rem', fontWeight:'800' }}>💰 Cotizador en Vivo</h3>
+      {showCotizadorModal && (
+        <div onClick={() => setShowCotizadorModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:999 }}></div>
+      )}
+      <div style={
+        showCotizadorModal
+        ? { position:'fixed', top:'3%', left:'3%', width:'94%', height:'94%', background:'white', zIndex:1000, overflowY:'auto', borderRadius:'12px', padding:'1.5rem', boxShadow:'0 10px 40px rgba(0,0,0,0.4)' }
+        : { background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.5rem', marginTop:'1.5rem', marginBottom:'1.5rem' }
+      }>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.2rem', flexWrap:'wrap', gap:'10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'15px' }}>
+            <h3 style={{ margin:0, color:'#8b5a2b', fontSize:'1.1rem', fontWeight:'800', display:'flex', alignItems:'center', gap:'10px' }}>
+              💰 Cotizador en Vivo
+              {showCotizadorModal && (
+                <button onClick={() => setShowCotizadorModal(false)} style={{ padding:'4px 10px', fontSize:'0.75rem', background:'#f8fafc', color:'#475569', border:'1px solid #cbd5e1', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>✕ Cerrar modal</button>
+              )}
+            </h3>
             {prospect.project_type && (
               <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:'#64748b' }}>
                 Proyectos: <strong>{prospect.project_type}</strong>
