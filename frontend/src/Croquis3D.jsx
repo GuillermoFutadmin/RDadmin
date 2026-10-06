@@ -25,6 +25,7 @@ const Croquis3D = forwardRef((props, ref) => {
   const [measurePopup, setMeasurePopup] = useState({ visible: false, x1:0, y1:0, x2:0, y2:0, screenX:0, screenY:0, value:'', unit:'m' });
   const textInputRef = useRef(null);
   const measureValueRef = useRef(null);
+  const drawCanvasRef = useRef(null); // alias for attaching passive touch listeners
 
   const erasing     = mode === 'erase';
   const lineMode    = mode === 'line';
@@ -68,6 +69,24 @@ const Croquis3D = forwardRef((props, ref) => {
     document.addEventListener('fullscreenchange', onFs);
     return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
+
+  // ── Register passive:false touch listeners on the canvas for tablet/mobile ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const opts = { passive: false };
+    canvas.addEventListener('touchstart',  startDrawing, opts);
+    canvas.addEventListener('touchmove',   draw,         opts);
+    canvas.addEventListener('touchend',    stopDrawing,  opts);
+    canvas.addEventListener('touchcancel', stopDrawing,  opts);
+    return () => {
+      canvas.removeEventListener('touchstart',  startDrawing, opts);
+      canvas.removeEventListener('touchmove',   draw,         opts);
+      canvas.removeEventListener('touchend',    stopDrawing,  opts);
+      canvas.removeEventListener('touchcancel', stopDrawing,  opts);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isDrawing, color, lineWidth]);
 
   const initCanvas = () => {
     const c = canvasRef.current;
@@ -684,8 +703,7 @@ const Croquis3D = forwardRef((props, ref) => {
           style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
         <canvas ref={canvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
-          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
-          onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing} />
         {textInput.visible && (
           <textarea ref={textInputRef}
             value={textInput.text}
