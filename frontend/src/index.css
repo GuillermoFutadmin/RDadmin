@@ -170,3 +170,102 @@ header h1 {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* ─── RESPONSIVE: Tablet (≤ 1024px) ─── */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 220px;
+    padding: 1.5rem 0.75rem;
+  }
+  .main-content {
+    padding: 1.2rem;
+  }
+}
+
+/* ─── RESPONSIVE: Mobile (≤ 768px) ─── */
+@media (max-width: 768px) {
+  /* Sidebar: fixed drawer, hidden by default */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    padding: 1.2rem 0.75rem;
+  }
+
+  /* Sidebar open state */
+  .sidebar.sidebar--open {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+
+  /* Main takes full width */
+  .admin-container {
+    flex-direction: column;
+  }
+  .main-content {
+    padding: 0.75rem;
+    width: 100%;
+  }
+
+  /* Header mobile */
+  header {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    gap: 0.5rem;
+  }
+  header h1 {
+    font-size: 1.1rem;
+  }
+
+  /* Show hamburger button on mobile */
+  .hamburger-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Tables: horizontal scroll */
+  table {
+    font-size: 0.8rem;
+  }
+  th, td {
+    padding: 0.5rem 0.5rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Cards stacking */
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  /* Logo smaller in sidebar */
+  .sidebar img[alt="RD Carpintería"] {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  /* Forms */
+  input, select, textarea {
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+}
+
+/* ─── RESPONSIVE: Small phones (≤ 480px) ─── */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0.5rem;
+  }
+  header {
+    padding: 0.6rem 0.75rem;
+  }
+  header h1 {
+    font-size: 1rem;
+  }
+}
+

@@ -18,6 +18,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoFrame, setLogoFrame] = useState(1);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Logo panel / cambiar contraseña
   const [showLogoPanel, setShowLogoPanel] = useState(false);
@@ -108,9 +109,27 @@ function App() {
     setActiveTab('Prospectos');
   };
 
+  const goTo = (tab) => {
+    setActiveTab(tab);
+    setProspectsOpen(false);
+    setContratosOpen(false);
+    setColaboradoresOpen(false);
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="admin-container">
-      <aside className="sidebar">
+      {/* ── Mobile sidebar overlay ── */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            zIndex: 40, display: 'block'
+          }}
+        />
+      )}
+      <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
         {/* ── LOGO CLICKABLE – arriba del sidebar ── */}
         <div
           onClick={() => { setShowLogoPanel(v => !v); setChangingPassword(false); setPwMsg(null); }}
@@ -389,6 +408,19 @@ function App() {
 
       <main className="main-content">
         <header>
+          {/* ── Hamburger for mobile ── */}
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(v => !v)}
+            aria-label="Menú"
+            style={{
+              display: 'none', background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '1.5rem', padding: '0.3rem 0.5rem', borderRadius: '8px',
+              color: '#1e293b', lineHeight: 1
+            }}
+          >
+            ☰
+          </button>
           <h1>
             {activeTab === 'Ventas' ? 'Valoración' : activeTab}
           </h1>
