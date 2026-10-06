@@ -193,13 +193,19 @@ const Croquis3D = forwardRef((props, ref) => {
     text.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * fs * 1.25));
   };
 
+  // Desplazamiento vertical en px de pantalla: el trazo aparece encima del dedo
+  const TOUCH_OFFSET_Y = 55;
+
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
     const sx = canvas.width / rect.width;
     const sy = canvas.height / rect.height;
     // touches[0] exists on touchstart/touchmove; on touchend use changedTouches[0]
     const touch = e.touches?.[0] ?? e.changedTouches?.[0];
-    if (touch) return { x:(touch.clientX-rect.left)*sx, y:(touch.clientY-rect.top)*sy };
+    if (touch) return {
+      x: (touch.clientX - rect.left) * sx,
+      y: (touch.clientY - rect.top - TOUCH_OFFSET_Y) * sy  // sube el punto sobre el dedo
+    };
     return { x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy };
   };
 
