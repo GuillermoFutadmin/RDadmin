@@ -131,7 +131,7 @@ export function PhotoCapture({ onSave, onCancel, title }) {
           <img src={photo} alt="Evidencia" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', border: '1px solid #cbd5e1', display: 'block', margin: '0 auto' }} />
           <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <button onClick={retake} style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Tomar de nuevo</button>
-            <button onClick={() => onSave(photo)} style={{ padding: '8px 16px', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Guardar Evidencia</button>
+            <button onClick={() => onSave(photo)} style={{ padding: '8px 16px', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Guardar</button>
           </div>
         </div>
       )}

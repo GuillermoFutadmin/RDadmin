@@ -76,7 +76,7 @@ export function SignaturePad({ onSave, onCancel, title }) {
       </div>
       <div style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
         <button onClick={clear} style={{ padding: '6px 12px', background: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Limpiar</button>
-        <button onClick={handleSave} style={{ padding: '6px 12px', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar Firma</button>
+        <button onClick={handleSave} style={{ padding: '6px 12px', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar</button>
         {onCancel && <button onClick={onCancel} style={{ padding: '6px 12px', background: '#cbd5e1', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>}
       </div>
     </div>
