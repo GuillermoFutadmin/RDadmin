@@ -187,7 +187,21 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', marginBottom: '28px' }}>
-          <div style={{ textAlign: 'center', width: '44%' }}>
+          <div style={{ textAlign: 'center', width: '44%', position: 'relative' }}>
+            <div style={{ position: 'relative', height: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <img src="/firma_roger.png" alt="Firma" style={{ position: 'absolute', height: '90px', bottom: '-5px', opacity: 0.9, zIndex: 1 }} />
+              <div style={{ 
+                position: 'absolute', zIndex: 2, bottom: '15px', transform: 'rotate(-12deg)',
+                border: '3px solid rgba(0, 85, 180, 0.65)', color: 'rgba(0, 85, 180, 0.8)',
+                padding: '4px 8px', borderRadius: '50%', fontWeight: '900', fontSize: '0.65rem',
+                textAlign: 'center', background: 'rgba(255,255,255,0.5)', width: '70px', height: '70px',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                boxShadow: '0 0 4px rgba(255,255,255,0.8)'
+              }}>
+                <img src="/logo-orange-new.png" style={{ width: '35px', opacity: 0.7, filter: 'grayscale(100%) sepia(100%) hue-rotate(180deg) saturate(300%)' }} />
+                <span style={{ marginTop: '2px' }}>{new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'2-digit'})}</span>
+              </div>
+            </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma: Rogelio Diaz Flores</strong>
           </div>
@@ -259,7 +273,21 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', marginBottom: '30px', pageBreakInside: 'avoid' }}>
-          <div style={{ textAlign: 'center', width: '42%' }}>
+          <div style={{ textAlign: 'center', width: '42%', position: 'relative' }}>
+            <div style={{ position: 'relative', height: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <img src="/firma_roger.png" alt="Firma" style={{ position: 'absolute', height: '90px', bottom: '-5px', opacity: 0.9, zIndex: 1 }} />
+              <div style={{ 
+                position: 'absolute', zIndex: 2, bottom: '15px', transform: 'rotate(-12deg)',
+                border: '3px solid rgba(0, 85, 180, 0.65)', color: 'rgba(0, 85, 180, 0.8)',
+                padding: '4px 8px', borderRadius: '50%', fontWeight: '900', fontSize: '0.65rem',
+                textAlign: 'center', background: 'rgba(255,255,255,0.5)', width: '70px', height: '70px',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                boxShadow: '0 0 4px rgba(255,255,255,0.8)'
+              }}>
+                <img src="/logo-orange-new.png" style={{ width: '35px', opacity: 0.7, filter: 'grayscale(100%) sepia(100%) hue-rotate(180deg) saturate(300%)' }} />
+                <span style={{ marginTop: '2px' }}>{new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'2-digit'})}</span>
+              </div>
+            </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma: Rogelio Diaz Flores</strong>
           </div>
