@@ -455,6 +455,7 @@ function Ventas() {
       materiales: rows.map(r => ({ id: Date.now() + Math.random(), desc: r.desc, price: Number(r.price), unit: r.unit || 'pza' })),
       mano_obra:  STD_LABOR.map(s    => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
       conceptos:  STD_CONCEPTS.map(s => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
+      created_at: new Date().toISOString()
     };
     try {
       await fetch(`${API}/api/templates/${encodeURIComponent(name)}`, {
@@ -603,6 +604,7 @@ function Ventas() {
       materiales: editMaterials.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
       mano_obra:  editLabor.map(m    => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
       conceptos:  editConcepts.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
+      created_at: templatesDb[editProjectType]?.created_at || new Date().toISOString()
     };
     try {
       await fetch(`${API}/api/templates/${editProjectType}`, {
@@ -637,6 +639,7 @@ function Ventas() {
         materiales: editMaterials.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
         mano_obra:  editLabor.map(m    => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
         conceptos:  editConcepts.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
+        created_at: templatesDb[editProjectType]?.created_at || new Date().toISOString()
       };
 
       // 1. Guardar con el nuevo nombre
@@ -930,11 +933,17 @@ function Ventas() {
                   <button key={type}
                     onClick={() => mode === 'capture' ? initFirstSheet(type) : initEditTemplate(type)}
                     style={{
-                      padding: '20px 36px', fontSize: '1.1rem', background: 'white',
+                      padding: '16px 36px', fontSize: '1.1rem', background: 'white',
                       border: mode === 'edit' ? '2px dashed #8b5a2b' : '2px solid #8b5a2b',
                       borderRadius: '10px', color: '#8b5a2b', cursor: 'pointer', fontWeight: 'bold',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
                     }}>
-                    {type}{mode === 'edit' ? ' ✏️' : ''}
+                    <span>{type}{mode === 'edit' ? ' ✏️' : ''}</span>
+                    {templatesDb[type]?.created_at && (
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'normal' }}>
+                        Creado: {new Date(templatesDb[type].created_at).toLocaleDateString()} {new Date(templatesDb[type].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
