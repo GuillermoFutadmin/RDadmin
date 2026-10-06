@@ -246,6 +246,16 @@ def update_template(name: str, template: TemplateCreate, db: Session = Depends(g
         db.refresh(new_template)
         return new_template
 
+@app.delete("/api/templates/{name}")
+def delete_template(name: str, db: Session = Depends(get_db)):
+    db_template = db.query(models.Template).filter(models.Template.name == name).first()
+    if not db_template:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Template not found")
+    db.delete(db_template)
+    db.commit()
+    return {"ok": True}
+
 
 @app.get("/api/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):

@@ -3,7 +3,7 @@ import './App.css';
 
 const API = '';
 const UNITS = ['pza', 'metro', 'ml', 'kilo', 'litro', 'pie', 'm2', 'par', 'rollo', 'caja', 'día'];
-const TEMPLATE_KEYS = ['Cocina', 'Clóset', 'Puerta Sólida', 'Puerta Tambor'];
+// TEMPLATE_KEYS ahora es dinámico — se lee de la BD en fetchTemplates()
 
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val || 0);
@@ -114,7 +114,7 @@ function EditItemModal({ item, onSave, onClose }) {
 }
 
 // ─── Modal: Elegir machote para nueva hoja ───────────────────────────────────
-function AddSheetModal({ templatesDb, onAdd, onClose }) {
+function AddSheetModal({ templatesDb, templateKeys, onAdd, onClose }) {
   const backdropRef = useRef(null);
   return (
     <div
@@ -138,7 +138,7 @@ function AddSheetModal({ templatesDb, onAdd, onClose }) {
           Selecciona el tipo de proyecto para la nueva hoja:
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          {TEMPLATE_KEYS.map(type => {
+          {templateKeys.map(type => {
             const available = !!templatesDb[type];
             return (
               <button
@@ -165,6 +165,120 @@ function AddSheetModal({ templatesDb, onAdd, onClose }) {
   );
 }
 
+// ─── Modal: Crear nuevo machote ───────────────────────────────────────────────
+function NewTemplateModal({ onSave, onClose }) {
+  const [name, setName]   = useState('');
+  const [rows, setRows]   = useState([{ id: Date.now(), desc: '', price: 0, unit: 'pza' }]);
+  const backdropRef       = useRef(null);
+
+  const addRow  = () => setRows(p => [...p, { id: Date.now() + Math.random(), desc: '', price: 0, unit: 'pza' }]);
+  const delRow  = (id) => setRows(p => p.filter(r => r.id !== id));
+  const chgRow  = (id, field, val) => setRows(p => p.map(r => r.id === id ? { ...r, [field]: val } : r));
+
+  const handleSave = () => {
+    const trimmed = name.trim();
+    if (!trimmed) { alert('Ingresa un nombre para el machote'); return; }
+    onSave(trimmed, rows);
+  };
+
+  return (
+    <div
+      ref={backdropRef}
+      onClick={e => { if (e.target === backdropRef.current) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+      }}
+    >
+      <div style={{
+        background: 'white', borderRadius: '16px', padding: '2rem',
+        width: '580px', maxWidth: '96vw', maxHeight: '88vh', overflowY: 'auto',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.28)', fontFamily: 'sans-serif',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.4rem' }}>
+          <h3 style={{ margin: 0, color: '#8b5a2b', fontSize: '1.15rem' }}>🆕 Nuevo Machote</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#888' }}>✕</button>
+        </div>
+
+        {/* Nombre */}
+        <label style={{ display: 'block', fontWeight: '700', fontSize: '0.85rem', color: '#475569', marginBottom: '6px' }}>
+          Nombre del machote
+        </label>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Ej. Mueble TV, Baño, Librero…"
+          style={{
+            width: '100%', padding: '10px 12px', borderRadius: '8px',
+            border: '2px solid #fdba74', fontSize: '1rem', boxSizing: 'border-box',
+            marginBottom: '1.4rem', outline: 'none',
+          }}
+        />
+
+        {/* Tabla de materiales iniciales */}
+        <label style={{ display: 'block', fontWeight: '700', fontSize: '0.85rem', color: '#475569', marginBottom: '8px' }}>
+          Materiales base (puedes agregar más después)
+        </label>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0.6rem', fontSize: '0.85rem' }}>
+          <thead>
+            <tr style={{ background: '#8b5a2b', color: 'white' }}>
+              <th style={{ padding: '8px 10px', textAlign: 'left', borderRadius: '6px 0 0 0' }}>Descripción</th>
+              <th style={{ padding: '8px 10px', width: '100px' }}>Precio</th>
+              <th style={{ padding: '8px 10px', width: '90px' }}>Unidad</th>
+              <th style={{ padding: '8px 10px', width: '36px', borderRadius: '0 6px 0 0' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '6px 8px' }}>
+                  <input value={r.desc} onChange={e => chgRow(r.id, 'desc', e.target.value)}
+                    placeholder="Nombre material"
+                    style={{ width: '100%', padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', boxSizing: 'border-box' }} />
+                </td>
+                <td style={{ padding: '6px 8px' }}>
+                  <input type="number" value={r.price} onChange={e => chgRow(r.id, 'price', e.target.value)}
+                    style={{ width: '100%', padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: '5px', boxSizing: 'border-box' }} />
+                </td>
+                <td style={{ padding: '6px 8px' }}>
+                  <select value={r.unit} onChange={e => chgRow(r.id, 'unit', e.target.value)}
+                    style={{ width: '100%', padding: '5px 6px', border: '1px solid #cbd5e1', borderRadius: '5px' }}>
+                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </td>
+                <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                  <button onClick={() => delRow(r.id)}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button onClick={addRow}
+          style={{
+            padding: '5px 14px', background: '#f8fafc', border: '1px dashed #94a3b8',
+            borderRadius: '5px', cursor: 'pointer', color: '#475569', fontSize: '0.83rem', marginBottom: '1.6rem',
+          }}>+ Agregar material</button>
+
+        {/* Botones acción */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose}
+            style={{
+              flex: 1, padding: '11px', background: '#f1f5f9', border: '1px solid #e2e8f0',
+              borderRadius: '8px', cursor: 'pointer', fontWeight: '600', color: '#475569',
+            }}>Cancelar</button>
+          <button onClick={handleSave}
+            style={{
+              flex: 2, padding: '11px', background: '#8b5a2b', color: 'white',
+              border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem',
+            }}>✔ Crear Machote</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 function Ventas() {
   const [mode, setMode] = useState('capture'); // 'capture' | 'edit' | 'history'
@@ -177,7 +291,9 @@ function Ventas() {
   };
 
   // ── Templates DB ──────────────────────────────────────────────────────────
-  const [templatesDb, setTemplatesDb] = useState({});
+  const [templatesDb, setTemplatesDb]   = useState({});
+  const [templateKeys, setTemplateKeys]   = useState([]);
+  const [showNewTemplate, setShowNewTemplate] = useState(false);
 
   // ── MULTI-SHEET STATE (modo capture) ─────────────────────────────────────
   const [sheets,          setSheets]          = useState([]);
@@ -210,14 +326,13 @@ function Ventas() {
       const res  = await fetch(`${API}/api/templates/`);
       const data = await res.json();
       const tpls = {};
-      // Normalizar nombres: buscar el TEMPLATE_KEY más parecido ignorando acentos y tildes
-      const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const keys = [];
       data.forEach(t => {
-        const matched = TEMPLATE_KEYS.find(k => normalize(k) === normalize(t.name));
-        const key = matched || t.name;
-        tpls[key] = JSON.parse(t.data);
+        tpls[t.name] = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
+        keys.push(t.name);
       });
       setTemplatesDb(tpls);
+      setTemplateKeys(keys);
     } catch (err) { console.error('fetchTemplates:', err); }
   };
 
@@ -327,11 +442,47 @@ function Ventas() {
   const initEditTemplate = (type) => {
     const tpl = templatesDb[type];
     if (!tpl) return;
-    setEditMaterials(tpl.materiales.map(i => ({ ...i, unit: i.unit || 'pza' })));
-    setEditLabor(mergeWithStandards(tpl.mano_obra, STD_LABOR).map(i   => ({ ...i, unit: i.unit || 'pza' })));
-    setEditConcepts(mergeWithStandards(tpl.conceptos, STD_CONCEPTS).map(i => ({ ...i, unit: i.unit || 'pza' })));
+    setEditMaterials((tpl.materiales || []).map(i => ({ ...i, unit: i.unit || 'pza' })));
+    setEditLabor(mergeWithStandards(tpl.mano_obra || [], STD_LABOR).map(i   => ({ ...i, unit: i.unit || 'pza' })));
+    setEditConcepts(mergeWithStandards(tpl.conceptos || [], STD_CONCEPTS).map(i => ({ ...i, unit: i.unit || 'pza' })));
     setEditProjectType(type);
     setStep(2);
+  };
+
+  // ── Crear nuevo machote ───────────────────────────────────────────────────
+  const createNewTemplate = async (name, rows) => {
+    const data = {
+      materiales: rows.map(r => ({ id: Date.now() + Math.random(), desc: r.desc, price: Number(r.price), unit: r.unit || 'pza' })),
+      mano_obra:  STD_LABOR.map(s    => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
+      conceptos:  STD_CONCEPTS.map(s => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
+    };
+    try {
+      await fetch(`${API}/api/templates/${encodeURIComponent(name)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, data: JSON.stringify(data) }),
+      });
+      await fetchTemplates();
+      setShowNewTemplate(false);
+      showToast(`Machote "${name}" creado ✓`, 'success');
+    } catch (err) {
+      console.error(err);
+      alert('Error al crear machote');
+    }
+  };
+
+  // ── Eliminar machote ──────────────────────────────────────────────────────
+  const deleteTemplate = async () => {
+    if (!window.confirm(`¿Eliminar el machote "${editProjectType}" permanentemente?`)) return;
+    try {
+      await fetch(`${API}/api/templates/${encodeURIComponent(editProjectType)}`, { method: 'DELETE' });
+      await fetchTemplates();
+      setStep(1);
+      showToast(`Machote "${editProjectType}" eliminado`, 'success');
+    } catch (err) {
+      console.error(err);
+      alert('Error al eliminar machote');
+    }
   };
 
   // ── Actualizar ítem en una hoja (sincroniza labor/concepts a todas las hojas) ────
@@ -652,7 +803,10 @@ function Ventas() {
         <EditItemModal item={getEditingItemData()} onSave={applyItemEdit} onClose={closeEditModal} />
       )}
       {showAddSheet && (
-        <AddSheetModal templatesDb={templatesDb} onAdd={addSheet} onClose={() => setShowAddSheet(false)} />
+        <AddSheetModal templatesDb={templatesDb} templateKeys={templateKeys} onAdd={addSheet} onClose={() => setShowAddSheet(false)} />
+      )}
+      {showNewTemplate && (
+        <NewTemplateModal onSave={createNewTemplate} onClose={() => setShowNewTemplate(false)} />
       )}
 
       {/* ────────────────────── STEP 1 ────────────────────── */}
@@ -721,7 +875,7 @@ function Ventas() {
                 {mode === 'capture' ? 'Paso 2: Selecciona el primer machote' : 'Selecciona el machote a editar'}
               </h3>
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {TEMPLATE_KEYS.map(type => (
+                {templateKeys.map(type => (
                   <button key={type}
                     onClick={() => mode === 'capture' ? initFirstSheet(type) : initEditTemplate(type)}
                     style={{
@@ -733,6 +887,27 @@ function Ventas() {
                   </button>
                 ))}
               </div>
+
+              {/* Botón Nuevo Machote — solo en modo Configurar */}
+              {mode === 'edit' && (
+                <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => setShowNewTemplate(true)}
+                    style={{
+                      padding: '14px 32px', background: 'linear-gradient(135deg, #8b5a2b 0%, #b87a3d 100%)',
+                      color: 'white', border: 'none', borderRadius: '10px',
+                      cursor: 'pointer', fontWeight: '800', fontSize: '1rem',
+                      boxShadow: '0 4px 16px rgba(139,90,43,0.35)',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      transition: 'transform 0.12s, box-shadow 0.12s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(139,90,43,0.45)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(139,90,43,0.35)'; }}
+                  >
+                    ＋ Nuevo Machote
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1234,7 +1409,18 @@ function Ventas() {
             </table>
           ))}
 
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', gap: '12px' }}>
+            <button onClick={deleteTemplate}
+              style={{
+                padding: '13px 24px', background: 'white', color: '#dc2626',
+                border: '2px solid #fca5a5', borderRadius: '8px', fontSize: '0.92rem',
+                cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
+            >
+              🗑 Eliminar Machote
+            </button>
             <button onClick={saveTemplateEdits} disabled={isSaving}
               style={{
                 padding: '14px 32px', background: '#eab308', color: 'white',
