@@ -700,11 +700,8 @@ const Croquis3D = forwardRef((props, ref) => {
         )}
         {/* ── Measure popup ── */}
         {measurePopup.visible && (() => {
-          const rect = containerRef.current?.getBoundingClientRect() || { left:0, top:0 };
-          const popX = measurePopup.screenX - rect.left;
-          const popY = measurePopup.screenY - rect.top;
           return (
-            <div style={{ position:'absolute', left:`${popX}px`, top:`${popY}px`, transform:'translate(-50%,-110%)',
+            <div style={{ position:'absolute', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
               background:'white', border:'2px solid #16a34a', borderRadius:'12px', padding:'0.8rem 1rem',
               boxShadow:'0 8px 28px rgba(0,0,0,0.18)', zIndex:20, display:'flex', flexDirection:'column', gap:'0.5rem', minWidth:'200px' }}>
               <p style={{ margin:0, fontSize:'0.72rem', fontWeight:'800', color:'#16a34a', textTransform:'uppercase', letterSpacing:'0.06em' }}>📐 Medida de la línea</p>
