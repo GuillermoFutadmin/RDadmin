@@ -70,23 +70,32 @@ const Croquis3D = forwardRef((props, ref) => {
     return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
 
-  // ── Register passive:false touch listeners on the canvas for tablet/mobile ──
+  // ── Stable refs so touch listeners registered ONCE always see current handlers ──
+  const startDrawingRef = useRef(null);
+  const drawRef         = useRef(null);
+  const stopDrawingRef  = useRef(null);
+
+  // ── Register passive:false touch listeners ONCE on mount ─────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const opts = { passive: false };
-    canvas.addEventListener('touchstart',  startDrawing, opts);
-    canvas.addEventListener('touchmove',   draw,         opts);
-    canvas.addEventListener('touchend',    stopDrawing,  opts);
-    canvas.addEventListener('touchcancel', stopDrawing,  opts);
+    // Use ref-based wrappers so the same function reference is kept but
+    // always delegates to the latest version of each handler.
+    const onTouchStart  = (e) => startDrawingRef.current?.(e);
+    const onTouchMove   = (e) => drawRef.current?.(e);
+    const onTouchEnd    = (e) => stopDrawingRef.current?.(e);
+    canvas.addEventListener('touchstart',  onTouchStart,  opts);
+    canvas.addEventListener('touchmove',   onTouchMove,   opts);
+    canvas.addEventListener('touchend',    onTouchEnd,    opts);
+    canvas.addEventListener('touchcancel', onTouchEnd,    opts);
     return () => {
-      canvas.removeEventListener('touchstart',  startDrawing, opts);
-      canvas.removeEventListener('touchmove',   draw,         opts);
-      canvas.removeEventListener('touchend',    stopDrawing,  opts);
-      canvas.removeEventListener('touchcancel', stopDrawing,  opts);
+      canvas.removeEventListener('touchstart',  onTouchStart,  opts);
+      canvas.removeEventListener('touchmove',   onTouchMove,   opts);
+      canvas.removeEventListener('touchend',    onTouchEnd,    opts);
+      canvas.removeEventListener('touchcancel', onTouchEnd,    opts);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, isDrawing, color, lineWidth]);
+  }, []); // ← empty deps: register ONCE, never re-register mid-draw
 
   const initCanvas = () => {
     const c = canvasRef.current;
@@ -188,7 +197,9 @@ const Croquis3D = forwardRef((props, ref) => {
     const rect = canvas.getBoundingClientRect();
     const sx = canvas.width / rect.width;
     const sy = canvas.height / rect.height;
-    if (e.touches) return { x:(e.touches[0].clientX-rect.left)*sx, y:(e.touches[0].clientY-rect.top)*sy };
+    // touches[0] exists on touchstart/touchmove; on touchend use changedTouches[0]
+    const touch = e.touches?.[0] ?? e.changedTouches?.[0];
+    if (touch) return { x:(touch.clientX-rect.left)*sx, y:(touch.clientY-rect.top)*sy };
     return { x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy };
   };
 
@@ -627,6 +638,11 @@ const Croquis3D = forwardRef((props, ref) => {
     setIsDrawing(false);
     if (!measureMode) scheduleAutoSave();
   };
+
+  // \u2500\u2500 Keep refs pointing to the latest handler versions after every render \u2500\u2500
+  startDrawingRef.current = startDrawing;
+  drawRef.current         = draw;
+  stopDrawingRef.current  = stopDrawing;
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) containerRef.current?.requestFullscreen().catch(()=>{});
