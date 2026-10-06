@@ -39,6 +39,7 @@ function CountBadge({ count, color, bg }) {
 function Dashboard() {
   const [prospects, setProspects] = useState(null);
   const [contratos, setContratos] = useState(null);
+  const [hoveredStage, setHoveredStage] = useState(null);
 
   useEffect(() => {
     fetch(`${API}/api/prospects`)
@@ -62,7 +63,7 @@ function Dashboard() {
     return {
       ...st,
       count: prospects ? filtered.length : null,
-      names: filtered.map(p => p.name || 'Sin nombre').join('\n')
+      items: filtered
     };
   });
   const totalProspects = prospects ? prospects.length : null;
@@ -76,7 +77,7 @@ function Dashboard() {
     return {
       ...st,
       count: contratos ? filtered.length : null,
-      names: filtered.map(c => c.name || 'Sin nombre').join('\n')
+      items: filtered
     };
   });
   const totalClientes = contratos ? contratos.length : null;
@@ -114,15 +115,37 @@ function Dashboard() {
         {/* Contadores por estado */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           {prospectStages.map(st => (
-            <div key={st.key} title={st.names || 'Ninguno'} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0.3rem 0.6rem', borderRadius: '8px',
-              background: st.bg, border: `1px solid ${st.border}`
-            }}>
+            <div key={st.key}
+              onMouseEnter={() => setHoveredStage(`prospect-${st.key}`)}
+              onMouseLeave={() => setHoveredStage(null)}
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.3rem 0.6rem', borderRadius: '8px',
+                background: st.bg, border: `1px solid ${st.border}`
+              }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span>{st.icon}</span>{st.label}
               </span>
               <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
+              
+              {/* Tooltip personalizado */}
+              {hoveredStage === `prospect-${st.key}` && st.items.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: 0, left: '105%', zIndex: 100,
+                  background: '#1e293b', color: 'white', borderRadius: '12px', padding: '1rem',
+                  minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', pointerEvents: 'none'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800', marginBottom: '0.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.4rem' }}>{st.label} ({st.items.length})</div>
+                  {st.items.map((item, idx) => (
+                    <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {new Date(item.created_at).toLocaleDateString('es-MX', { year:'numeric', month:'short', day:'numeric' })}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -152,15 +175,37 @@ function Dashboard() {
         {/* Pipeline stages */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           {clientStages.map(st => (
-            <div key={st.key} title={st.names || 'Ninguno'} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0.3rem 0.6rem', borderRadius: '8px',
-              background: st.bg, border: `1px solid ${st.border}`
-            }}>
+            <div key={st.key}
+              onMouseEnter={() => setHoveredStage(`client-${st.key}`)}
+              onMouseLeave={() => setHoveredStage(null)}
+              style={{
+                position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.3rem 0.6rem', borderRadius: '8px',
+                background: st.bg, border: `1px solid ${st.border}`
+              }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span>{st.icon}</span>{st.label}
               </span>
               <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
+
+              {/* Tooltip personalizado */}
+              {hoveredStage === `client-${st.key}` && st.items.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: 0, left: '105%', zIndex: 100,
+                  background: '#1e293b', color: 'white', borderRadius: '12px', padding: '1rem',
+                  minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', pointerEvents: 'none'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800', marginBottom: '0.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.4rem' }}>{st.label} ({st.items.length})</div>
+                  {st.items.map((item, idx) => (
+                    <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {new Date(item.created_at).toLocaleDateString('es-MX', { year:'numeric', month:'short', day:'numeric' })}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
