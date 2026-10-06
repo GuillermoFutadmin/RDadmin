@@ -608,17 +608,68 @@ function Ventas() {
       await fetch(`${API}/api/templates/${editProjectType}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editProjectType, data: JSON.stringify(updatedData) }),
+        body: JSON.stringify({ name: editProjectType, data: JSON.stringify(updatedData) })
       });
       alert('Machote actualizado correctamente');
-      await fetchTemplates();
+      setTemplatesDb(p => ({ ...p, [editProjectType]: updatedData }));
       setStep(1);
-    } catch (err) {
-      console.error(err);
-      alert('Error al guardar machote');
+    } catch (e) {
+      console.error(e);
+      alert('Error guardando la plantilla');
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
+
+  const renameTemplate = async () => {
+    const newName = window.prompt("Ingresa el nuevo nombre para este machote:", editProjectType);
+    if (!newName || newName.trim() === "" || newName.trim() === editProjectType) return;
+    
+    const finalName = newName.trim();
+    if (templateKeys.includes(finalName)) {
+      alert("Ya existe un machote con ese nombre.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const updatedData = {
+        materiales: editMaterials.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
+        mano_obra:  editLabor.map(m    => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
+        conceptos:  editConcepts.map(m => ({ id: m.id, desc: m.desc, price: Number(m.price), unit: m.unit || 'pza' })),
+      };
+
+      // 1. Guardar con el nuevo nombre
+      const resPut = await fetch(`${API}/api/templates/${encodeURIComponent(finalName)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: finalName, data: JSON.stringify(updatedData) })
+      });
+      if (!resPut.ok) throw new Error("Error al crear el nuevo machote");
+
+      // 2. Eliminar el viejo
+      const resDel = await fetch(`${API}/api/templates/${encodeURIComponent(editProjectType)}`, {
+        method: 'DELETE'
+      });
+      if (!resDel.ok) throw new Error("Error al eliminar el machote antiguo");
+
+      setTemplatesDb(p => {
+        const copy = { ...p };
+        delete copy[editProjectType];
+        copy[finalName] = updatedData;
+        return copy;
+      });
+      setTemplateKeys(prev => prev.map(k => k === editProjectType ? finalName : k));
+      setEditProjectType(finalName);
+      alert(`Machote renombrado a "${finalName}"`);
+    } catch (e) {
+      console.error(e);
+      alert("Error al renombrar el machote.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   // ── Cálculos ──────────────────────────────────────────────────────────────
   const getSheetTotals = (sheet) => {
@@ -1368,7 +1419,12 @@ function Ventas() {
       {step === 2 && mode === 'edit' && (
         <div style={{ background: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ color: '#8b5a2b', margin: 0 }}>✏️ Editando Machote: {editProjectType}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ color: '#8b5a2b', margin: 0 }}>✏️ Editando Machote: {editProjectType}</h2>
+              <button onClick={renameTemplate} style={{ background: 'none', border: '1px solid #8b5a2b', borderRadius: '4px', color: '#8b5a2b', cursor: 'pointer', padding: '4px 10px', fontSize: '0.85rem' }}>
+                Renombrar
+              </button>
+            </div>
             <button onClick={() => setStep(1)}
               style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
               ← Volver
