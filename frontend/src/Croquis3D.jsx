@@ -26,7 +26,7 @@ const Croquis3D = forwardRef((props, ref) => {
   const textInputRef = useRef(null);
   const measureValueRef = useRef(null);
   const drawCanvasRef = useRef(null); // alias for attaching passive touch listeners
-  const [cursorPos, setCursorPos] = useState(null);
+  const [cursorPos, setCursorPos] = useState({ x: 1000, y: 750 }); // Always visible, initialized to center
 
   const erasing     = mode === 'erase';
   const lineMode    = mode === 'line';
@@ -482,7 +482,7 @@ const Croquis3D = forwardRef((props, ref) => {
       ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
     }
     setIsDrawing(true);
-    if (e.touches) setCursorPos({ x: pos.x, y: pos.y });
+    setCursorPos({ x: pos.x, y: pos.y });
   };
 
   const drawArrowhead = (ctx, x1, y1, x2, y2) => {
@@ -508,7 +508,7 @@ const Croquis3D = forwardRef((props, ref) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const pos = getPos(e, canvas);
-    if (e.touches) setCursorPos({ x: pos.x, y: pos.y });
+    setCursorPos({ x: pos.x, y: pos.y });
 
     if ((lineMode || arrowMode || circleMode || rectMode || measureMode) && snapshotRef.current && startPosRef.current) {
       ctx.putImageData(snapshotRef.current, 0, 0);
@@ -645,8 +645,16 @@ const Croquis3D = forwardRef((props, ref) => {
       snapshotRef.current = null; startPosRef.current = null;
     }
     setIsDrawing(false);
-    setCursorPos(null);
+    // Cursor remains visible at last position to give constant visual reference
     if (!measureMode) scheduleAutoSave();
+  };
+
+  const handlePointerMove = (e) => {
+    if (isDrawing) return; // Handled by draw()
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pos = getPos(e, canvas);
+    setCursorPos({ x: pos.x, y: pos.y });
   };
 
   // \u2500\u2500 Keep refs pointing to the latest handler versions after every render \u2500\u2500
@@ -729,7 +737,8 @@ const Croquis3D = forwardRef((props, ref) => {
           style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
         <canvas ref={canvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
-          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing} />
+          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
+          onPointerMove={handlePointerMove} />
         {cursorPos && (
           <div style={{
             position: 'absolute',
