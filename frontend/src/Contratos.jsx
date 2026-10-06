@@ -262,6 +262,21 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
                   </div>
                 </div>
               )}
+
+              {/* Fotos y Firmas de Contrato */}
+              {(prospect.contract_photo_client || prospect.contract_photo_rep || prospect.contract_signature_client || prospect.contract_signature_rep) && (
+                <div style={{ border:'2px solid #a855f7', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.85rem', fontWeight:'800', color:'#7e22ce', backgroundColor:'#f3e8ff', textAlign:'center', letterSpacing:'0.02em' }}>
+                    📝 Evidencias y Firmas de Contrato
+                  </div>
+                  <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
+                    {prospect.contract_photo_rep && <img src={prospect.contract_photo_rep} alt="Evidencia RD Carpintería" style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />}
+                    {prospect.contract_photo_client && <img src={prospect.contract_photo_client} alt="Evidencia Cliente" style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />}
+                    {prospect.contract_signature_rep && <img src={prospect.contract_signature_rep} alt="Firma RD Carpintería" style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'contain', backgroundColor:'#f8fafc' }} />}
+                    {prospect.contract_signature_client && <img src={prospect.contract_signature_client} alt="Firma Cliente" style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'contain', backgroundColor:'#f8fafc' }} />}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

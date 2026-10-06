@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+const API = import.meta.env.VITE_API_URL || '';
 import { LOGO_LEATHER_B64 } from './logoLeatherB64.js';
 import { SignaturePad } from './SignaturePad';
 import { PhotoCapture } from './PhotoCapture';
@@ -28,10 +29,23 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const [anticipoPct, setAnticipoPct] = useState('60');
   const [saving, setSaving] = useState(false);
   
-  const [repSig, setRepSig] = useState(null);
-  const [clientSig, setClientSig] = useState(null);
-  const [repPhoto, setRepPhoto] = useState(null);
-  const [clientPhoto, setClientPhoto] = useState(null);
+  const [repSig, setRepSig] = useState(prospect.contract_signature_rep || null);
+  const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
+  const [repPhoto, setRepPhoto] = useState(prospect.contract_photo_rep || null);
+  const [clientPhoto, setClientPhoto] = useState(prospect.contract_photo_client || null);
+
+  const saveField = async (field, val) => {
+    try {
+      await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: val })
+      });
+      prospect[field] = val; // update local object
+    } catch(e) {
+      console.error('Error saving field', e);
+    }
+  };
   const [showCapture, setShowCapture] = useState(null);
 
   const renderSignatureBox = (title, sig, photo, type) => (
@@ -150,10 +164,10 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       {showCapture && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div style={{ background: 'white', borderRadius: '12px', maxWidth: '100%', maxHeight: '100%', overflow: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-            {showCapture === 'repSig' && <div style={{padding:'20px'}}><SignaturePad title="Firma de Rogelio / RD Carpintería" onSave={img => { setRepSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
-            {showCapture === 'clientSig' && <div style={{padding:'20px'}}><SignaturePad title={`Firma de Cliente: ${prospect.name}`} onSave={img => { setClientSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
-            {showCapture === 'repPhoto' && <div style={{padding:'20px'}}><PhotoCapture title="Foto INE de Rogelio" onSave={img => { setRepPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
-            {showCapture === 'clientPhoto' && <div style={{padding:'20px'}}><PhotoCapture title={`Foto INE de Cliente: ${prospect.name}`} onSave={img => { setClientPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'repSig' && <div style={{padding:'20px'}}><SignaturePad title="Firma de Rogelio / RD Carpintería" onSave={img => { setRepSig(img); saveField('contract_signature_rep', img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'clientSig' && <div style={{padding:'20px'}}><SignaturePad title={`Firma de Cliente: ${prospect.name}`} onSave={img => { setClientSig(img); saveField('contract_signature_client', img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'repPhoto' && <div style={{padding:'20px'}}><PhotoCapture title="Foto INE de Rogelio" onSave={img => { setRepPhoto(img); saveField('contract_photo_rep', img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'clientPhoto' && <div style={{padding:'20px'}}><PhotoCapture title={`Foto INE de Cliente: ${prospect.name}`} onSave={img => { setClientPhoto(img); saveField('contract_photo_client', img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
           </div>
         </div>
       )}

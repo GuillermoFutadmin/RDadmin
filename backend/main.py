@@ -39,6 +39,10 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_password VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_rep VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_client VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_rep VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_client VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
@@ -193,6 +197,10 @@ class ProspectCreate(BaseModel):
     render_delivery_time: Optional[str] = None
     render_comments: Optional[str] = None
     contract_password: Optional[str] = None
+    contract_signature_rep: Optional[str] = None
+    contract_signature_client: Optional[str] = None
+    contract_photo_rep: Optional[str] = None
+    contract_photo_client: Optional[str] = None
 
 class ProspectUpdate(ProspectCreate):
     pass
