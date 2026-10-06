@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { LOGO_LEATHER_B64 } from './logoLeatherB64.js';
+import { SignaturePad } from './SignaturePad';
+import { PhotoCapture } from './PhotoCapture';
 
 const formatCurrency = (val) => {
   const num = Number(val);
@@ -25,6 +27,37 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const [diasEntrega, setDiasEntrega] = useState('15');
   const [anticipoPct, setAnticipoPct] = useState('60');
   const [saving, setSaving] = useState(false);
+  
+  const [repSig, setRepSig] = useState(null);
+  const [clientSig, setClientSig] = useState(null);
+  const [repPhoto, setRepPhoto] = useState(null);
+  const [clientPhoto, setClientPhoto] = useState(null);
+  const [showCapture, setShowCapture] = useState(null);
+
+  const renderSignatureBox = (title, sig, photo, type) => (
+    <div style={{ textAlign: 'center', width: '44%', position: 'relative' }}>
+      <div style={{ position: 'relative', height: '110px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
+        {sig ? (
+          <img src={sig} alt={`Firma ${type}`} style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
+        ) : (
+          <button onClick={() => setShowCapture(`${type}Sig`)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginBottom: '10px' }}>
+            ✏️ Firmar Digitalmente
+          </button>
+        )}
+      </div>
+      <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
+      <strong>{title}</strong>
+      <div style={{ marginTop: '10px' }}>
+        {photo ? (
+           <img src={photo} alt={`INE ${type}`} style={{ maxHeight: '100px', objectFit: 'cover', borderRadius: '4px' }} />
+        ) : (
+          <button onClick={() => setShowCapture(`${type}Photo`)} style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#cbd5e1', color: '#1e293b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            📷 Agregar Foto INE
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   const obsItems = [
     'Fecha de entrega a partir de anticipo.',
@@ -110,6 +143,11 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     }
   };
 
+  if (showCapture === 'repSig') return <div style={{padding:'20px'}}><SignaturePad title="Firma de Rogelio / RD Carpintería" onSave={img => { setRepSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
+  if (showCapture === 'clientSig') return <div style={{padding:'20px'}}><SignaturePad title={`Firma de Cliente: ${prospect.name}`} onSave={img => { setClientSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
+  if (showCapture === 'repPhoto') return <div style={{padding:'20px'}}><PhotoCapture title="Foto INE de Rogelio" onSave={img => { setRepPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
+  if (showCapture === 'clientPhoto') return <div style={{padding:'20px'}}><PhotoCapture title={`Foto INE de Cliente: ${prospect.name}`} onSave={img => { setClientPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
+
   return (
     <div style={{ padding: '1rem', background: '#f1f5f9', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
       {/* Toolbar */}
@@ -187,28 +225,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', marginBottom: '28px' }}>
-          <div style={{ textAlign: 'center', width: '44%', position: 'relative' }}>
-            <div style={{ position: 'relative', height: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <img src="/firma_roger.png" alt="Firma" style={{ position: 'absolute', height: '90px', bottom: '-5px', opacity: 0.9, zIndex: 1 }} />
-              <div style={{ 
-                position: 'absolute', zIndex: 2, bottom: '15px', transform: 'rotate(-12deg)',
-                border: '3px solid rgba(0, 85, 180, 0.65)', color: 'rgba(0, 85, 180, 0.8)',
-                padding: '4px 8px', borderRadius: '50%', fontWeight: '900', fontSize: '0.65rem',
-                textAlign: 'center', background: 'rgba(255,255,255,0.5)', width: '70px', height: '70px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-                boxShadow: '0 0 4px rgba(255,255,255,0.8)'
-              }}>
-                <img src="/logo-orange-new.png" style={{ width: '35px', opacity: 0.7, filter: 'grayscale(100%) sepia(100%) hue-rotate(180deg) saturate(300%)' }} />
-                <span style={{ marginTop: '2px' }}>{new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'2-digit'})}</span>
-              </div>
-            </div>
-            <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
-            <strong>Firma: Rogelio Diaz Flores</strong>
-          </div>
-          <div style={{ textAlign: 'center', width: '44%' }}>
-            <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
-            <strong>Firma de cliente: {prospect.name}</strong>
-          </div>
+          {renderSignatureBox("Firma: Rogelio Diaz Flores", repSig, repPhoto, 'rep')}
+          {renderSignatureBox(`Firma de cliente: ${prospect.name}`, clientSig, clientPhoto, 'client')}
         </div>
 
         <div style={{ fontSize: '0.87rem', lineHeight: '1.6' }}>
@@ -273,25 +291,17 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', marginBottom: '30px', pageBreakInside: 'avoid' }}>
-          <div style={{ textAlign: 'center', width: '42%', position: 'relative' }}>
-            <div style={{ position: 'relative', height: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <img src="/firma_roger.png" alt="Firma" style={{ position: 'absolute', height: '90px', bottom: '-5px', opacity: 0.9, zIndex: 1 }} />
-              <div style={{ 
-                position: 'absolute', zIndex: 2, bottom: '15px', transform: 'rotate(-12deg)',
-                border: '3px solid rgba(0, 85, 180, 0.65)', color: 'rgba(0, 85, 180, 0.8)',
-                padding: '4px 8px', borderRadius: '50%', fontWeight: '900', fontSize: '0.65rem',
-                textAlign: 'center', background: 'rgba(255,255,255,0.5)', width: '70px', height: '70px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-                boxShadow: '0 0 4px rgba(255,255,255,0.8)'
-              }}>
-                <img src="/logo-orange-new.png" style={{ width: '35px', opacity: 0.7, filter: 'grayscale(100%) sepia(100%) hue-rotate(180deg) saturate(300%)' }} />
-                <span style={{ marginTop: '2px' }}>{new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'2-digit'})}</span>
-              </div>
+          <div style={{ textAlign: 'center', width: '42%' }}>
+            <div style={{ position: 'relative', height: '60px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+              {repSig && <img src={repSig} alt="Firma" style={{ maxHeight: '60px', objectFit: 'contain' }} />}
             </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma: Rogelio Diaz Flores</strong>
           </div>
           <div style={{ textAlign: 'center', width: '42%' }}>
+            <div style={{ position: 'relative', height: '60px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+              {clientSig && <img src={clientSig} alt="Firma Cliente" style={{ maxHeight: '60px', objectFit: 'contain' }} />}
+            </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma de cliente: {prospect.name}</strong>
           </div>
@@ -304,14 +314,34 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           </ul>
         </div>
 
-        {/* ── Official footer ── */}
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', textAlign: 'center', pageBreakInside: 'avoid' }}>
           <img src={LOGO_LEATHER_B64} alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
           <p style={{ margin: '10px 0 4px', fontWeight: 'bold', fontSize: '14px', color: '#1e293b' }}>Documento oficial de RD Carpintería</p>
           <p style={{ margin: 0, fontSize: '12px', color: '#2563eb' }}>https://rdcarpinteria.com/</p>
         </div>
 
-        {/* End of content */}
+        {/* Anexo de Evidencias (Only included if photos are captured) */}
+        {(repPhoto || clientPhoto) && (
+          <div style={{ pageBreakBefore: 'always', paddingTop: '40px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 'bold', lineHeight: '1.5' }}>ANEXO I: EVIDENCIAS DE IDENTIFICACIÓN</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', alignItems: 'center' }}>
+              {repPhoto && (
+                <div style={{ textAlign: 'center' }}>
+                  <h3 style={{ fontSize: '14px', marginBottom: '10px' }}>Evidencia de: Rogelio Diaz Flores (RD Carpintería)</h3>
+                  <img src={repPhoto} alt="Evidencia Rogelio" style={{ maxWidth: '600px', maxHeight: '400px', border: '1px solid #cbd5e1' }} />
+                </div>
+              )}
+              {clientPhoto && (
+                <div style={{ textAlign: 'center' }}>
+                  <h3 style={{ fontSize: '14px', marginBottom: '10px' }}>Evidencia de Cliente: {prospect.name}</h3>
+                  <img src={clientPhoto} alt="Evidencia Cliente" style={{ maxWidth: '600px', maxHeight: '400px', border: '1px solid #cbd5e1' }} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
