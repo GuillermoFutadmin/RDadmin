@@ -57,11 +57,11 @@ export function PhotoCapture({ onSave, onCancel, title }) {
       const stampText = `FOTO CON INE - FECHA: ${now}`;
       
       ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(0, height - 50, width, 50);
+      ctx.fillRect(0, height - 70, width, 70);
       
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 18px Arial';
-      ctx.fillText(stampText, 20, height - 20);
+      ctx.font = 'bold 26px Arial';
+      ctx.fillText(stampText, 20, height - 25);
       
       callback(canvas.toDataURL('image/jpeg', 0.8));
     };

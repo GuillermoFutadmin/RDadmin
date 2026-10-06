@@ -143,13 +143,21 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     }
   };
 
-  if (showCapture === 'repSig') return <div style={{padding:'20px'}}><SignaturePad title="Firma de Rogelio / RD Carpintería" onSave={img => { setRepSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
-  if (showCapture === 'clientSig') return <div style={{padding:'20px'}}><SignaturePad title={`Firma de Cliente: ${prospect.name}`} onSave={img => { setClientSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
-  if (showCapture === 'repPhoto') return <div style={{padding:'20px'}}><PhotoCapture title="Foto INE de Rogelio" onSave={img => { setRepPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
-  if (showCapture === 'clientPhoto') return <div style={{padding:'20px'}}><PhotoCapture title={`Foto INE de Cliente: ${prospect.name}`} onSave={img => { setClientPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>;
-
   return (
     <div style={{ padding: '1rem', background: '#f1f5f9', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+      
+      {/* ── Modal Overlay for Captures ── */}
+      {showCapture && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '12px', maxWidth: '100%', maxHeight: '100%', overflow: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            {showCapture === 'repSig' && <div style={{padding:'20px'}}><SignaturePad title="Firma de Rogelio / RD Carpintería" onSave={img => { setRepSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'clientSig' && <div style={{padding:'20px'}}><SignaturePad title={`Firma de Cliente: ${prospect.name}`} onSave={img => { setClientSig(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'repPhoto' && <div style={{padding:'20px'}}><PhotoCapture title="Foto INE de Rogelio" onSave={img => { setRepPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+            {showCapture === 'clientPhoto' && <div style={{padding:'20px'}}><PhotoCapture title={`Foto INE de Cliente: ${prospect.name}`} onSave={img => { setClientPhoto(img); setShowCapture(null); }} onCancel={() => setShowCapture(null)} /></div>}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '860px', margin: '0 auto 1.2rem', background: 'white', borderRadius: '12px', padding: '0.8rem 1.2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
         <button onClick={onBack} style={{ padding: '0.55rem 1.1rem', background: '#e2e8f0', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' }}>
@@ -290,17 +298,17 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           Titular: Silvia Denis Vergara Morales
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', marginBottom: '30px', pageBreakInside: 'avoid' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', marginBottom: '40px', pageBreakInside: 'avoid' }}>
           <div style={{ textAlign: 'center', width: '42%' }}>
-            <div style={{ position: 'relative', height: '60px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
-              {repSig && <img src={repSig} alt="Firma" style={{ maxHeight: '60px', objectFit: 'contain' }} />}
+            <div style={{ position: 'relative', height: '110px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+              {repSig && <img src={repSig} alt="Firma" style={{ maxHeight: '110px', maxWidth: '220px', objectFit: 'contain', paddingBottom: '5px' }} />}
             </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma: Rogelio Diaz Flores</strong>
           </div>
           <div style={{ textAlign: 'center', width: '42%' }}>
-            <div style={{ position: 'relative', height: '60px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
-              {clientSig && <img src={clientSig} alt="Firma Cliente" style={{ maxHeight: '60px', objectFit: 'contain' }} />}
+            <div style={{ position: 'relative', height: '110px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+              {clientSig && <img src={clientSig} alt="Firma Cliente" style={{ maxHeight: '110px', maxWidth: '220px', objectFit: 'contain', paddingBottom: '5px' }} />}
             </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma de cliente: {prospect.name}</strong>
@@ -323,20 +331,21 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         {/* Anexo de Evidencias (Only included if photos are captured) */}
         {(repPhoto || clientPhoto) && (
           <div style={{ pageBreakBefore: 'always', paddingTop: '40px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 'bold', lineHeight: '1.5' }}>ANEXO I: EVIDENCIAS DE IDENTIFICACIÓN</h2>
+            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', lineHeight: '1.5', margin: 0 }}>ANEXO I: EVIDENCIAS DE IDENTIFICACIÓN</h2>
+              <div style={{ borderBottom: '2px solid #b45309', width: '200px', margin: '10px auto' }}></div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', alignItems: 'center' }}>
               {repPhoto && (
-                <div style={{ textAlign: 'center' }}>
-                  <h3 style={{ fontSize: '14px', marginBottom: '10px' }}>Evidencia de: Rogelio Diaz Flores (RD Carpintería)</h3>
-                  <img src={repPhoto} alt="Evidencia Rogelio" style={{ maxWidth: '600px', maxHeight: '400px', border: '1px solid #cbd5e1' }} />
+                <div style={{ textAlign: 'center', width: '100%' }}>
+                  <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#1e293b' }}>Evidencia de: Rogelio Diaz Flores (RD Carpintería)</h3>
+                  <img src={repPhoto} alt="Evidencia Rogelio" style={{ maxWidth: '80%', maxHeight: '350px', objectFit: 'contain', border: '2px solid #cbd5e1', borderRadius: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
                 </div>
               )}
               {clientPhoto && (
-                <div style={{ textAlign: 'center' }}>
-                  <h3 style={{ fontSize: '14px', marginBottom: '10px' }}>Evidencia de Cliente: {prospect.name}</h3>
-                  <img src={clientPhoto} alt="Evidencia Cliente" style={{ maxWidth: '600px', maxHeight: '400px', border: '1px solid #cbd5e1' }} />
+                <div style={{ textAlign: 'center', width: '100%' }}>
+                  <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#1e293b' }}>Evidencia de Cliente: {prospect.name}</h3>
+                  <img src={clientPhoto} alt="Evidencia Cliente" style={{ maxWidth: '80%', maxHeight: '350px', objectFit: 'contain', border: '2px solid #cbd5e1', borderRadius: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
                 </div>
               )}
             </div>
