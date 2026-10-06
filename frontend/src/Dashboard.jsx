@@ -52,23 +52,33 @@ function Dashboard() {
   }, []);
 
   // Prospect state counts
-  const prospectStages = PROSPECT_STAGES.map(st => ({
-    ...st,
-    count: prospects
-      ? st.key === 'papelera'
-        ? prospects.filter(p => p.is_papelera).length
-        : st.key === 'Valoración'
-          ? prospects.filter(p => !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length
-          : prospects.filter(p => !p.is_papelera && (p.status === st.key || (!p.status && st.key === 'Prospecto'))).length
-      : null,
-  }));
+  const prospectStages = PROSPECT_STAGES.map(st => {
+    let filtered = [];
+    if (prospects) {
+      if (st.key === 'papelera') filtered = prospects.filter(p => p.is_papelera);
+      else if (st.key === 'Valoración') filtered = prospects.filter(p => !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion'));
+      else filtered = prospects.filter(p => !p.is_papelera && (p.status === st.key || (!p.status && st.key === 'Prospecto')));
+    }
+    return {
+      ...st,
+      count: prospects ? filtered.length : null,
+      names: filtered.map(p => p.name || 'Sin nombre').join('\n')
+    };
+  });
   const totalProspects = prospects ? prospects.length : null;
 
   // Client pipeline counts
-  const clientStages = CLIENT_STAGES.map(st => ({
-    ...st,
-    count: contratos ? contratos.filter(c => getClientStatus(c) === st.key).length : null,
-  }));
+  const clientStages = CLIENT_STAGES.map(st => {
+    let filtered = [];
+    if (contratos) {
+      filtered = contratos.filter(c => getClientStatus(c) === st.key);
+    }
+    return {
+      ...st,
+      count: contratos ? filtered.length : null,
+      names: filtered.map(c => c.name || 'Sin nombre').join('\n')
+    };
+  });
   const totalClientes = contratos ? contratos.length : null;
 
   const cardStyle = {
@@ -104,7 +114,7 @@ function Dashboard() {
         {/* Contadores por estado */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           {prospectStages.map(st => (
-            <div key={st.key} style={{
+            <div key={st.key} title={st.names || 'Ninguno'} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '0.3rem 0.6rem', borderRadius: '8px',
               background: st.bg, border: `1px solid ${st.border}`
@@ -142,7 +152,7 @@ function Dashboard() {
         {/* Pipeline stages */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           {clientStages.map(st => (
-            <div key={st.key} style={{
+            <div key={st.key} title={st.names || 'Ninguno'} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '0.3rem 0.6rem', borderRadius: '8px',
               background: st.bg, border: `1px solid ${st.border}`
