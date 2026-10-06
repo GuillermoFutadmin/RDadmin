@@ -793,7 +793,11 @@ export default function Contratos({ startView = 'list' }) {
             <thead>
               <tr style={{ borderBottom:'2px solid #eee', textAlign:'left', background:'#fafafa' }}>
                 {['ID','Nombre','Proyecto','Contacto','F. Contrato','Material','Estado','Acciones'].map(h => (
-                  <th key={h} style={{ padding:'0.6rem 0.8rem', fontSize:'0.82rem', color:'#64748b', fontWeight:'700' }}>{h}</th>
+                  <th key={h} style={{
+                    padding:'0.6rem 0.8rem', fontSize:'0.82rem', color:'#64748b', fontWeight:'700',
+                    ...(h === 'Nombre' ? { position:'sticky', left:0, background:'#fafafa', zIndex:2, boxShadow:'2px 0 4px rgba(0,0,0,0.06)' } : {}),
+                    ...(h === 'Acciones' ? { position:'sticky', right:0, background:'#fafafa', zIndex:2, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' } : {})
+                  }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -804,9 +808,9 @@ export default function Contratos({ startView = 'list' }) {
                   onMouseEnter={e => { e.currentTarget.style.background = '#fffbf7'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.85rem', fontWeight:'bold', color:'#64748b' }}>{c.public_id}</td>
-                  <td style={{ padding:'0.7rem 0.8rem' }}>
+                  <td style={{ padding:'0.7rem 0.8rem', position:'sticky', left:0, background:'white', zIndex:1, boxShadow:'2px 0 4px rgba(0,0,0,0.06)' }}>
                     <button onClick={() => { setSelected(c); setView('detail'); }}
-                      style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontWeight:'600', fontSize:'0.95rem', textDecoration:'underline', padding:0 }}>
+                      style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontWeight:'600', fontSize:'0.95rem', textDecoration:'underline', padding:0, whiteSpace:'nowrap' }}>
                       {c.name}
                     </button>
                   </td>
@@ -815,7 +819,7 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.85rem', color:'#64748b' }}>{fmtDate(c.contract_date)}</td>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.88rem' }}>{c.material_type_2 ? `${c.material_type} + ${c.material_type_2}` : (c.material_type || '-')}</td>
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
-                  <td style={{ padding:'0.7rem 0.8rem' }}>
+                  <td style={{ padding:'0.7rem 0.8rem', position:'sticky', right:0, background:'white', zIndex:1, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
                       {/* Render button - shows on APROBADO, changes color when filled */}
                       { (getStatus(c) === 'APROBADO' || getStatus(c) === 'RENDER SI/NO') && (

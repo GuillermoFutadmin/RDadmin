@@ -3256,8 +3256,12 @@ function Prospects() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #eee', textAlign: 'left', background: '#fafafa' }}>
-                        {['ID','Nombre','Proyecto','Contacto','Captura','Inicio','Material','Estado','Acciones'].map(h => (
-                          <th key={h} style={{ padding: '0.6rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '700' }}>{h}</th>
+                        {['ID','Nombre','Proyecto','Contacto','Captura','Inicio','Material','Estado','Acciones'].map((h, i) => (
+                          <th key={h} style={{
+                            padding: '0.6rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '700',
+                            ...(h === 'Nombre' ? { position: 'sticky', left: 0, background: '#fafafa', zIndex: 2, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}),
+                            ...(h === 'Acciones' ? { position: 'sticky', right: 0, background: '#fafafa', zIndex: 2, boxShadow: '-2px 0 4px rgba(0,0,0,0.06)' } : {})
+                          }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -3267,9 +3271,9 @@ function Prospects() {
                           onMouseEnter={e => { e.currentTarget.style.background = '#fffbf7'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
                           <td style={{ padding: '0.6rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b' }}>{p.public_id || '-'}</td>
-                          <td style={{ padding: '0.6rem' }}>
+                          <td style={{ padding: '0.6rem', position: 'sticky', left: 0, background: 'white', zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
                             <button onClick={() => { setSelectedProspect(p); setView('detail'); }}
-                              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', textDecoration: 'underline' }}>
+                              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
                               {p.name}
                             </button>
                           </td>
@@ -3303,7 +3307,7 @@ function Prospects() {
                               );
                             })()}
                           </td>
-                          <td style={{ padding: '0.6rem' }}>
+                          <td style={{ padding: '0.6rem', position: 'sticky', right: 0, background: 'white', zIndex: 1, boxShadow: '-2px 0 4px rgba(0,0,0,0.06)' }}>
                             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                               <button onClick={() => { setSelectedProspect(p); setView('edit'); }}
                                 style={{ padding: '0.3rem 0.7rem', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Editar</button>
