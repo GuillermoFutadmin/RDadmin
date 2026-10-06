@@ -26,6 +26,7 @@ const Croquis3D = forwardRef((props, ref) => {
   const textInputRef = useRef(null);
   const measureValueRef = useRef(null);
   const drawCanvasRef = useRef(null); // alias for attaching passive touch listeners
+  const [cursorPos, setCursorPos] = useState(null);
 
   const erasing     = mode === 'erase';
   const lineMode    = mode === 'line';
@@ -481,6 +482,7 @@ const Croquis3D = forwardRef((props, ref) => {
       ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
     }
     setIsDrawing(true);
+    if (e.touches) setCursorPos({ x: pos.x, y: pos.y });
   };
 
   const drawArrowhead = (ctx, x1, y1, x2, y2) => {
@@ -506,6 +508,7 @@ const Croquis3D = forwardRef((props, ref) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const pos = getPos(e, canvas);
+    if (e.touches) setCursorPos({ x: pos.x, y: pos.y });
 
     if ((lineMode || arrowMode || circleMode || rectMode || measureMode) && snapshotRef.current && startPosRef.current) {
       ctx.putImageData(snapshotRef.current, 0, 0);
@@ -642,6 +645,7 @@ const Croquis3D = forwardRef((props, ref) => {
       snapshotRef.current = null; startPosRef.current = null;
     }
     setIsDrawing(false);
+    setCursorPos(null);
     if (!measureMode) scheduleAutoSave();
   };
 
@@ -726,6 +730,23 @@ const Croquis3D = forwardRef((props, ref) => {
         <canvas ref={canvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
           onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing} />
+        {cursorPos && (
+          <div style={{
+            position: 'absolute',
+            left: `${(cursorPos.x / 2000) * 100}%`,
+            top: `${(cursorPos.y / 1500) * 100}%`,
+            width: '18px',
+            height: '18px',
+            border: '2px solid rgba(220, 38, 38, 0.7)',
+            borderRadius: '50%',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 10,
+            boxShadow: '0 0 6px rgba(255,255,255,0.9)'
+          }}>
+            <div style={{ position:'absolute', top:'50%', left:'50%', width:'4px', height:'4px', background:'#dc2626', transform:'translate(-50%,-50%)', borderRadius:'50%' }} />
+          </div>
+        )}
         {textInput.visible && (
           <textarea ref={textInputRef}
             value={textInput.text}
