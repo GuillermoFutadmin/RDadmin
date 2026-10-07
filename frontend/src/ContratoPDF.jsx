@@ -127,13 +127,12 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   );
 
   const obsItems = [
-    'Fecha de entrega a partir de anticipo.',
-    `Para el inicio del proyecto se requiere un anticipo del ${anticipoPct}%`,
+    `La producción de su pedido empezará a partir del pago del anticipo correspondiente al ${anticipoPct}% (${formatCurrency(anticipoAmount)}), el ${100 - Number(anticipoPct)}% restante (${formatCurrency(restanteAmount)}) se entrega a la terminación o entrega de su proyecto.`,
     'Un año de garantía por defectos de fabricación, sujeta a previa revisión.',
-    'No se aceptan cambios una vez iniciado el proceso de fabricación, todo cambio tendrá un precio extra.',
+    'Todo cambio una vez empezada la producción tendrá costo extra.',
     'No incluye: jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.',
     'No hay devolución del anticipo en caso de cancelación.',
-    'Cotización válida por 10 días naturales.'
+    `Cotización válida por ${prospect.quote_validez || '10'} días naturales.`
   ];
 
   const handleGeneratePDF = async () => {

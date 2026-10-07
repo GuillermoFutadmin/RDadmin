@@ -139,7 +139,9 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   };
   const [deliveryTime, setDeliveryTime] = React.useState(getInitialDelivery());
   const [validez, setValidez] = React.useState(p.quote_validez || '10');
-  const [anticipo, setAnticipo] = React.useState(p.quote_anticipo || '60');
+  const [anticipo, setAnticipo] = React.useState(String(
+    estData.anticipoPct ?? p.quote_anticipo ?? '60'
+  ));
 
   // Imágenes: usa las de la cotización si existen, si no las del formulario del prospecto
   const API = ''; // Relativo al host actual
