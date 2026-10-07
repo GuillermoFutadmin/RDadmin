@@ -3315,11 +3315,11 @@ function Prospects() {
                             })()}
                           </td>
                           <td style={{ padding: '0.6rem', position: 'sticky', right: 0, background: 'white', zIndex: 1, boxShadow: '-2px 0 4px rgba(0,0,0,0.06)' }}>
-                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.2rem', flexWrap: 'nowrap', alignItems: 'center' }}>
                               
                               {/* 1. PROSPECTO (Editar) */}
                               <button onClick={() => { setSelectedProspect(p); setView('edit'); }}
-                                style={{ padding: '0.25rem 0.6rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                style={{ padding: '0.2rem 0.4rem', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>
                                 ✏️ Prospecto
@@ -3327,7 +3327,7 @@ function Prospects() {
 
                               {/* 2. VALORACION */}
                               <button onClick={() => setViewingValuation(p)}
-                                style={{ padding: '0.25rem 0.6rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: `1px solid ${p.valuation_data ? '#fde68a' : '#cbd5e1'}`, borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                style={{ padding: '0.2rem 0.4rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
                                 {p.valuation_data ? '📊 Valoración' : '➕ Valoración'}
@@ -3341,7 +3341,7 @@ function Prospects() {
                                 }
                                 setSelectedProspect(p); setView('quote'); 
                               }}
-                                style={{ padding: '0.25rem 0.6rem', backgroundColor: p.has_quote ? '#dcfce7' : (!p.valuation_data ? '#f1f5f9' : '#eff6ff'), color: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#94a3b8' : '#2563eb'), border: `1px solid ${p.has_quote ? '#bbf7d0' : (!p.valuation_data ? '#cbd5e1' : '#bfdbfe')}`, borderRadius: '4px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.6 : 1 }}
+                                style={{ padding: '0.2rem 0.4rem', backgroundColor: p.has_quote ? '#dcfce7' : (!p.valuation_data ? '#f1f5f9' : '#eff6ff'), color: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#94a3b8' : '#2563eb'), border: 'none', borderRadius: '4px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.6 : 1, whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'none'}>
                                 {p.has_quote ? '✅ Cotización' : '💰 Cotización'}
@@ -3350,7 +3350,7 @@ function Prospects() {
                               {/* 4. APROBADO */}
                               {p.has_quote && p.valuation_data && !p.is_contract && !p.is_papelera && (
                                 <button onClick={() => setApproveModalFor(p)}
-                                  style={{ padding: '0.25rem 0.6rem', backgroundColor: '#10b981', color: 'white', border: '1px solid #059669', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  style={{ padding: '0.2rem 0.4rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
                                   onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
                                   ✅ Aprobar
@@ -3359,7 +3359,7 @@ function Prospects() {
 
                               {/* 5. ELIMINAR */}
                               <button onClick={() => setConfirmDelete(p)}
-                                style={{ padding: '0.25rem 0.6rem', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                style={{ padding: '0.2rem 0.4rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fecaca'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
                                 🗑️ Eliminar
