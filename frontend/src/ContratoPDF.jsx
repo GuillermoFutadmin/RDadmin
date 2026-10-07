@@ -18,16 +18,69 @@ const getDateStr = () => {
 export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   let estData = {};
   if (prospect.estimation_data) {
-    try { estData = JSON.parse(prospect.estimation_data); } catch(e) {}
+    try {
+      estData = typeof prospect.estimation_data === 'string'
+        ? JSON.parse(prospect.estimation_data)
+        : prospect.estimation_data;
+    } catch(e) {}
   }
-  const estimatedTotal = estData.totalWithMargin || 0;
+  const estimatedTotal = Number(estData.totalWithMargin) || 0;
 
-  const [description, setDescription] = useState(
-    `Se llevará a cabo la fabricación e instalación de ${prospect.project_type ? prospect.project_type.toLowerCase() : 'muebles'} en material de MDF con un acabado en poliuretano.\n\n• Incluye la visita a domicilio, donde se tomarán las medidas correspondientes.\n• Extracción de puertas previamente fabricadas.\n• Instalación de puertas y frentes nuevos.`
-  );
-  const [diasEntrega, setDiasEntrega] = useState('15');
-  const [anticipoPct, setAnticipoPct] = useState('60');
+  const getInitialDescription = () => {
+    const estimateDescription = typeof estData.obsText === 'string' ? estData.obsText.trim() : '';
+    if (estimateDescription) return estimateDescription;
+    if (prospect.quote_description) return prospect.quote_description;
+
+    const estimateSheets = Array.isArray(estData.sheets)
+      ? estData.sheets.map(sheet => sheet.type).filter(Boolean)
+      : [];
+    return [
+      prospect.design_details,
+      prospect.measurements,
+      estimateSheets.length ? `Partidas estimadas: ${estimateSheets.join(', ')}` : ''
+    ].filter(Boolean).join('\n\n');
+  };
+  const [description, setDescription] = useState(getInitialDescription());
+  const deliveryTimeMatch = String(prospect.quote_delivery_time || '').match(/\d+/);
+  const initialDeliveryDays = prospect.production_days || (deliveryTimeMatch && deliveryTimeMatch[0]);
+  const [diasEntrega, setDiasEntrega] = useState(String(initialDeliveryDays || '15'));
+  const [anticipoPct, setAnticipoPct] = useState(String(
+    estData.anticipoPct ?? prospect.quote_anticipo ?? '60'
+  ));
+  const anticipoAmount = estimatedTotal * (Number(anticipoPct) || 0) / 100;
+  const restanteAmount = estimatedTotal - anticipoAmount;
   const [saving, setSaving] = useState(false);
+
+  const parseDate = value => {
+    if (!value) return null;
+    const parsed = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+  const startDate = parseDate(prospect.start_date);
+  const savedDeliveryDate = parseDate(prospect.delivery_date);
+  const calculateDeliveryDate = () => {
+    const days = Number(diasEntrega);
+    if (!startDate || !Number.isInteger(days) || days <= 0) return null;
+
+    const date = new Date(startDate);
+    let businessDays = 0;
+    while (businessDays < days) {
+      date.setDate(date.getDate() + 1);
+      if (date.getDay() !== 0 && date.getDay() !== 6) businessDays++;
+    }
+    return date;
+  };
+  const deliveryDate = savedDeliveryDate && Number(diasEntrega) === Number(initialDeliveryDays)
+    ? savedDeliveryDate
+    : calculateDeliveryDate();
+  const formatDate = date => date?.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  }) || '';
+  const dateRange = startDate && deliveryDate
+    ? `${formatDate(startDate)} al ${formatDate(deliveryDate)}`
+    : '';
   
   const [repSig, setRepSig] = useState(prospect.contract_signature_rep || null);
   const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
@@ -232,11 +285,11 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           Para el inicio del proyecto se requiere un anticipo del{' '}
           <input value={anticipoPct} onChange={e => setAnticipoPct(e.target.value)}
             style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />
-          %, el otro {100 - Number(anticipoPct)}% restante se paga el día de la entrega/instalación.<br/>
+          % ({formatCurrency(anticipoAmount)}), el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.<br/>
           <strong>Tiempo de entrega:</strong>{' '}
           <input value={diasEntrega} onChange={e => setDiasEntrega(e.target.value)}
             style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />{' '}
-          días hábiles.
+          días hábiles.{dateRange && <> <strong>Periodo:</strong> {dateRange}.</>}
         </div>
 
         <div style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '28px' }}>
@@ -301,8 +354,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px', pageBreakInside: 'avoid' }}>
           <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong><br/>
-          Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}%</strong>, el otro {100 - Number(anticipoPct)}% restante se paga el día de la entrega/instalación.<br/>
-          <strong>Tiempo de entrega:</strong> {diasEntrega} días hábiles.
+          Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}% ({formatCurrency(anticipoAmount)})</strong>, el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.<br/>
+          <strong>Tiempo de entrega:</strong> {diasEntrega} días hábiles.{dateRange && <> <strong> Periodo:</strong> {dateRange}.</>}
         </div>
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', pageBreakInside: 'avoid' }}>

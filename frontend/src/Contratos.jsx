@@ -1206,6 +1206,7 @@ function EditItemModal({ item, onSave, onClose }) {
 
 function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [margin, setMargin]       = useState(30);
+  const [anticipoPct, setAnticipoPct] = useState(60);
   const [saving, setSaving]       = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false);
 
@@ -1299,6 +1300,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           setSheets([{ type: prospect.project_type || 'Proyecto', materials: d.materials || [], labor: d.labor || [], concepts: d.concepts || [] }]);
         }
         if (d.margin !== undefined) setMargin(d.margin);
+        if (d.anticipoPct !== undefined) setAnticipoPct(Number(d.anticipoPct));
         if (d.measures) setMeasures(d.measures);
         if (d.unit) setUnit(d.unit);
         if (d.obsText) setObsText(d.obsText);
@@ -1371,6 +1373,8 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   };
   const totalCost = sheets.reduce((s, sh) => s + getSheetCost(sh), 0);
   const totalWithMargin = totalCost * (1 + margin / 100);
+  const anticipoTotal = totalWithMargin * anticipoPct / 100;
+  const restanteTotal = totalWithMargin - anticipoTotal;
 
   // Tablas render helpers (estilo Valoracion)
   const tblSt  = { width: '100%', borderCollapse: 'collapse', marginBottom: '1.4rem' };
@@ -1485,7 +1489,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     setAutoSaveStatus('⏳ Guardando borrador...');
     const timer = setTimeout(async () => {
       const data = { 
-        sheets, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
+        sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos,
         croquis_data: croquisRef.current?.getSketchData(), unit
       };
       try {
@@ -1500,13 +1504,13 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       }
     }, 2000); // Esperar 2 segundos después de escribir/subir foto
     return () => clearTimeout(timer);
-  }, [sheets, margin, measures, unit, obsText, photos, croquisPhotos, templateLoaded]);
+  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, templateLoaded]);
 
 
   const handleSave = async () => {
     setSaving(true);
     const data = { 
-      sheets, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
+      sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos,
       croquis_data: croquisRef.current?.getSketchData(), unit
     };
     try {
@@ -1919,15 +1923,23 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         {sheets.length === 0 && <p style={{ color:'#64748b' }}>No hay hojas de cotización. Regresa el contrato a prospecto y realiza la Valoración.</p>}
 
         <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'1rem' }}>
-          <div style={{ background:'#fff7ed', border:'2px dashed #fdba74', padding:'1rem 1.5rem', borderRadius:'8px', display:'flex', alignItems:'center', gap:'1.5rem' }}>
+          <div style={{ background:'#fff7ed', border:'2px dashed #fdba74', padding:'1rem 1.5rem', borderRadius:'8px', display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
               <label style={{ fontSize:'0.9rem', fontWeight:'700', color:'#9a3412' }}>Margen de ganancia (%):</label>
               <input type="number" value={margin} onChange={e => setMargin(Number(e.target.value))}
                 style={{ width:'70px', padding:'6px 8px', borderRadius:'6px', border:'1px solid #fdba74', fontWeight:'700', fontSize:'1rem' }} />
             </div>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+              <label style={{ fontSize:'0.9rem', fontWeight:'700', color:'#9a3412' }}>Anticipo (%):</label>
+              <input type="number" min="0" max="100" value={anticipoPct}
+                onChange={e => setAnticipoPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                style={{ width:'70px', padding:'6px 8px', borderRadius:'6px', border:'1px solid #fdba74', fontWeight:'700', fontSize:'1rem' }} />
+            </div>
             <div style={{ textAlign:'right' }}>
               <p style={{ margin:0, fontSize:'0.8rem', color:'#9a3412' }}>Costo total estimado: {formatCurrency(totalCost)}</p>
               <p style={{ margin:0, fontSize:'1.1rem', fontWeight:'900', color:'#7c2d12' }}>Precio final: {formatCurrency(totalWithMargin)}</p>
+              <p style={{ margin:'0.35rem 0 0', fontSize:'0.82rem', color:'#9a3412' }}>Anticipo ({anticipoPct}%): {formatCurrency(anticipoTotal)}</p>
+              <p style={{ margin:0, fontSize:'0.82rem', color:'#9a3412' }}>Restante ({100 - anticipoPct}%): {formatCurrency(restanteTotal)}</p>
             </div>
           </div>
         </div>
