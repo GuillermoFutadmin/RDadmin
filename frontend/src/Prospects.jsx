@@ -3165,12 +3165,12 @@ function Prospects() {
             </div>
 
             {/* ── ETAPAS PIPELINE ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem', marginBottom: '1.2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
               {[
-                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: '#f1f5f9', icon: '📋' },
-                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#1e40af', bg: '#eff6ff', icon: '🔵' },
-                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#92400e', bg: '#fef3c7', icon: '📊' },
-                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#14532d', bg: '#f0fdf4', icon: '✅' },
+                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: '📋' },
+                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: '🔵' },
+                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: '📊' },
+                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: '✅' },
               ].map(({ key, label, count, color, bg, icon }) => {
                 const isActive = filterStatus === key;
                 return (
@@ -3179,23 +3179,30 @@ function Prospects() {
                     onClick={() => setFilterStatus(key)}
                     style={{
                       background: isActive ? bg : 'white',
-                      border: `2px solid ${isActive ? color : '#e2e8f0'}`,
-                      borderRadius: '10px',
-                      padding: '0.7rem 0.6rem',
+                      border: `1px solid ${isActive ? color : '#e2e8f0'}`,
+                      borderRadius: '12px',
+                      padding: '1rem',
                       cursor: 'pointer',
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '0.2rem',
-                      transition: 'all 0.15s ease',
-                      boxShadow: isActive ? `0 0 0 3px ${color}22` : 'none',
+                      justifyContent: 'space-between',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isActive ? `0 4px 12px ${color}22` : '0 1px 3px rgba(0,0,0,0.05)',
+                      transform: isActive ? 'translateY(-2px)' : 'none',
                     }}
                   >
-                    <span style={{ fontSize: '1.3rem' }}>{icon}</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: isActive ? color : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ 
+                        width: '36px', height: '36px', borderRadius: '10px', 
+                        background: isActive ? 'rgba(255,255,255,0.5)' : '#f8fafc',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
+                      }}>
+                        {icon}
+                      </div>
+                      <span style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '600', color: isActive ? color : '#64748b' }}>{label}</span>
+                    </div>
                     <span style={{
-                      fontSize: '1.3rem', fontWeight: '800', color: isActive ? color : '#1e293b',
-                      lineHeight: 1
+                      fontSize: '1.5rem', fontWeight: '800', color: isActive ? color : '#1e293b'
                     }}>{count}</span>
                   </button>
                 );
@@ -3308,31 +3315,56 @@ function Prospects() {
                             })()}
                           </td>
                           <td style={{ padding: '0.6rem', position: 'sticky', right: 0, background: 'white', zIndex: 1, boxShadow: '-2px 0 4px rgba(0,0,0,0.06)' }}>
-                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                              
+                              {/* 1. PROSPECTO (Editar) */}
                               <button onClick={() => { setSelectedProspect(p); setView('edit'); }}
-                                style={{ padding: '0.3rem 0.7rem', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Editar</button>
+                                style={{ padding: '0.25rem 0.6rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>
+                                ✏️ Prospecto
+                              </button>
+
+                              {/* 2. VALORACION */}
+                              <button onClick={() => setViewingValuation(p)}
+                                style={{ padding: '0.25rem 0.6rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: `1px solid ${p.valuation_data ? '#fde68a' : '#cbd5e1'}`, borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.95)'}
+                                onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
+                                {p.valuation_data ? '📊 Valoración' : '➕ Valoración'}
+                              </button>
+
+                              {/* 3. COTIZACION */}
                               <button onClick={() => {
                                 if (!p.valuation_data && !p.has_quote) {
-                                  alert("⚠️ Primero debe agregar una valoración (+ Valoración) para poder cotizar.");
+                                  alert("⚠️ Primero debe agregar una valoración para poder cotizar.");
                                   return;
                                 }
                                 setSelectedProspect(p); setView('quote'); 
                               }}
-                                style={{ padding: '0.3rem 0.7rem', backgroundColor: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#9ca3af' : '#2563eb'), color: 'white', border: 'none', borderRadius: '6px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.7 : 1 }}>
-                                {p.has_quote ? '✅ Cotización' : '💰 Cotizar'}
+                                style={{ padding: '0.25rem 0.6rem', backgroundColor: p.has_quote ? '#dcfce7' : (!p.valuation_data ? '#f1f5f9' : '#eff6ff'), color: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#94a3b8' : '#2563eb'), border: `1px solid ${p.has_quote ? '#bbf7d0' : (!p.valuation_data ? '#cbd5e1' : '#bfdbfe')}`, borderRadius: '4px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.6 : 1 }}
+                                onMouseEnter={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'brightness(0.95)'}
+                                onMouseLeave={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'none'}>
+                                {p.has_quote ? '✅ Cotización' : '💰 Cotización'}
                               </button>
-                              <button onClick={() => setViewingValuation(p)}
-                                style={{ padding: '0.3rem 0.7rem', backgroundColor: p.valuation_data ? '#eab308' : '#9ca3af', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                {p.valuation_data ? 'Valoración' : '+ Valoración'}
-                              </button>
-                              <button onClick={() => setConfirmDelete(p)}
-                                style={{ padding: '0.3rem 0.7rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Eliminar</button>
+
+                              {/* 4. APROBADO */}
                               {p.has_quote && p.valuation_data && !p.is_contract && !p.is_papelera && (
                                 <button onClick={() => setApproveModalFor(p)}
-                                  style={{ padding:'0.3rem 0.7rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'0.85rem' }}>
+                                  style={{ padding: '0.25rem 0.6rem', backgroundColor: '#10b981', color: 'white', border: '1px solid #059669', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
+                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
                                   ✅ Aprobar
                                 </button>
                               )}
+
+                              {/* 5. ELIMINAR */}
+                              <button onClick={() => setConfirmDelete(p)}
+                                style={{ padding: '0.25rem 0.6rem', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fecaca'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
+                                🗑️ Eliminar
+                              </button>
+
                             </div>
                           </td>
                         </tr>
