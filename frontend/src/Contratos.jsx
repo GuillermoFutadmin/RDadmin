@@ -1224,6 +1224,24 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
                      isPuerta ? MEASUREMENT_FIELDS['Puerta'] : [];
   
   const [measures, setMeasures] = useState({});
+  const [unit, setUnit] = useState('cm');
+
+  const handleUnitChange = (newUnit) => {
+    if (newUnit === unit) return;
+    const updatedMeasures = { ...measures };
+    for (const key in updatedMeasures) {
+      const val = parseFloat(updatedMeasures[key]);
+      if (!isNaN(val)) {
+        if (newUnit === 'in') {
+          updatedMeasures[key] = (val / 2.54).toFixed(2).replace(/\.00$/, '');
+        } else {
+          updatedMeasures[key] = (val * 2.54).toFixed(2).replace(/\.00$/, '');
+        }
+      }
+    }
+    setMeasures(updatedMeasures);
+    setUnit(newUnit);
+  };
   const [obsText, setObsText] = useState('');
   const [photos, setPhotos] = useState({});
   const [croquisPhotos, setCroquisPhotos] = useState([]);
@@ -1282,6 +1300,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         }
         if (d.margin !== undefined) setMargin(d.margin);
         if (d.measures) setMeasures(d.measures);
+        if (d.unit) setUnit(d.unit);
         if (d.obsText) setObsText(d.obsText);
         if (d.photos) setPhotos(d.photos);
         if (d.croquisPhotos) setCroquisPhotos(d.croquisPhotos);
@@ -1467,7 +1486,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     const timer = setTimeout(async () => {
       const data = { 
         sheets, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
-        croquis_data: croquisRef.current?.getSketchData()
+        croquis_data: croquisRef.current?.getSketchData(), unit
       };
       try {
         await fetch(`${API}/api/prospects/${prospect.id}`, {
@@ -1481,14 +1500,14 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       }
     }, 2000); // Esperar 2 segundos después de escribir/subir foto
     return () => clearTimeout(timer);
-  }, [sheets, margin, measures, obsText, photos, croquisPhotos, templateLoaded]);
+  }, [sheets, margin, measures, unit, obsText, photos, croquisPhotos, templateLoaded]);
 
 
   const handleSave = async () => {
     setSaving(true);
     const data = { 
       sheets, margin, measures, obsText, totalWithMargin, photos, croquisPhotos,
-      croquis_data: croquisRef.current?.getSketchData()
+      croquis_data: croquisRef.current?.getSketchData(), unit
     };
     try {
       await fetch(`${API}/api/prospects/${prospect.id}`, {
@@ -1590,7 +1609,13 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
 
       {/* ── 1. NOTAS Y MEDIDAS ── */}
       <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginBottom:'1.5rem' }}>
-         <h3 style={{ margin:'0 0 1rem', color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
+         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap: 'wrap', gap: '10px' }}>
+           <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
+           <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', background:'#f1f5f9', padding:'4px', borderRadius:'8px' }}>
+             <button onClick={() => handleUnitChange('cm')} style={{ padding:'4px 12px', background:unit==='cm'?'white':'transparent', color:unit==='cm'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='cm'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>CM</button>
+             <button onClick={() => handleUnitChange('in')} style={{ padding:'4px 12px', background:unit==='in'?'white':'transparent', color:unit==='in'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='in'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>IN (Pulgadas)</button>
+           </div>
+         </div>
          
          {(() => {
            const groups = getMeasureSections(prospect.project_type);
@@ -1630,7 +1655,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
                          <input type={f.type} placeholder={f.placeholder||''} value={measures[fieldKey]||''}
                            onChange={e => setMeasures(p => ({...p,[fieldKey]:e.target.value}))}
                            style={{ width:'100%', padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:'6px', fontSize:'0.85rem', paddingRight: f.suffix ? '32px' : '8px', boxSizing:'border-box' }} />
-                         {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.72rem', color:'#94a3b8', pointerEvents:'none' }}>{f.suffix}</span>}
+                         {f.suffix && <span style={{ position:'absolute', right:'8px', fontSize:'0.72rem', color:'#94a3b8', pointerEvents:'none' }}>{f.suffix === 'cm' ? unit : f.suffix}</span>}
                        </div>
                      )}
                    </div>
