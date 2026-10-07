@@ -278,184 +278,90 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.fillStyle='#475569'; ctx.font='bold 15px Inter,Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
     ctx.fillText(title, x+8, y+8);
   };
-  const multiView = (ctx, cx, cy, W, H, D, fillColors, details, isoFn) => {
-    const PW=600, PH=450, G=30;
-    const x0=cx-PW-G/2, y0=cy-PH-G/2;
-    const ps = { planta:{x:x0,y:y0}, iso:{x:x0+PW+G,y:y0}, lateral:{x:x0,y:y0+PH+G}, frontal:{x:x0+PW+G,y:y0+PH+G} };
-    viewPanel(ctx,ps.planta.x, ps.planta.y, PW,PH,'[S]  PLANTA  (Vista Superior)');
-    viewPanel(ctx,ps.iso.x,    ps.iso.y,    PW,PH,'[*]  ISOMETRICO 3D');
-    viewPanel(ctx,ps.lateral.x,ps.lateral.y,PW,PH,'[>]  ALZADO LATERAL');
-    viewPanel(ctx,ps.frontal.x,ps.frontal.y,PW,PH,'[F]  ALZADO FRONTAL');
-    const ia = p => ({x:p.x+30, y:p.y+17, w:PW-35, h:PH-40});
-    const fa = ia(ps.frontal);
-    const sc2 = Math.min(fa.w/W, fa.h/H) * 0.86;
-    const fw=W*sc2, fh=H*sc2, fd=D*sc2;
-    const [cF,cP,cL] = fillColors;
-    { const a=ia(ps.frontal), vx=a.x+(a.w-fw)/2, vy=a.y+(a.h-fh)/2;
-      ctx.fillStyle=cF; ctx.strokeStyle='#334155'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-      ctx.fillRect(vx,vy,fw,fh); ctx.strokeRect(vx,vy,fw,fh);
-      if(details.frontal) details.frontal(ctx,vx,vy,fw,fh);
-      dim2H(ctx,vx,vx+fw,vy+fh,'ANCHO','#1e40af'); dim2V(ctx,vx,vy,vy+fh,'ALTO','#7c3aed'); }
-    { const a=ia(ps.planta), vx=a.x+(a.w-fw)/2, vy=a.y+(a.h-fd)/2;
-      ctx.fillStyle=cP; ctx.strokeStyle='#334155'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-      ctx.fillRect(vx,vy,fw,fd); ctx.strokeRect(vx,vy,fw,fd);
-      if(details.planta) details.planta(ctx,vx,vy,fw,fd);
-      dim2H(ctx,vx,vx+fw,vy+fd,'ANCHO','#1e40af'); dim2V(ctx,vx,vy,vy+fd,'PROF','#0f766e'); }
-    { const a=ia(ps.lateral), vx=a.x+(a.w-fd)/2, vy=a.y+(a.h-fh)/2;
-      ctx.fillStyle=cL; ctx.strokeStyle='#334155'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-      ctx.fillRect(vx,vy,fd,fh); ctx.strokeRect(vx,vy,fd,fh);
-      if(details.lateral) details.lateral(ctx,vx,vy,fd,fh);
-      dim2H(ctx,vx,vx+fd,vy+fh,'PROF','#0f766e'); dim2V(ctx,vx,vy,vy+fh,'ALTO','#7c3aed'); }
-    { const p=ps.iso; if(isoFn) isoFn(ctx, p.x+PW/2+8, p.y+PH*0.62, PW-20, PH-25); }
-  };
-  // ─── Template draw functions ────────────────────────────────────────────────
-  const tplCocina = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 8,7,2.8,
-      ['rgba(209,213,219,.8)','rgba(226,232,240,.6)','rgba(203,213,225,.6)'],
-      { frontal:(ctx,x,y,w,h)=>{
-          ctx.fillStyle='rgba(219,234,254,.8)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2;
-          ctx.fillRect(x,y,w,h*0.38); ctx.strokeRect(x,y,w,h*0.38);
-          ctx.fillStyle='rgba(248,250,252,.95)'; ctx.fillRect(x-1,y+h*0.38,w+2,h*0.05); ctx.strokeStyle='#475569'; ctx.strokeRect(x-1,y+h*0.38,w+2,h*0.05);
-          ctx.fillStyle='rgba(209,213,219,.8)'; ctx.strokeStyle='#334155';
-          ctx.fillRect(x,y+h*0.43,w,h*0.57); ctx.strokeRect(x,y+h*0.43,w,h*0.57);
-          ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w/2,y+h*0.38); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(x+w/2,y+h*0.43); ctx.lineTo(x+w/2,y+h); ctx.stroke();
-          [[0.25*w,h*0.22],[0.75*w,h*0.22],[0.25*w,h*0.72],[0.75*w,h*0.72]].forEach(([hx,hy])=>{
-            ctx.fillStyle='#6b7280'; ctx.beginPath(); ctx.arc(x+hx,y+hy,2.5,0,2*Math.PI); ctx.fill();
-          });
-        },
-        planta:(ctx,x,y,w,h)=>{ ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.7; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,y+h*0.35); ctx.lineTo(x+w,y+h*0.35); ctx.stroke(); ctx.setLineDash([]); },
-        lateral:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.9)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x,y+h*0.43,w,h*0.05); ctx.strokeRect(x,y+h*0.43,w,h*0.05); },
-      },
-      (ctx,icx,icy,pw,ph)=>{
-        const sc=Math.min(pw/13,ph/12), ox=icx-sc, oy=icy, s='#334155';
-        drawIsoBox(ctx,ox,oy,8,3.5,2.8,sc,'rgba(209,213,219,.85)','rgba(156,163,175,.7)','rgba(175,180,190,.7)',s);
-        drawIsoBox(ctx,ox,oy,8.2,0.3,2.95,sc,'rgba(248,250,252,.95)','rgba(226,232,240,.8)','rgba(226,232,240,.8)','#475569');
-        const ux=icx-sc, uy=icy-sc*5;
-        drawIsoBox(ctx,ux,uy,8,3,1.8,sc,'rgba(219,234,254,.85)','rgba(191,219,254,.7)','rgba(147,197,253,.6)',s);
+  const drawWireframe = (ctx, cx, cy, w, h, d, title, type) => {
+    const PW = 1100, PH = 700;
+    const sc = Math.min(PW/(w+d), PH/(h+w+d)) * 0.85;
+    const ox = cx;
+    const oy = cy + (h*sc)/2 - 50;
+    const p = (x, y, z) => isoProject(x, y, z, ox, oy, sc);
+
+    // Fondo limpio
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(cx - PW/2, cy - PH/2 - 100, PW, PH + 200);
+
+    // Title
+    ctx.fillStyle='#334155'; ctx.font='bold 24px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(`CAPARAZÓN BASE: ${title.toUpperCase()}`, cx, cy - PH/2 - 20);
+    ctx.fillStyle='#64748b'; ctx.font='14px Inter,sans-serif';
+    ctx.fillText('Dibuja los interiores, puertas y componentes a mano sobre este modelo', cx, cy - PH/2 + 5);
+
+    const face = (pts, fill, stroke) => {
+      ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach(v => ctx.lineTo(v.x, v.y)); ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    };
+
+    const th = type === 'marco' ? 0.4 : 0.2;
+
+    if (type === 'marco' || type === 'puerta') {
+      // Vano
+      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f8fafc', '#94a3b8');
+      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#f1f5f9', '#94a3b8');
+      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#e2e8f0', '#94a3b8');
+      face([p(0,0,0), p(w,0,0), p(w,0,d), p(0,0,d)], '#f8fafc', '#94a3b8');
+      
+      // Marco
+      face([p(0,0,0), p(0,h,0), p(th,h,0), p(th,0,0)], '#f1f5f9', '#475569');
+      face([p(w,0,0), p(w,h,0), p(w-th,h,0), p(w-th,0,0)], '#e2e8f0', '#475569');
+      face([p(0,h,0), p(w,h,0), p(w,h-th,0), p(0,h-th,0)], '#f8fafc', '#475569');
+      if (type === 'marco') {
+         face([p(0,0,0), p(w,0,0), p(w,th,0), p(0,th,0)], '#f1f5f9', '#475569');
       }
-    );
+    } else if (type === 'isla') {
+      // Bloque sólido
+      face([p(0,h,d), p(w,h,d), p(w,0,d), p(0,0,d)], '#f1f5f9', '#94a3b8');
+      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f8fafc', '#94a3b8');
+      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#e2e8f0', '#94a3b8');
+      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#f8fafc', '#475569');
+      face([p(0,0,0), p(w,0,0), p(w,h,0), p(0,h,0)], '#f1f5f9', '#475569');
+    } else {
+      // Carcasa hueca (Cocina, Closet, Cajonera, Fregadero)
+      face([p(0,0,d), p(w,0,d), p(w,h,d), p(0,h,d)], '#f8fafc', '#94a3b8');
+      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f1f5f9', '#94a3b8');
+      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#e2e8f0', '#94a3b8');
+      face([p(0,0,0), p(w,0,0), p(w,0,d), p(0,0,d)], '#f8fafc', '#94a3b8');
+      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#f1f5f9', '#94a3b8');
+
+      // Bordes frontales (Grosor)
+      face([p(0,0,0), p(0,h,0), p(th,h,0), p(th,0,0)], '#e2e8f0', '#475569');
+      face([p(w,0,0), p(w,h,0), p(w-th,h,0), p(w-th,0,0)], '#cbd5e1', '#475569');
+      face([p(0,h,0), p(w,h,0), p(w,h-th,0), p(0,h-th,0)], '#f1f5f9', '#475569');
+      face([p(0,0,0), p(w,0,0), p(w,th,0), p(0,th,0)], '#f8fafc', '#475569');
+    }
+
+    // Cotas guía
+    const dim = (p1, p2, label, col) => {
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, 2*Math.PI); ctx.fill();
+    };
+    dim(p(-0.2,0,0), p(-0.2,h,0), 'Alto', '#10b981');
+    dim(p(0,0,-0.2), p(w,0,-0.2), 'Ancho', '#3b82f6');
+    dim(p(w+0.2,0,0), p(w+0.2,0,d), 'Prof.', '#8b5cf6');
   };
-  const tplCloset = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 7,9,2.5,
-      ['rgba(207,250,254,.7)','rgba(219,234,254,.5)','rgba(186,230,253,.5)'],
-      { frontal:(ctx,x,y,w,h)=>{
-          ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.2; ctx.setLineDash([]);
-          ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w/2,y+h); ctx.stroke();
-          ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.8; ctx.setLineDash([4,3]);
-          ctx.beginPath(); ctx.moveTo(x,y+h*0.5); ctx.lineTo(x+w,y+h*0.5); ctx.stroke(); ctx.setLineDash([]);
-          [[0.25*w,0.55*h],[0.75*w,0.55*h]].forEach(([hx,hy])=>{ ctx.fillStyle='#0369a1'; ctx.beginPath(); ctx.arc(x+hx,y+hy,3,0,2*Math.PI); ctx.fill(); });
-        },
-        planta:(ctx,x,y,w,h)=>{
-          ctx.strokeStyle='#334155'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w/2,y+h); ctx.stroke();
-          ctx.strokeStyle='#0369a1'; ctx.lineWidth=0.7; ctx.setLineDash([3,3]);
-          ctx.beginPath(); ctx.arc(x,y+h,w/2,Math.PI*1.5,0); ctx.stroke();
-          ctx.beginPath(); ctx.arc(x+w,y+h,w/2,Math.PI,Math.PI*1.5); ctx.stroke(); ctx.setLineDash([]);
-        },
-        lateral:(ctx,x,y,w,h)=>{ ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.8; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(x,y+h*0.5); ctx.lineTo(x+w,y+h*0.5); ctx.stroke(); ctx.setLineDash([]); },
-      },
-      (ctx,icx,icy,pw,ph)=>{
-        const sc=Math.min(pw/11,ph/13), ox=icx-sc*2, oy=icy+sc*3, s='#334155';
-        drawIsoBox(ctx,ox,oy,7,9,2.5,sc,'rgba(236,254,255,.85)','rgba(207,250,254,.7)','rgba(165,243,252,.6)',s);
-        const shL=isoProject(.2,4.5,.2,ox,oy,sc),shR=isoProject(6.8,4.5,.2,ox,oy,sc),shRb=isoProject(6.8,4.5,2.3,ox,oy,sc),shLb=isoProject(.2,4.5,2.3,ox,oy,sc);
-        ctx.fillStyle='rgba(186,230,253,.5)'; ctx.strokeStyle='#0ea5e9'; ctx.lineWidth=1;
-        ctx.beginPath(); ctx.moveTo(shL.x,shL.y); ctx.lineTo(shR.x,shR.y); ctx.lineTo(shRb.x,shRb.y); ctx.lineTo(shLb.x,shLb.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-        const fTL=isoProject(0,9,0,ox,oy,sc),fBL=isoProject(0,0,0,ox,oy,sc),fTM=isoProject(0,9,1.25,ox,oy,sc),fBM=isoProject(0,0,1.25,ox,oy,sc),fTR=isoProject(0,9,2.5,ox,oy,sc),fBR=isoProject(0,0,2.5,ox,oy,sc);
-        ctx.fillStyle='rgba(224,242,254,.75)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.2;
-        ctx.beginPath(); ctx.moveTo(fTL.x,fTL.y); ctx.lineTo(fTM.x,fTM.y); ctx.lineTo(fBM.x,fBM.y); ctx.lineTo(fBL.x,fBL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='rgba(186,230,253,.75)';
-        ctx.beginPath(); ctx.moveTo(fTM.x,fTM.y); ctx.lineTo(fTR.x,fTR.y); ctx.lineTo(fBR.x,fBR.y); ctx.lineTo(fBM.x,fBM.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      }
-    );
-  };
-  const tplPuerta = (ctx, cx, cy, tipo) => {
-    multiView(ctx,cx,cy, 4,7,0.5,
-      [tipo==='tambor'?'rgba(209,250,229,.75)':'rgba(254,243,199,.75)','rgba(226,232,240,.6)','rgba(203,213,225,.5)'],
-      { frontal:(ctx,x,y,w,h)=>{
-          const col=tipo==='tambor'?'#065f46':'#b45309';
-          if(tipo==='tambor'){ ctx.strokeStyle=col; ctx.lineWidth=1; ctx.strokeRect(x+w*0.1,y+h*0.08,w*0.8,h*0.84); ctx.beginPath(); ctx.moveTo(x+w*0.1,y+h*0.5); ctx.lineTo(x+w*0.9,y+h*0.5); ctx.stroke(); }
-          else { ctx.strokeStyle=col; ctx.lineWidth=0.8; ctx.setLineDash([3,3]); ctx.strokeRect(x+w*0.08,y+h*0.06,w*0.84,h*0.88); ctx.setLineDash([]); ctx.strokeStyle='#b45309'; ctx.lineWidth=0.8; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.arc(x,y,w*0.84,0,Math.PI/2); ctx.stroke(); ctx.setLineDash([]); }
-          ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x+w*0.82,y+h*0.5,4,0,2*Math.PI); ctx.fill();
-        },
-        planta:(ctx,x,y,w,h)=>{
-          ctx.fillStyle='rgba(148,163,184,.4)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,w*0.12,h); ctx.strokeRect(x,y,w*0.12,h);
-          ctx.fillStyle=tipo==='tambor'?'rgba(209,250,229,.7)':'rgba(254,243,199,.7)'; ctx.fillRect(x+w*0.12,y,w*0.88,h*0.1); ctx.strokeRect(x+w*0.12,y,w*0.88,h*0.1);
-          if(tipo==='solida'){ ctx.strokeStyle='#b45309'; ctx.lineWidth=0.8; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.arc(x+w*0.12,y,w*0.88,0,Math.PI/2); ctx.stroke(); ctx.setLineDash([]); }
-        },
-        lateral:(ctx,x,y,w,h)=>{ ctx.fillStyle=tipo==='tambor'?'rgba(209,250,229,.6)':'rgba(254,243,199,.6)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); },
-      },
-      (ctx,icx,icy,pw,ph)=>{
-        const sc=Math.min(pw/6,ph/9), ox=icx-sc*2, oy=icy+sc*2, s='#334155';
-        drawIsoBox(ctx,ox,oy,.6,7,.5,sc,'rgba(226,232,240,.7)','rgba(203,213,225,.6)','rgba(203,213,225,.6)',s);
-        const dPts=[isoProject(.6,7,0,ox,oy,sc),isoProject(.6,0,0,ox,oy,sc),isoProject(4,0,0,ox,oy,sc),isoProject(4,7,0,ox,oy,sc)];
-        ctx.fillStyle=tipo==='tambor'?'rgba(209,250,229,.85)':'rgba(254,243,199,.85)'; ctx.strokeStyle=tipo==='tambor'?'#065f46':'#b45309'; ctx.lineWidth=1.5;
-        ctx.beginPath(); ctx.moveTo(dPts[0].x,dPts[0].y); dPts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
-        const hPos=isoProject(3.5,3.5,0,ox,oy,sc); ctx.beginPath(); ctx.arc(hPos.x,hPos.y,6,0,2*Math.PI); ctx.fillStyle=tipo==='tambor'?'#065f46':'#78350f'; ctx.fill();
-      }
-    );
-  };
-  const tplCajonera = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 5,8,2.2,
-      ['rgba(226,232,240,.8)','rgba(241,245,249,.6)','rgba(203,213,225,.6)'],
-      { frontal:(ctx,x,y,w,h)=>{ [0,1,2,3].forEach(i=>{ const dy=h*0.04+i*(h*0.24), dh=h*0.2; ctx.fillStyle='rgba(248,250,252,.9)'; ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.fillRect(x+w*0.04,y+dy,w*0.92,dh); ctx.strokeRect(x+w*0.04,y+dy,w*0.92,dh); ctx.fillStyle='#475569'; ctx.fillRect(x+w*0.3,y+dy+dh*0.42,w*0.4,3); }); },
-        planta:(ctx,x,y,w,h)=>{ ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.7; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,y+h/2); ctx.lineTo(x+w,y+h/2); ctx.stroke(); ctx.setLineDash([]); },
-        lateral:(ctx,x,y,w,h)=>{ [0,1,2,3].forEach(i=>{ const dy=h*0.04+i*(h*0.24); ctx.strokeStyle='#94a3b8'; ctx.lineWidth=0.8; ctx.beginPath(); ctx.moveTo(x,y+dy); ctx.lineTo(x+w,y+dy); ctx.stroke(); }); },
-      },
-      (ctx,icx,icy,pw,ph)=>{
-        const sc=Math.min(pw/9,ph/12), ox=icx-sc*0.5, oy=icy+sc*2.5, s='#334155';
-        drawIsoBox(ctx,ox,oy,5,8,2.2,sc,'rgba(226,232,240,.85)','rgba(203,213,225,.7)','rgba(203,213,225,.7)',s);
-        [1.5,3,4.5,6].forEach(yOff=>{ const dTL=isoProject(0.15,yOff+1.2,0.1,ox,oy,sc),dTR=isoProject(4.85,yOff+1.2,0.1,ox,oy,sc),dBL=isoProject(0.15,yOff,0.1,ox,oy,sc),dBR=isoProject(4.85,yOff,0.1,ox,oy,sc); ctx.fillStyle='rgba(248,250,252,.9)'; ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(dTL.x,dTL.y); ctx.lineTo(dTR.x,dTR.y); ctx.lineTo(dBR.x,dBR.y); ctx.lineTo(dBL.x,dBL.y); ctx.closePath(); ctx.fill(); ctx.stroke(); const hL=isoProject(1.8,yOff+0.65,0.1,ox,oy,sc),hR=isoProject(3.2,yOff+0.65,0.1,ox,oy,sc); ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(hL.x,hL.y); ctx.lineTo(hR.x,hR.y); ctx.stroke(); });
-      }
-    );
-  };
-  const tplMarco = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 4.5,7.5,0.4,
-      ['rgba(241,245,249,.8)','rgba(226,232,240,.6)','rgba(209,213,219,.5)'],
-      { frontal:(ctx,x,y,w,h)=>{ const fw=w*0.11; ctx.fillStyle='rgba(209,213,219,.9)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,fw,h); ctx.strokeRect(x,y,fw,h); ctx.fillRect(x+w-fw,y,fw,h); ctx.strokeRect(x+w-fw,y,fw,h); ctx.fillRect(x,y,w,fw); ctx.strokeRect(x,y,w,fw); ctx.fillStyle='rgba(248,250,252,.4)'; ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5; ctx.fillRect(x+fw,y+fw,w-fw*2,h-fw); ctx.strokeRect(x+fw,y+fw,w-fw*2,h-fw); },
-        planta:(ctx,x,y,w,h)=>{ const fw2=w*0.11; ctx.fillStyle='rgba(209,213,219,.9)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,fw2,h); ctx.strokeRect(x,y,fw2,h); ctx.fillRect(x+w-fw2,y,fw2,h); ctx.strokeRect(x+w-fw2,y,fw2,h); },
-        lateral:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(209,213,219,.9)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); },
-      },
-      (ctx,icx,icy,pw,ph)=>{
-        const sc=Math.min(pw/7,ph/10), ox=icx-sc*2, oy=icy+sc*2, s='#334155';
-        drawIsoBox(ctx,ox,oy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
-        const rx=isoProject(4,0,0,ox,oy,sc),orig=isoProject(0,0,0,ox,oy,sc),rox=ox+(rx.x-orig.x),roy=oy+(rx.y-orig.y);
-        drawIsoBox(ctx,rox,roy,0.5,7.5,0.4,sc,'rgba(209,213,219,.8)','rgba(156,163,175,.65)','rgba(175,180,190,.65)',s);
-        const htL=isoProject(0,7.5,0,ox,oy,sc),htR=isoProject(4.5,7.5,0,ox,oy,sc),hbL=isoProject(0,7,0,ox,oy,sc),hbR=isoProject(4.5,7,0,ox,oy,sc),htLd=isoProject(0,7.5,0.4,ox,oy,sc),hbLd=isoProject(0,7,0.4,ox,oy,sc);
-        ctx.fillStyle='rgba(226,232,240,.85)'; ctx.strokeStyle=s; ctx.lineWidth=1.2;
-        ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htR.x,htR.y); ctx.lineTo(hbR.x,hbR.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(htL.x,htL.y); ctx.lineTo(htLd.x,htLd.y); ctx.lineTo(hbLd.x,hbLd.y); ctx.lineTo(hbL.x,hbL.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      }
-    );
-  };
-  const tplIsla = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 10,3.5,4,
-      ['rgba(241,245,249,.8)','rgba(226,232,240,.6)','rgba(203,213,225,.6)'],
-      { frontal:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.95)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x-1,y,w+2,h*0.08); ctx.strokeRect(x-1,y,w+2,h*0.08); ctx.strokeStyle='#334155'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+w/2,y+h*0.08); ctx.lineTo(x+w/2,y+h); ctx.stroke(); [[0.25*w,0.55*h],[0.75*w,0.55*h]].forEach(([hx,hy])=>{ ctx.fillStyle='#64748b'; ctx.fillRect(x+hx-w*0.06,y+hy,w*0.12,3); }); },
-        planta:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.95)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x-2,y-2,w+4,h+4); ctx.strokeRect(x-2,y-2,w+4,h+4); ctx.fillStyle='rgba(241,245,249,.8)'; ctx.strokeStyle='#334155'; ctx.lineWidth=1.2; ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w/2,y+h); ctx.stroke(); },
-        lateral:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.95)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x-1,y,w+2,h*0.08); ctx.strokeRect(x-1,y,w+2,h*0.08); },
-      },
-      (ctx,icx,icy,pw,ph)=>{ const sc=Math.min(pw/16,ph/7), ox=icx-sc*3, oy=icy+sc*0.5, s='#334155'; drawIsoBox(ctx,ox,oy,10,3.5,4,sc,'rgba(241,245,249,.9)','rgba(226,232,240,.75)','rgba(203,213,225,.75)',s); drawIsoBox(ctx,ox,oy,10.2,0.3,4.2,sc,'rgba(255,255,255,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569'); }
-    );
-  };
-  const tplFregadero = (ctx, cx, cy) => {
-    multiView(ctx,cx,cy, 7,3.5,2.8,
-      ['rgba(241,245,249,.8)','rgba(226,232,240,.6)','rgba(203,213,225,.6)'],
-      { frontal:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.95)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x-1,y,w+2,h*0.08); ctx.strokeRect(x-1,y,w+2,h*0.08); ctx.strokeStyle='#0369a1'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.strokeRect(x+w*0.2,y+h*0.08,w*0.6,h*0.42); ctx.setLineDash([]); ctx.fillStyle='#94a3b8'; ctx.fillRect(x+w*0.47,y+h*0.02,4,h*0.1); ctx.beginPath(); ctx.arc(x+w*0.5+10,y+h*0.04,4,Math.PI*1.5,Math.PI*0.5); ctx.fill(); ctx.strokeStyle='#334155'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x+w/2,y+h*0.5); ctx.lineTo(x+w/2,y+h); ctx.stroke(); },
-        planta:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(186,230,253,.6)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.2; ctx.fillRect(x+w*0.2,y+h*0.15,w*0.6,h*0.7); ctx.strokeRect(x+w*0.2,y+h*0.15,w*0.6,h*0.7); ctx.fillStyle='#0369a1'; ctx.beginPath(); ctx.arc(x+w*0.5,y+h*0.5,3,0,2*Math.PI); ctx.fill(); },
-        lateral:(ctx,x,y,w,h)=>{ ctx.fillStyle='rgba(248,250,252,.95)'; ctx.strokeStyle='#475569'; ctx.lineWidth=1; ctx.fillRect(x,y,w,h*0.08); ctx.strokeRect(x,y,w,h*0.08); ctx.strokeStyle='#0369a1'; ctx.lineWidth=0.8; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x+w*0.2,y); ctx.lineTo(x+w*0.2,y+h*0.5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x+w*0.8,y); ctx.lineTo(x+w*0.8,y+h*0.5); ctx.stroke(); ctx.setLineDash([]); },
-      },
-      (ctx,icx,icy,pw,ph)=>{ const sc=Math.min(pw/12,ph/6), ox=icx-sc*2, oy=icy, s='#334155'; drawIsoBox(ctx,ox,oy,7,3.5,2.8,sc,'rgba(241,245,249,.85)','rgba(226,232,240,.7)','rgba(226,232,240,.7)',s); drawIsoBox(ctx,ox,oy,7.2,0.25,3,sc,'rgba(248,250,252,.95)','rgba(241,245,249,.85)','rgba(241,245,249,.85)','#475569'); const bsnTL=isoProject(1.5,0.25,0.6,ox,oy,sc),bsnTR=isoProject(5.5,0.25,0.6,ox,oy,sc),bsnBL=isoProject(1.5,0.25,2.4,ox,oy,sc),bsnBR=isoProject(5.5,0.25,2.4,ox,oy,sc); ctx.fillStyle='rgba(186,230,253,.6)'; ctx.strokeStyle='#0369a1'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bsnTL.x,bsnTL.y); ctx.lineTo(bsnTR.x,bsnTR.y); ctx.lineTo(bsnBR.x,bsnBR.y); ctx.lineTo(bsnBL.x,bsnBL.y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-    );
-  };
+
   const TEMPLATES = [
-    { id:'cocina',    label:'Cocina',         icon:'[K]', desc:'Mueble alto+bajo+encimera', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>tplCocina(ctx,cx,cy) },
-    { id:'closet',    label:'Closet',          icon:'[C]', desc:'Nicho + puertas',           color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>tplCloset(ctx,cx,cy) },
-    { id:'p_solida',  label:'Pta.Solida',      icon:'[P]', desc:'Vano + hoja + abatimiento', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>tplPuerta(ctx,cx,cy,'solida') },
-    { id:'p_tambor',  label:'Pta.Tambor',      icon:'[T]', desc:'Vano + hoja liviana',       color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy)=>tplPuerta(ctx,cx,cy,'tambor') },
-    { id:'cajonera',  label:'Cajonera',        icon:'[D]', desc:'4 cajones + jaladores',     color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy)=>tplCajonera(ctx,cx,cy) },
-    { id:'marco',     label:'Marco',           icon:'[M]', desc:'Marco + vano + cotas',      color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy)=>tplMarco(ctx,cx,cy) },
-    { id:'isla',      label:'Isla Cocina',     icon:'[I]', desc:'Isla + encimera',            color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy)=>tplIsla(ctx,cx,cy) },
-    { id:'fregadero', label:'Fregadero',       icon:'[F]', desc:'Tarja + gabinete',          color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy)=>tplFregadero(ctx,cx,cy) },
+    { id:'cocina',    label:'Cocina',         icon:'[K]', desc:'Caparazón Cocina', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,8,3,'Módulo Cocina','carcasa') },
+    { id:'closet',    label:'Closet',          icon:'[C]', desc:'Caparazón Closet', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,9,3,'Clóset','carcasa') },
+    { id:'p_solida',  label:'Pta.Solida',      icon:'[P]', desc:'Vano Puerta', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,0.6,'Puerta Sólida','puerta') },
+    { id:'p_tambor',  label:'Pta.Tambor',      icon:'[T]', desc:'Vano Puerta', color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,0.6,'Puerta Tambor','puerta') },
+    { id:'cajonera',  label:'Cajonera',        icon:'[D]', desc:'Caparazón Cajonera', color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,5,8,2.5,'Cajonera','carcasa') },
+    { id:'marco',     label:'Marco',           icon:'[M]', desc:'Caparazón Marco', color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4.5,8,0.4,'Marco','marco') },
+    { id:'isla',      label:'Isla Cocina',     icon:'[I]', desc:'Bloque Isla', color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,4,5,'Isla Central','isla') },
+    { id:'fregadero', label:'Fregadero',       icon:'[F]', desc:'Caparazón Fregadero', color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,4,3,'Fregadero','carcasa') },
   ];
 
 
