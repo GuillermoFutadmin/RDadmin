@@ -9,6 +9,11 @@ import Colaboradores from './Colaboradores';
 import Accesos from './Accesos';
 import Asistencia from './Asistencia';
 import Login from './Login';
+import { 
+  IconUsers, IconTrendingUp, IconFileText, IconPenTool, 
+  IconHardHat, IconClock, IconWallet, IconSettings, 
+  IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut 
+} from './icons';
 
 function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -172,17 +177,19 @@ function App() {
                   width: '100%', padding: '0.42rem 0.6rem', marginBottom: '0.4rem',
                   background: 'rgba(255,255,255,0.1)', color: 'white',
                   border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
-                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left'
+                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left',
+                  display: 'flex', alignItems: 'center'
                 }}>
-                  🔑 Cambiar contraseña
+                  <IconKey style={{ width: '14px', height: '14px', marginRight: '0.4rem' }} /> Cambiar contraseña
                 </button>
                 <button onClick={handleLogout} style={{
                   width: '100%', padding: '0.42rem 0.6rem',
                   background: 'rgba(220,38,38,0.2)', color: '#fca5a5',
                   border: '1px solid rgba(220,38,38,0.3)', borderRadius: '6px',
-                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left'
+                  cursor: 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left',
+                  display: 'flex', alignItems: 'center'
                 }}>
-                  🚪 Cerrar sesión
+                  <IconLogOut style={{ width: '14px', height: '14px', marginRight: '0.4rem' }} /> Cerrar sesión
                 </button>
               </>
             ) : (
@@ -299,8 +306,8 @@ function App() {
                 onClick={handleProspectosClick}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span><span style={{ marginRight: '0.5rem' }}>👥</span> Prospectos</span>
-                <span style={{ fontSize: '0.7rem', opacity: 0.7, transition: 'transform 0.2s', transform: prospectsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}><IconUsers /> Prospectos</span>
+                <IconChevronRight style={{ transform: prospectsOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
               </li>
             )}
 
@@ -309,9 +316,9 @@ function App() {
               <li
                 className={activeTab === 'Ventas' ? 'active' : ''}
                 onClick={() => setActiveTab('Ventas')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Ventas' ? 1 : 0.85 }}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Ventas' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>📈</span> Valoración
+                <IconTrendingUp /> Valoración
               </li>
             )}
 
@@ -322,8 +329,8 @@ function App() {
                 onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span><span style={{ marginRight: '0.5rem' }}>📄</span> Clientes</span>
-                <span style={{ fontSize: '0.7rem', opacity: 0.7, transition: 'transform 0.2s', transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}><IconFileText /> Clientes</span>
+                <IconChevronRight style={{ transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
               </li>
             )}
 
@@ -332,9 +339,9 @@ function App() {
               <li
                 className={activeTab === 'Estimacion' ? 'active' : ''}
                 onClick={() => setActiveTab('Estimacion')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Estimacion' ? 1 : 0.85 }}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Estimacion' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>📐</span> Estimación
+                <IconPenTool /> Estimación
               </li>
             )}
 
@@ -345,8 +352,8 @@ function App() {
                 onClick={() => { setColaboradoresOpen(prev => !prev); setActiveTab('Colaboradores'); setProspectsOpen(false); }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span><span style={{ marginRight: '0.5rem' }}>👷‍♂️</span> Colaboradores</span>
-                <span style={{ fontSize: '0.7rem', opacity: 0.7, transition: 'transform 0.2s', transform: colaboradoresOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}><IconHardHat /> Colaboradores</span>
+                <IconChevronRight style={{ transform: colaboradoresOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
               </li>
             )}
 
@@ -355,9 +362,9 @@ function App() {
               <li
                 className={activeTab === 'Asistencia' ? 'active' : ''}
                 onClick={() => setActiveTab('Asistencia')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Asistencia' ? 1 : 0.85 }}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Asistencia' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>⏱️</span> Asistencia
+                <IconClock /> Asistencia
               </li>
             )}
 
@@ -366,9 +373,9 @@ function App() {
               <li
                 className={activeTab === 'Nomina' ? 'active' : ''}
                 onClick={() => setActiveTab('Nomina')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Nomina' ? 1 : 0.85 }}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Nomina' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>💰</span> Corte de Nómina
+                <IconWallet /> Corte de Nómina
               </li>
             )}
 
@@ -377,9 +384,9 @@ function App() {
               <li
                 className={activeTab === 'Tarifas' ? 'active' : ''}
                 onClick={() => setActiveTab('Tarifas')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Tarifas' ? 1 : 0.85 }}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Tarifas' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>⚙️</span> Tarifas por Hora
+                <IconSettings /> Tarifas por Hora
               </li>
             )}
 
@@ -388,8 +395,9 @@ function App() {
               <li
                 className={activeTab === 'Pedidos' ? 'active' : ''}
                 onClick={() => { setActiveTab('Pedidos'); setProspectsOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>📦</span> Pedidos
+                <IconPackage /> Pedidos
               </li>
             )}
 
@@ -398,8 +406,9 @@ function App() {
               <li
                 className={activeTab === 'Accesos' ? 'active' : ''}
                 onClick={() => { setActiveTab('Accesos'); setProspectsOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center' }}
               >
-                <span style={{ marginRight: '0.5rem' }}>🔐</span> Accesos
+                <IconLock /> Accesos
               </li>
             )}
           </ul>
@@ -450,7 +459,7 @@ function App() {
                   onClick={handleLogout}
                   style={{ width: '100%', padding: '0.8rem 1rem', background: 'white', border: 'none', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#dc2626', fontWeight: '600', fontSize: '0.85rem', textAlign: 'left' }}
                 >
-                  <span style={{ fontSize: '1rem' }}>🚪</span> Cerrar Sesión
+                  <IconLogOut style={{ width: '16px', height: '16px' }} /> Cerrar Sesión
                 </button>
               </div>
             )}
