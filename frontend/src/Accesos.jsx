@@ -15,7 +15,9 @@ export default function Accesos() {
     password: '',
     role: 'Ventas',
     status: 'Activo',
-    permissions: []
+    permissions: [],
+    photoFile: null,
+    photoPreview: null
   };
   const [formData, setFormData] = useState(defaultForm);
 
@@ -52,7 +54,7 @@ export default function Accesos() {
   const handleOpenModal = (user = null) => {
     if (user) {
       setEditingUser(user);
-      setFormData({ ...user, password: '' });
+      setFormData({ ...user, password: '', photoFile: null, photoPreview: user.photo_path || null });
     } else {
       setEditingUser(null);
       setFormData(defaultForm);
@@ -86,6 +88,8 @@ export default function Accesos() {
       if (editingUser && !payload.password) {
         delete payload.password; // Don't send empty password on edit
       }
+      delete payload.photoFile;
+      delete payload.photoPreview;
 
       const res = await fetch(url, {
         method,
@@ -99,6 +103,17 @@ export default function Accesos() {
         return;
       }
       
+      const savedUser = await res.json();
+
+      if (formData.photoFile) {
+        const photoData = new FormData();
+        photoData.append('file', formData.photoFile);
+        await fetch(`${API}/api/users/${savedUser.id}/upload-photo`, {
+          method: 'POST',
+          body: photoData
+        });
+      }
+
       fetchUsers();
       handleCloseModal();
     } catch (err) {
@@ -186,9 +201,13 @@ export default function Accesos() {
                 <tr key={user.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                   <td style={{ padding: '1rem 1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#475569', fontSize: '0.9rem' }}>
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
+                      {user.photo_path ? (
+                        <img src={user.photo_path} alt={user.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#475569', fontSize: '0.9rem' }}>
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95rem' }}>{user.name}</div>
                         <div style={{ color: '#64748b', fontSize: '0.8rem' }}>@{user.username}</div>
@@ -254,11 +273,37 @@ export default function Accesos() {
 
             <form onSubmit={handleSave} style={{ padding: '2rem' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', marginBottom: '1.5rem' }}>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Nombre Completo</label>
-                  <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} placeholder="Ej. Juan Pérez" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                <div 
+                  style={{ 
+                    width: '80px', height: '80px', borderRadius: '50%', background: '#f1f5f9', 
+                    border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', 
+                    justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' 
+                  }}
+                  onClick={() => document.getElementById('photoInput').click()}
+                >
+                  {formData.photoPreview ? (
+                    <img src={formData.photoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem', color: '#94a3b8' }}>📷</span>
+                  )}
+                  <input 
+                    id="photoInput" type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setFormData({ ...formData, photoFile: file, photoPreview: URL.createObjectURL(file) });
+                      }
+                    }}
+                  />
                 </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Nombre Completo</label>
+                  <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', minWidth: '250px', padding: '0.7rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} placeholder="Ej. Juan Pérez" />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', marginBottom: '1.5rem' }}>
                 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}>Usuario / Correo</label>

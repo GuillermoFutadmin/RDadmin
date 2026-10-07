@@ -162,9 +162,13 @@ function App() {
             border: '1px solid rgba(255,255,255,0.1)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#ba4b24,#7c2d12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0 }}>
-                {user.name.charAt(0).toUpperCase()}
-              </div>
+              {user.photo_path ? (
+                <img src={user.photo_path} alt={user.name} style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+              ) : (
+                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#ba4b24,#7c2d12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0 }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <div style={{ color: 'white', fontWeight: '700', fontSize: '0.85rem', lineHeight: 1.2 }}>{user.name}</div>
                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.68rem' }}>@{user.username} · {user.role}</div>
@@ -439,9 +443,13 @@ function App() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', userSelect: 'none' }}
             >
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                {user.name.charAt(0).toUpperCase()}
-              </div>
+              {user.photo_path ? (
+                <img src={user.photo_path} alt={user.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.1)' }} />
+              ) : (
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: '1.2' }}>
                 <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{user.name.split(' ')[0]}</span>
                 <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{user.role}</span>

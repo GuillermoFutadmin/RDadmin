@@ -120,4 +120,5 @@ class User(Base):
     role = Column(String, default="Ventas")
     status = Column(String, default="Activo")
     permissions = Column(String) # JSON string of permissions
+    photo_path = Column(String, nullable=True)
 

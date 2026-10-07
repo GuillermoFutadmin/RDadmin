@@ -43,6 +43,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_client VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_rep VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_client VARCHAR;")
+    safe_alter("ALTER TABLE users ADD COLUMN photo_path VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
@@ -437,3 +438,13 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.render_image_path}
+
+@app.post("/api/users/{user_id}/upload-photo")
+async def upload_user_photo(user_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user: raise HTTPException(status_code=404, detail="User not found")
+    new_url = await upload_to_storage(file, "user_photo")
+    db_user.photo_path = new_url
+    db.commit()
+    db.refresh(db_user)
+    return {"photo_path": db_user.photo_path}

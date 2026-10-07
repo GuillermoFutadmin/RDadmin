@@ -37,6 +37,7 @@ class UserResponse(BaseModel):
     role: str
     status: str
     permissions: List[str]
+    photo_path: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -77,6 +78,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         "name": user.name,
         "username": user.username,
         "role": user.role,
+        "photo_path": user.photo_path,
         "permissions": json.loads(user.permissions) if user.permissions else [],
         "token": f"token-{user.id}" # Token muy básico
     }
@@ -106,6 +108,7 @@ def get_users(db: Session = Depends(get_db)):
     for u in users:
         res.append(UserResponse(
             id=u.id, name=u.name, username=u.username, role=u.role, status=u.status,
+            photo_path=u.photo_path,
             permissions=json.loads(u.permissions) if u.permissions else []
         ))
     return res
@@ -129,6 +132,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return UserResponse(
         id=new_user.id, name=new_user.name, username=new_user.username, 
         role=new_user.role, status=new_user.status, 
+        photo_path=new_user.photo_path,
         permissions=json.loads(new_user.permissions)
     )
 
@@ -156,6 +160,7 @@ def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
     return UserResponse(
         id=db_user.id, name=db_user.name, username=db_user.username, 
         role=db_user.role, status=db_user.status, 
+        photo_path=db_user.photo_path,
         permissions=json.loads(db_user.permissions) if db_user.permissions else []
     )
 
