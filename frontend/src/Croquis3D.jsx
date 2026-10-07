@@ -278,90 +278,88 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.fillStyle='#475569'; ctx.font='bold 15px Inter,Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
     ctx.fillText(title, x+8, y+8);
   };
-  const drawWireframe = (ctx, cx, cy, w, h, d, title, type) => {
-    const PW = 1100, PH = 700;
-    const sc = Math.min(PW/(w+d), PH/(h+w+d)) * 0.85;
-    const ox = cx;
-    const oy = cy + (h*sc)/2 - 50;
-    const p = (x, y, z) => isoProject(x, y, z, ox, oy, sc);
-
-    // Fondo limpio
+  const drawWireframe = (ctx, cx, cy, w, h, d, type) => {
+    // Limpiar todo el lienzo
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(cx - PW/2, cy - PH/2 - 100, PW, PH + 200);
+    ctx.fillRect(0, 0, 3000, 2000);
 
-    // Title
-    ctx.fillStyle='#334155'; ctx.font='bold 24px Inter,sans-serif'; ctx.textAlign='center';
-    ctx.fillText(`CAPARAZÓN BASE: ${title.toUpperCase()}`, cx, cy - PH/2 - 20);
-    ctx.fillStyle='#64748b'; ctx.font='14px Inter,sans-serif';
-    ctx.fillText('Dibuja los interiores, puertas y componentes a mano sobre este modelo', cx, cy - PH/2 + 5);
+    const PW = 900, PH = 600;
+    const sc = Math.min(PW/(w+d), PH/(h+d)) * 0.8;
+    const ox = cx;
+    const oy = cy + (h*sc)/2 - 80;
 
-    const face = (pts, fill, stroke) => {
-      ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach(v => ctx.lineTo(v.x, v.y)); ctx.closePath();
-      if (fill) ctx.fill();
-      if (stroke) ctx.stroke();
+    const iso = (x, y, z) => {
+      const a = Math.PI / 6;
+      return { x: ox + (x - z) * Math.cos(a) * sc, y: oy + (x + z) * Math.sin(a) * sc - y * sc };
     };
 
-    const th = type === 'marco' ? 0.4 : 0.2;
+    const faces = [];
+    const addSlab = (x1, y1, z1, x2, y2, z2, cTop, cFront, cSide) => {
+      const p = (x,y,z) => ({ x3:x, y3:y, z3:z, ...iso(x,y,z) });
+      const pushFace = (pts, fill) => {
+        const depth = -(pts[0].x3 + pts[0].y3 + pts[0].z3 + pts[2].x3 + pts[2].y3 + pts[2].z3);
+        faces.push({ pts, fill, depth });
+      };
+      
+      // Caras en X (Izquierda / Derecha)
+      pushFace([p(x1,y1,z1), p(x1,y2,z1), p(x1,y2,z2), p(x1,y1,z2)], cFront);
+      pushFace([p(x2,y1,z1), p(x2,y2,z1), p(x2,y2,z2), p(x2,y1,z2)], cFront);
+      
+      // Caras en Z (Atrás / Frente)
+      pushFace([p(x1,y1,z1), p(x2,y1,z1), p(x2,y2,z1), p(x1,y2,z1)], cSide);
+      pushFace([p(x1,y1,z2), p(x2,y1,z2), p(x2,y2,z2), p(x1,y2,z2)], cSide);
+      
+      // Caras en Y (Abajo / Arriba)
+      pushFace([p(x1,y1,z1), p(x2,y1,z1), p(x2,y1,z2), p(x1,y1,z2)], cTop);
+      pushFace([p(x1,y2,z1), p(x2,y2,z1), p(x2,y2,z2), p(x1,y2,z2)], cTop);
+    };
+
+    const th = 0.25; // Grosor de la madera
+    const cT = '#f8fafc', cF = '#f1f5f9', cS = '#e2e8f0';
 
     if (type === 'marco' || type === 'puerta') {
-      // Vano
-      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f8fafc', '#94a3b8');
-      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#f1f5f9', '#94a3b8');
-      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#e2e8f0', '#94a3b8');
-      face([p(0,0,0), p(w,0,0), p(w,0,d), p(0,0,d)], '#f8fafc', '#94a3b8');
-      
-      // Marco
-      face([p(0,0,0), p(0,h,0), p(th,h,0), p(th,0,0)], '#f1f5f9', '#475569');
-      face([p(w,0,0), p(w,h,0), p(w-th,h,0), p(w-th,0,0)], '#e2e8f0', '#475569');
-      face([p(0,h,0), p(w,h,0), p(w,h-th,0), p(0,h-th,0)], '#f8fafc', '#475569');
-      if (type === 'marco') {
-         face([p(0,0,0), p(w,0,0), p(w,th,0), p(0,th,0)], '#f1f5f9', '#475569');
-      }
+      // Vano orientado hacia X
+      addSlab(w-th, 0, d-th, w, h, d, cT, cF, cS); // Pata izq
+      addSlab(w-th, 0, 0, w, h, th, cT, cF, cS); // Pata der
+      addSlab(w-th, h-th, 0, w, h, d, cT, cF, cS); // Dintel
+      if (type === 'marco') addSlab(w-th, 0, 0, w, th, d, cT, cF, cS); // Umbral
     } else if (type === 'isla') {
-      // Bloque sólido
-      face([p(0,h,d), p(w,h,d), p(w,0,d), p(0,0,d)], '#f1f5f9', '#94a3b8');
-      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f8fafc', '#94a3b8');
-      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#e2e8f0', '#94a3b8');
-      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#f8fafc', '#475569');
-      face([p(0,0,0), p(w,0,0), p(w,h,0), p(0,h,0)], '#f1f5f9', '#475569');
+      addSlab(0, 0, 0, w, h, d, cT, cF, cS);
     } else {
-      // Carcasa hueca (Cocina, Closet, Cajonera, Fregadero)
-      face([p(0,0,d), p(w,0,d), p(w,h,d), p(0,h,d)], '#f8fafc', '#94a3b8');
-      face([p(0,0,d), p(0,h,d), p(0,h,0), p(0,0,0)], '#f1f5f9', '#94a3b8');
-      face([p(w,0,d), p(w,h,d), p(w,h,0), p(w,0,0)], '#e2e8f0', '#94a3b8');
-      face([p(0,0,0), p(w,0,0), p(w,0,d), p(0,0,d)], '#f8fafc', '#94a3b8');
-      face([p(0,h,0), p(w,h,0), p(w,h,d), p(0,h,d)], '#f1f5f9', '#94a3b8');
-
-      // Bordes frontales (Grosor)
-      face([p(0,0,0), p(0,h,0), p(th,h,0), p(th,0,0)], '#e2e8f0', '#475569');
-      face([p(w,0,0), p(w,h,0), p(w-th,h,0), p(w-th,0,0)], '#cbd5e1', '#475569');
-      face([p(0,h,0), p(w,h,0), p(w,h-th,0), p(0,h-th,0)], '#f1f5f9', '#475569');
-      face([p(0,0,0), p(w,0,0), p(w,th,0), p(0,th,0)], '#f8fafc', '#475569');
+      // Caparazón / Carcasa orientado hacia X
+      addSlab(0, 0, 0, w, th, d, cT, cF, cS); // Base
+      addSlab(0, h-th, 0, w, h, d, cT, cF, cS); // Techo
+      addSlab(0, th, 0, th, h-th, d, cT, cF, cS); // Fondo
+      addSlab(th, th, d-th, w, h-th, d, cT, cF, cS); // Lateral izq
+      addSlab(th, th, 0, w, h-th, th, cT, cF, cS); // Lateral der
     }
 
-    // Cotas guía
-    const dim = (p1, p2, label, col) => {
-      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([4,4]);
-      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, 2*Math.PI); ctx.fill();
-      ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, 2*Math.PI); ctx.fill();
-    };
-    dim(p(-0.2,0,0), p(-0.2,h,0), 'Alto', '#10b981');
-    dim(p(0,0,-0.2), p(w,0,-0.2), 'Ancho', '#3b82f6');
-    dim(p(w+0.2,0,0), p(w+0.2,0,d), 'Prof.', '#8b5cf6');
+    // Ordenar de atrás hacia adelante (Painter's algorithm)
+    faces.sort((a,b) => b.depth - a.depth);
+
+    faces.forEach(f => {
+      ctx.fillStyle = f.fill;
+      ctx.strokeStyle = '#64748b'; // Líneas sutiles pero definidas
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(f.pts[0].x, f.pts[0].y);
+      f.pts.slice(1).forEach(v => ctx.lineTo(v.x, v.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
   };
 
   const TEMPLATES = [
-    { id:'cocina',    label:'Cocina',         icon:'[K]', desc:'Caparazón Cocina', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,8,3,'Módulo Cocina','carcasa') },
-    { id:'closet',    label:'Closet',          icon:'[C]', desc:'Caparazón Closet', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,9,3,'Clóset','carcasa') },
-    { id:'p_solida',  label:'Pta.Solida',      icon:'[P]', desc:'Vano Puerta', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,0.6,'Puerta Sólida','puerta') },
-    { id:'p_tambor',  label:'Pta.Tambor',      icon:'[T]', desc:'Vano Puerta', color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,0.6,'Puerta Tambor','puerta') },
-    { id:'cajonera',  label:'Cajonera',        icon:'[D]', desc:'Caparazón Cajonera', color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,5,8,2.5,'Cajonera','carcasa') },
-    { id:'marco',     label:'Marco',           icon:'[M]', desc:'Caparazón Marco', color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4.5,8,0.4,'Marco','marco') },
-    { id:'isla',      label:'Isla Cocina',     icon:'[I]', desc:'Bloque Isla', color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,4,5,'Isla Central','isla') },
-    { id:'fregadero', label:'Fregadero',       icon:'[F]', desc:'Caparazón Fregadero', color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,4,3,'Fregadero','carcasa') },
+    { id:'cocina',    label:'Cocina',         icon:'[K]', desc:'Caparazón Cocina', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,8,3.5,'carcasa') },
+    { id:'closet',    label:'Closet',          icon:'[C]', desc:'Caparazón Closet', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,9,3,'carcasa') },
+    { id:'p_solida',  label:'Pta.Solida',      icon:'[P]', desc:'Vano Puerta', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,1,'puerta') },
+    { id:'p_tambor',  label:'Pta.Tambor',      icon:'[T]', desc:'Vano Puerta', color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4,8,1,'puerta') },
+    { id:'cajonera',  label:'Cajonera',        icon:'[D]', desc:'Caparazón Cajonera', color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,5,8,3,'carcasa') },
+    { id:'marco',     label:'Marco',           icon:'[M]', desc:'Caparazón Marco', color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,4.5,8,1,'marco') },
+    { id:'isla',      label:'Isla Cocina',     icon:'[I]', desc:'Bloque Isla', color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,4,6,'isla') },
+    { id:'fregadero', label:'Fregadero',       icon:'[F]', desc:'Caparazón Fregadero', color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,4,3.5,'carcasa') },
   ];
 
 
