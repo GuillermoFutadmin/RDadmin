@@ -444,6 +444,10 @@ export default function Contratos({ startView = 'list' }) {
       } else {
         setView('detail');
       }
+    }} onSaveSuccess={() => {
+      setView('list');
+      setSelected(null);
+      fetchContratos();
     }} />;
   }
 
@@ -1200,7 +1204,7 @@ function EditItemModal({ item, onSave, onClose }) {
 }
 
 
-function Estimacion({ prospect, onBack }) {
+function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [margin, setMargin]       = useState(30);
   const [saving, setSaving]       = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false);
@@ -1492,7 +1496,11 @@ function Estimacion({ prospect, onBack }) {
         body: JSON.stringify({ estimation_data: JSON.stringify(data), status: 'ESTIMACIÓN' })
       });
       setSaveMsg('✅ Guardado correctamente');
-      setTimeout(() => setSaveMsg(''), 3000);
+      setTimeout(() => {
+        setSaveMsg('');
+        if (onSaveSuccess) onSaveSuccess();
+        else onBack();
+      }, 800);
     } catch { setSaveMsg('❌ Error guardando'); setTimeout(() => setSaveMsg(''), 3000); }
     setSaving(false);
   };
