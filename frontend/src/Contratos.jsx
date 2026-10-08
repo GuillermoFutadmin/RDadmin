@@ -71,7 +71,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
 
   const chip = (label, value) => value !== null && value !== undefined && value !== '' ? (
     <div style={{ minWidth:0, padding:'0.8rem 0.9rem', background:'#fff', border:'1px solid #edf0f3', borderRadius:'10px' }}>
-      <p style={{ fontSize:'0.68rem', color:'#8993a1', margin:'0 0 0.35rem', textTransform:'uppercase', letterSpacing:'0.055em', fontWeight:700 }}>{label}</p>
+      <p style={{ fontSize:'0.68rem', color:'#2563a8', margin:'0 0 0.35rem', textTransform:'uppercase', letterSpacing:'0.055em', fontWeight:800 }}>{label}</p>
       <p style={{ fontWeight:550, fontSize:'0.88rem', color:'#202938', margin:0, lineHeight:'1.5', whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{value}</p>
     </div>
   ) : null;
@@ -100,10 +100,10 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none' }}>
           <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:tint }} />
           <span style={{ minWidth:0, flex:1 }}>
-            <span style={{ display:'block', color:'#202938', fontWeight:700, fontSize:'0.95rem' }}>{title}</span>
-            <span style={{ display:'block', marginTop:'0.22rem', color:'#8993a1', fontSize:'0.76rem' }}>{subtitle}</span>
+            <span style={{ display:'block', color:'#1d4f91', fontWeight:750, fontSize:'0.97rem' }}>{title}</span>
+            <span style={{ display:'block', marginTop:'0.22rem', color:'#536b87', fontSize:'0.76rem' }}>{subtitle}</span>
           </span>
-          <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#f3f5f7', color:'#687384', fontSize:'0.7rem', fontWeight:700 }}>{visibleItems.length} {countLabel}</span>
+          <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#eaf2ff', color:'#1d4f91', fontSize:'0.7rem', fontWeight:750 }}>{visibleItems.length} {countLabel}</span>
           <span aria-hidden="true" style={{ color:'#7a8492', fontSize:'1rem' }}>⌄</span>
         </summary>
         <div style={{ padding:'0 1.1rem 1.1rem', borderTop:'1px solid #f0f2f5' }}>
@@ -288,13 +288,13 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
       {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}
       {valuationSummary.length > 0 && (
         <details style={{ marginTop:'0.7rem', background:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', overflow:'hidden' }}>
-          <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none' }}>
-            <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:'#c28a48' }} />
+          <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none', background:'#f5f9ff' }}>
+            <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:'#2563a8' }} />
             <span style={{ minWidth:0, flex:1 }}>
-              <span style={{ display:'block', color:'#202938', fontWeight:700, fontSize:'0.95rem' }}>Valoración inicial</span>
-              <span style={{ display:'block', marginTop:'0.22rem', color:'#8993a1', fontSize:'0.76rem' }}>Desglose capturado en Prospectos</span>
+              <span style={{ display:'block', color:'#1d4f91', fontWeight:750, fontSize:'0.97rem' }}>Valoración inicial</span>
+              <span style={{ display:'block', marginTop:'0.22rem', color:'#536b87', fontSize:'0.76rem' }}>Desglose capturado en Prospectos</span>
             </span>
-            <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#f3f5f7', color:'#687384', fontSize:'0.7rem', fontWeight:700 }}>
+            <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#eaf2ff', color:'#1d4f91', fontSize:'0.7rem', fontWeight:750 }}>
               {valuationSummary.length} {valuationSummary.length === 1 ? 'proyecto' : 'proyectos'}
             </span>
             <span aria-hidden="true" style={{ color:'#7a8492', fontSize:'1rem' }}>⌄</span>
@@ -303,20 +303,22 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
             {valuationSummary.map((sheet, index) => {
               const sheetTotal = sheet.groups.flatMap(group => group.rows).reduce((total, row) => total + row.amount, 0);
               return (
-                <section key={`${sheet.type}-${index}`} style={{ marginTop:'0.8rem', padding:'0.9rem', border:'1px solid #edf0f3', borderRadius:'12px' }}>
+                <section key={`${sheet.type}-${index}`} style={{ marginTop:'0.8rem', padding:'0.9rem', background:'#fbfcfe', border:'1px solid #e4ebf3', borderRadius:'12px' }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.75rem', flexWrap:'wrap', marginBottom:'0.6rem' }}>
-                    <h5 style={{ margin:0, color:'#202938', fontSize:'0.9rem' }}>{sheet.type}</h5>
-                    <span style={{ color:'#526071', fontSize:'0.82rem', fontWeight:700 }}>{formatCurrency(sheetTotal)}</span>
+                    <h5 style={{ margin:0, color:'#1d4f91', fontSize:'0.92rem' }}>{sheet.type}</h5>
+                    <span style={{ color:'#1d4f91', fontSize:'0.82rem', fontWeight:750 }}>{formatCurrency(sheetTotal)}</span>
                   </div>
                   {sheet.groups.map((group) => (
                     <div key={group.label} style={{ marginTop:'0.65rem' }}>
-                      <h6 style={{ margin:'0 0 0.4rem', color:'#8993a1', fontSize:'0.67rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>{group.label}</h6>
-                      <div style={{ display:'grid', gap:'0.35rem' }}>
+                      <h6 style={{ margin:'0 0 0.4rem', color:'#315f96', fontSize:'0.69rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>{group.label}</h6>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 215px), 1fr))', gap:'0.45rem' }}>
                         {group.rows.map((row, rowIndex) => (
-                          <div key={`${row.description}-${rowIndex}`} style={{ display:'grid', gridTemplateColumns:'minmax(0, 1fr) auto auto', alignItems:'center', gap:'0.8rem', padding:'0.55rem 0.65rem', background:'#f8f9fb', borderRadius:'8px', fontSize:'0.8rem' }}>
-                            <span style={{ color:'#354052', overflowWrap:'anywhere' }}>{row.description}</span>
-                            <span style={{ color:'#7d8794', whiteSpace:'nowrap' }}>{row.qty} {row.unit}</span>
-                            <span style={{ color:'#354052', fontWeight:600, whiteSpace:'nowrap' }}>{formatCurrency(row.amount)}</span>
+                          <div key={`${row.description}-${rowIndex}`} style={{ minWidth:0, display:'flex', flexDirection:'column', justifyContent:'space-between', gap:'0.6rem', padding:'0.65rem 0.75rem', background:'#fff', border:'1px solid #e5ebf2', borderRadius:'9px', fontSize:'0.8rem' }}>
+                            <span style={{ color:'#354052', fontWeight:600, lineHeight:1.4, overflowWrap:'anywhere' }}>{row.description}</span>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.5rem' }}>
+                              <span style={{ color:'#315f96', whiteSpace:'nowrap', fontSize:'0.74rem', fontWeight:650 }}>{row.qty} {row.unit}</span>
+                              <span style={{ color:'#1d4f91', fontWeight:750, whiteSpace:'nowrap' }}>{formatCurrency(row.amount)}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
