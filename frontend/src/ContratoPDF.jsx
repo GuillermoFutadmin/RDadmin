@@ -504,19 +504,17 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </p>
         <p style={{ fontSize: '13px', marginBottom: '16px' }}>A continuación se establecen las especificaciones, características y condiciones correspondientes al proyecto contratado:</p>
 
-        <div style={{ pageBreakInside: 'avoid' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
-            FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
-          </h3>
-          <ProjectMaterials prospect={prospect} />
-          <div style={{ marginBottom: '16px', fontSize: '13px' }}>
-            <strong>Descripción:</strong><br/>
-            <div dangerouslySetInnerHTML={{ __html: description.split('\n').map(l => l.trim() ? `<p style="margin:0 0 4px">${l}</p>` : '<br/>').join('') }}></div>
-          </div>
-          <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
+        <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase', breakAfter: 'avoid', pageBreakAfter: 'avoid' }}>
+          FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
+        </h3>
+        <ProjectMaterials prospect={prospect} />
+        <div style={{ marginBottom: '16px', fontSize: '13px' }}>
+          <strong>Descripción:</strong><br/>
+          <div dangerouslySetInnerHTML={{ __html: description.split('\n').map(l => l.trim() ? `<p style="margin:0 0 4px; break-inside: avoid; page-break-inside: avoid">${l}</p>` : '<br/>').join('') }}></div>
         </div>
+        <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
 
-        <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px', pageBreakInside: 'avoid' }}>
+        <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px' }}>
           <strong>Total: {formatCurrency(contractTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
           <DeliveryCalendar days={diasEntrega} startDate={startDate} />
           <div style={{ marginTop:'0.65rem' }}>
@@ -524,7 +522,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           </div>
         </div>
 
-        <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', pageBreakInside: 'avoid' }}>
+        <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px' }}>
           Los pagos correspondientes serán efectuados a la cuenta bancaria previamente señalada<br/>
           <strong>Datos para realizar el pago:</strong><br/>
           Cuenta bancaria: 012 028 00484694082 4<br/>
@@ -548,10 +546,10 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           </div>
         </div>
 
-        <div style={{ fontSize: '13px', lineHeight: '1.5', pageBreakInside: 'avoid' }}>
+        <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
           <strong>Observaciones:</strong>
           <ul style={{ paddingLeft: '18px', marginTop: '6px' }}>
-            {obsItems.map((obs, i) => <li key={i} style={{marginBottom:'4px'}}>{obs}</li>)}
+            {obsItems.map((obs, i) => <li key={i} style={{ marginBottom: '4px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>{obs}</li>)}
           </ul>
         </div>
 
