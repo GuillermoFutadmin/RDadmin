@@ -336,7 +336,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         {/* Intro */}
         <p style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '12px', textAlign: 'justify' }}>
-          CONTRATO DE PRESTACIÓN DE SERVICIOS que celebran, por una parte el SR. <strong>ROGELIO DIAZ FLORES</strong>, como "EL PRESTADOR DEL SERVICIO REPRESENTANDO A <strong>RD CARPINTERIA</strong>" y, POR LA OTRA "LA SR(A). <strong>{prospect.name ? prospect.name.toUpperCase() : 'CLIENTE'}</strong>" como "EL CLIENTE", respecto del trabajo que se compromete a elaborar "EL PRESTADOR DEL SERVICIO" y que quedarán obligados, de acuerdo con las siguientes declaraciones y clausulas.
+          CONTRATO DE PRESTACIÓN DE SERVICIOS que celebran, por una parte el SR. <strong>ROGELIO DIAZ FLORES</strong>, como "EL PRESTADOR DEL SERVICIO REPRESENTANDO A <strong>RD CARPINTERIA</strong>" y, POR LA OTRA "EL SR. <strong>{prospect.name ? prospect.name.toUpperCase() : 'CLIENTE'}</strong>" como "EL CLIENTE", respecto del trabajo que se compromete a elaborar "EL PRESTADOR DEL SERVICIO" y que quedarán obligados, de acuerdo con las siguientes declaraciones y clausulas.
         </p>
         <p style={{ fontSize: '0.9rem', marginBottom: '14px' }}>A continuación se establecen las especificaciones, características y condiciones correspondientes al proyecto contratado:</p>
 
@@ -411,7 +411,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <p style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '12px', textAlign: 'justify' }}>
-          CONTRATO DE PRESTACIÓN DE SERVICIOS que celebran, por una parte el SR. <strong>ROGELIO DIAZ FLORES</strong>, como "EL PRESTADOR DEL SERVICIO REPRESENTANDO A <strong>RD CARPINTERIA</strong>" y, POR LA OTRA "LA SR(A). <strong>{prospect.name ? prospect.name.toUpperCase() : 'CLIENTE'}</strong>" como "EL CLIENTE", respecto del trabajo que se compromete a elaborar "EL PRESTADOR DEL SERVICIO" y que quedarán obligados, de acuerdo con las siguientes declaraciones y clausulas.
+          CONTRATO DE PRESTACIÓN DE SERVICIOS que celebran, por una parte el SR. <strong>ROGELIO DIAZ FLORES</strong>, como "EL PRESTADOR DEL SERVICIO REPRESENTANDO A <strong>RD CARPINTERIA</strong>" y, POR LA OTRA "EL SR. <strong>{prospect.name ? prospect.name.toUpperCase() : 'CLIENTE'}</strong>" como "EL CLIENTE", respecto del trabajo que se compromete a elaborar "EL PRESTADOR DEL SERVICIO" y que quedarán obligados, de acuerdo con las siguientes declaraciones y clausulas.
         </p>
         <p style={{ fontSize: '13px', marginBottom: '16px' }}>A continuación se establecen las especificaciones, características y condiciones correspondientes al proyecto contratado:</p>
 
