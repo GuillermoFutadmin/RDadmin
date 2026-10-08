@@ -249,7 +249,12 @@ function Pedidos() {
         if (value.url || value.path || value.image) visit(value.url || value.path || value.image);
         else Object.values(value).forEach(visit);
       } else if (typeof value === 'string') {
-        value.split(',').map(item => item.trim()).filter(Boolean).forEach(url => urls.add(url));
+        const normalized = value.trim();
+        if (normalized.startsWith('data:')) {
+          urls.add(normalized);
+        } else {
+          normalized.split(',').map(item => item.trim()).filter(Boolean).forEach(url => urls.add(url));
+        }
       }
     };
     values.forEach(visit);
