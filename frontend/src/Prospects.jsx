@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CotizacionView } from './Cotizacion';
+import { IconUsers, IconTrendingUp, IconFileText, IconCheckCircle, IconEdit, IconPlusCircle, IconTrash, IconSearch } from './icons';
 
 
 const API = '';
@@ -3153,13 +3154,18 @@ function Prospects() {
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700' }}>{showPapelera ? 'Papelera de Prospectos' : 'Prospectos'}</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                <IconUsers style={{ width:'22px', height:'22px', marginRight:0 }} />
+                {showPapelera ? 'Papelera de Prospectos' : 'Prospectos'}
+              </h2>
               <div style={{ display: 'flex', gap: '0.8rem' }}>
-                <button onClick={() => setShowPapelera(!showPapelera)} style={{ backgroundColor: showPapelera ? '#94a3b8' : '#e2e8f0', color: showPapelera ? 'white' : '#334155', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  {showPapelera ? 'Volver a Prospectos' : '🗑️ Ver Papelera'}
-                </button>
-                <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  + Nuevo Prospecto
+                      <button onClick={() => setShowPapelera(!showPapelera)} style={{ backgroundColor: showPapelera ? '#94a3b8' : '#e2e8f0', color: showPapelera ? 'white' : '#334155', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                        {showPapelera
+                          ? <><IconUsers style={{ width:'16px', height:'16px', marginRight:0 }} /> Volver a Prospectos</>
+                          : <><IconTrash style={{ width:'16px', height:'16px', marginRight:0 }} /> Ver Papelera</>}
+                      </button>
+                      <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                        <><IconPlusCircle style={{ width:'16px', height:'16px', marginRight:0 }} /> Nuevo Prospecto</>
                 </button>
               </div>
             </div>
@@ -3167,12 +3173,13 @@ function Prospects() {
             {/* ── ETAPAS PIPELINE ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
               {[
-                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: '📋' },
-                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: '🔵' },
-                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: '📊' },
-                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: '✅' },
+                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: IconUsers },
+                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconUsers },
+                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconTrendingUp },
+                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconFileText },
               ].map(({ key, label, count, color, bg, icon }) => {
                 const isActive = filterStatus === key;
+                const StageIcon = icon;
                 return (
                   <button
                     key={key}
@@ -3197,7 +3204,7 @@ function Prospects() {
                         background: isActive ? 'rgba(255,255,255,0.5)' : '#f8fafc',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
                       }}>
-                        {icon}
+                        <StageIcon style={{ width: '20px', height: '20px', marginRight: 0, opacity: 1 }} />
                       </div>
                       <span style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '600', color: isActive ? color : '#64748b' }}>{label}</span>
                     </div>
@@ -3215,7 +3222,7 @@ function Prospects() {
                 <div style={{ flex: '2 1 180px', minWidth: '150px' }}>
                   <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '4px' }}>Buscar</label>
                   <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', color: '#94a3b8', pointerEvents: 'none' }}>🔍</span>
+                    <IconSearch style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', width: '15px', height: '15px', marginRight: 0, color: '#94a3b8', pointerEvents: 'none' }} />
                     <input type="text" value={filterText} onChange={e => setFilterText(e.target.value)}
                       placeholder="Nombre, ID, contacto..."
                       style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: '7px', border: '1px solid #cbd5e1', fontSize: '0.87rem', outline: 'none', boxSizing: 'border-box' }} />
@@ -3322,7 +3329,7 @@ function Prospects() {
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}>
-                                ✏️ Prospecto
+                                <><IconEdit style={{ width: '12px', height: '12px', marginRight: 0 }} /> Prospecto</>
                               </button>
 
                               {/* 2. VALORACION */}
@@ -3330,7 +3337,10 @@ function Prospects() {
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
-                                {p.valuation_data ? '📊 Valoración' : '➕ Valoración'}
+                                <>{p.valuation_data
+                                  ? <IconTrendingUp style={{ width: '12px', height: '12px', marginRight: 0 }} />
+                                  : <IconPlusCircle style={{ width: '12px', height: '12px', marginRight: 0 }} />}
+                                  Valoración</>
                               </button>
 
                               {/* 3. COTIZACION */}
@@ -3344,7 +3354,10 @@ function Prospects() {
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: p.has_quote ? '#dcfce7' : (!p.valuation_data ? '#f1f5f9' : '#eff6ff'), color: p.has_quote ? '#16a34a' : (!p.valuation_data ? '#94a3b8' : '#2563eb'), border: 'none', borderRadius: '4px', cursor: (!p.valuation_data && !p.has_quote) ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', opacity: (!p.valuation_data && !p.has_quote) ? 0.6 : 1, whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => (!p.valuation_data && !p.has_quote) ? null : e.currentTarget.style.filter = 'none'}>
-                                {p.has_quote ? '✅ Cotización' : '💰 Cotización'}
+                                <>{p.has_quote
+                                  ? <IconCheckCircle style={{ width: '12px', height: '12px', marginRight: 0 }} />
+                                  : <IconFileText style={{ width: '12px', height: '12px', marginRight: 0 }} />}
+                                  Cotización</>
                               </button>
 
                               {/* 4. APROBADO */}
@@ -3353,7 +3366,7 @@ function Prospects() {
                                   style={{ padding: '0.2rem 0.4rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
                                   onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
-                                  ✅ Aprobar
+                                  <><IconCheckCircle style={{ width: '12px', height: '12px', marginRight: 0 }} /> Aprobar</>
                                 </button>
                               )}
 
@@ -3362,7 +3375,7 @@ function Prospects() {
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fecaca'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
-                                🗑️ Eliminar
+                                <><IconTrash style={{ width: '12px', height: '12px', marginRight: 0 }} /> Eliminar</>
                               </button>
 
                             </div>

@@ -119,3 +119,61 @@ export const IconLogOut = (props) => (
     <line x1="21" y1="12" x2="9" y2="12"></line>
   </BaseIcon>
 );
+
+export const IconCheckCircle = (props) => (
+  <BaseIcon {...props}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </BaseIcon>
+);
+
+export const IconPalette = (props) => (
+  <BaseIcon {...props}>
+    <circle cx="13.5" cy="6.5" r=".5"></circle>
+    <circle cx="17.5" cy="10.5" r=".5"></circle>
+    <circle cx="8.5" cy="7.5" r=".5"></circle>
+    <circle cx="6.5" cy="12.5" r=".5"></circle>
+    <path d="M12 2a10 10 0 0 0 0 20h1a2 2 0 0 0 1.7-3.1 2 2 0 0 1 1.7-3.1H18a4 4 0 0 0 4-4A10 10 0 0 0 12 2z"></path>
+  </BaseIcon>
+);
+
+export const IconRuler = (props) => (
+  <BaseIcon {...props}>
+    <path d="M21.3 8.7 15.3 2.7a2.4 2.4 0 0 0-3.4 0L2.7 11.9a2.4 2.4 0 0 0 0 3.4l6 6a2.4 2.4 0 0 0 3.4 0l9.2-9.2a2.4 2.4 0 0 0 0-3.4Z"></path>
+    <path d="m7.5 10.5 2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"></path>
+  </BaseIcon>
+);
+
+export const IconEdit = (props) => (
+  <BaseIcon {...props}>
+    <path d="M12 20h9"></path>
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
+  </BaseIcon>
+);
+
+export const IconPlusCircle = (props) => (
+  <BaseIcon {...props}>
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M12 8v8M8 12h8"></path>
+  </BaseIcon>
+);
+
+export const IconTrash = (props) => (
+  <BaseIcon {...props}>
+    <path d="M3 6h18M8 6V4h8v2m3 0-.9 14H5.9L5 6m4 4v6m6-6v6"></path>
+  </BaseIcon>
+);
+
+export const IconSearch = (props) => (
+  <BaseIcon {...props}>
+    <circle cx="11" cy="11" r="8"></circle>
+    <path d="m21 21-4.35-4.35"></path>
+  </BaseIcon>
+);
+
+export const IconXCircle = (props) => (
+  <BaseIcon {...props}>
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="m15 9-6 6m0-6 6 6"></path>
+  </BaseIcon>
+);

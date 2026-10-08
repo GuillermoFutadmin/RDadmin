@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ContratoPDFView } from './ContratoPDF';
 import { CotizacionView } from './Cotizacion';
+import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -102,8 +103,12 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         <h3 style={{ color:'var(--accent)', margin:0, fontSize:'1.15rem' }}>{prospect.name}</h3>
         <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
           <button onClick={onBack} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#eee', border:'none', borderRadius:'6px', cursor:'pointer' }}>Volver</button>
-          <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📐 Estimación</button>
-          <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>📄 Descargar Cotización</button>
+          <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+            <IconPenTool style={{ width:'14px', height:'14px', marginRight:0 }} /> Estimación
+          </button>
+          <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+            <IconFileText style={{ width:'14px', height:'14px', marginRight:0 }} /> Descargar Cotización
+          </button>
           <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
         </div>
       </div>
@@ -545,21 +550,24 @@ export default function Contratos({ startView = 'list' }) {
       {renderModalFor && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
           <div style={{ background:'white', borderRadius:'16px', padding:'2rem', width:'460px', maxWidth:'95vw', boxShadow:'0 25px 60px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin:'0 0 0.4rem', color:'#1e293b', fontSize:'1.15rem' }}>🎨 ¿Aplica Render?</h3>
+            <h3 style={{ margin:'0 0 0.4rem', color:'#1e293b', fontSize:'1.15rem', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+              <IconPalette style={{ width:'20px', height:'20px', marginRight:0 }} /> ¿Aplica Render?
+            </h3>
             <p style={{ color:'#64748b', fontSize:'0.88rem', margin:'0 0 1.4rem' }}>
               <strong>{renderModalFor.name}</strong> · {renderModalFor.project_type}
             </p>
 
             {/* SI / NO buttons */}
             <div style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
-              {[{val: true, label:'✅ SÍ — Aplica Render', bg:'#10b981'}, {val: false, label:'❌ NO — Sin Render', bg:'#64748b'}].map(opt => (
+              {[{val: true, label:'SÍ — Aplica Render', bg:'#10b981', Icon:IconCheckCircle}, {val: false, label:'NO — Sin Render', bg:'#64748b', Icon:IconXCircle}].map(opt => (
                 <button key={String(opt.val)}
                   onClick={() => setRenderApplies(opt.val)}
                   style={{ flex:1, padding:'0.75rem', background: renderApplies === opt.val ? opt.bg : '#f1f5f9',
                     color: renderApplies === opt.val ? 'white' : '#475569',
                     border: `2px solid ${renderApplies === opt.val ? opt.bg : '#e2e8f0'}`,
-                    borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.9rem', transition:'all 0.2s' }}>
-                  {opt.label}
+                    borderRadius:'8px', fontWeight:'700', cursor:'pointer', fontSize:'0.9rem', transition:'all 0.2s',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                  <opt.Icon style={{ width:'16px', height:'16px', marginRight:0 }} /> {opt.label}
                 </button>
               ))}
             </div>
@@ -716,7 +724,9 @@ export default function Contratos({ startView = 'list' }) {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
         <div>
-          <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.4rem', fontWeight:'800' }}>📄 Clientes</h2>
+          <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.4rem', fontWeight:'800', display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            <IconFileText style={{ width:'22px', height:'22px', marginRight:0 }} /> Clientes
+          </h2>
           <p style={{ margin:'0.2rem 0 0', color:'#64748b', fontSize:'0.88rem' }}>Proyectos aprobados y en proceso</p>
         </div>
         <div style={{ background:'#1e293b', color:'white', borderRadius:'10px', padding:'0.5rem 1.2rem', fontWeight:'700', fontSize:'1.1rem' }}>
@@ -728,13 +738,14 @@ export default function Contratos({ startView = 'list' }) {
       {/* ── ETAPAS PIPELINE ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
-          { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: '📋' },
-          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: '✅' },
-          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: '🎨' },
-          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: '📐' },
-          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: '📝' },
+          { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: IconUsers },
+          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconCheckCircle },
+          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconPalette },
+          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPenTool },
+          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: IconFileText },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
+          const StageIcon = icon;
           return (
             <button
               key={key}
@@ -761,7 +772,7 @@ export default function Contratos({ startView = 'list' }) {
                   background: isActive ? 'rgba(255,255,255,0.5)' : '#f8fafc',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
                 }}>
-                  {icon}
+                  <StageIcon style={{ width:'20px', height:'20px', marginRight:0, opacity:1 }} />
                 </div>
                 <span style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '600', color: isActive ? color : '#64748b', textAlign: 'left' }}>{label}</span>
               </div>
@@ -775,9 +786,12 @@ export default function Contratos({ startView = 'list' }) {
       <div style={{ background:'#f8fafc', borderRadius:'10px', padding:'1rem', marginBottom:'1.2rem', display:'flex', gap:'1rem', flexWrap:'wrap', alignItems:'flex-end' }}>
         <div style={{ flex:'1 1 220px' }}>
           <label style={{ fontSize:'0.74rem', fontWeight:'700', color:'#64748b', display:'block', marginBottom:'4px' }}>Buscar</label>
-          <input value={filterText} onChange={e => setFilterText(e.target.value)}
-            placeholder="Nombre, ID, contacto..."
-            style={{ width:'100%', padding:'7px 10px', borderRadius:'7px', border:'1px solid #cbd5e1', fontSize:'0.87rem' }} />
+          <div style={{ position:'relative' }}>
+            <IconSearch style={{ position:'absolute', left:'9px', top:'50%', transform:'translateY(-50%)', width:'15px', height:'15px', marginRight:0, color:'#94a3b8', pointerEvents:'none' }} />
+            <input value={filterText} onChange={e => setFilterText(e.target.value)}
+              placeholder="Nombre, ID, contacto..."
+              style={{ width:'100%', padding:'7px 10px 7px 30px', borderRadius:'7px', border:'1px solid #cbd5e1', fontSize:'0.87rem', boxSizing:'border-box' }} />
+          </div>
         </div>
         <div style={{ flex:'1 1 160px' }}>
           <label style={{ fontSize:'0.74rem', fontWeight:'700', color:'#64748b', display:'block', marginBottom:'4px' }}>Tipo de Proyecto</label>
@@ -849,7 +863,7 @@ export default function Contratos({ startView = 'list' }) {
                         }}
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
-                          ✅ Render SI/NO
+                          <><IconPalette style={{ width:'12px', height:'12px', marginRight:0 }} /> Render SI/NO</>
                         </button>
                       )}
                       {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
@@ -872,7 +886,7 @@ export default function Contratos({ startView = 'list' }) {
                         }}
                         onMouseEnter={e => getStatus(c) === 'APROBADO' ? null : e.currentTarget.style.backgroundColor = '#059669'}
                         onMouseLeave={e => getStatus(c) === 'APROBADO' ? null : e.currentTarget.style.backgroundColor = '#10b981'}>
-                        {c.estimation_data ? '✅ Estimación' : '📐 Estimación'}
+                        <><IconPenTool style={{ width:'12px', height:'12px', marginRight:0 }} /> Estimación</>
                       </button>
                       
                       {/* Contrato button - disabled until estimation_data is filled */}
@@ -897,7 +911,7 @@ export default function Contratos({ startView = 'list' }) {
                           }}
                           onMouseEnter={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#059669'}
                           onMouseLeave={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#10b981'}>
-                          {getStatus(c) === 'CONTRATO' ? '✅ Contrato' : '📝 Contrato'}
+                          <><IconFileText style={{ width:'12px', height:'12px', marginRight:0 }} /> Contrato</>
                         </button>
                       )}
                     </div>
@@ -1563,7 +1577,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         </button>
         <div>
           <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.3rem', fontWeight:'800' }}>
-            📐 Estimación · {prospect.name}
+            Estimación · {prospect.name}
             {autoSaveStatus && <span style={{ marginLeft: '12px', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', background: '#f1f5f9', padding: '4px 8px', borderRadius: '12px', verticalAlign: 'middle' }}>{autoSaveStatus}</span>}
           </h2>
           <p style={{ margin:0, color:'#64748b', fontSize:'0.83rem' }}>{prospect.project_type} · {prospect.public_id}</p>
