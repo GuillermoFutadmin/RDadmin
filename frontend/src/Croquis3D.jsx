@@ -282,7 +282,8 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, 3000, 2000);
 
-    const sc = Math.min(1050 / ((w + d) * Math.cos(Math.PI / 6)), 850 / (h + (w + d) / 2));
+    const maxWidth = type === 'kitchen' ? 1200 : 820;
+    const sc = Math.min(maxWidth / ((w + d) * Math.cos(Math.PI / 6)), 900 / (h + (w + d) / 2));
     const ox = cx - ((w - d) * Math.cos(Math.PI / 6) * sc) / 2;
     const oy = cy + (h - (w + d) / 2) * sc / 2;
 
@@ -290,162 +291,69 @@ const Croquis3D = forwardRef((props, ref) => {
       const a = Math.PI / 6;
       return { x: ox + (x - z) * Math.cos(a) * sc, y: oy + (x + z) * Math.sin(a) * sc - y * sc };
     };
-
-    const faces = [];
-    const details = [];
-    const addSlab = (x1, y1, z1, x2, y2, z2, cTop, cFront, cSide) => {
-      const p = (x,y,z) => ({ x3:x, y3:y, z3:z, ...iso(x,y,z) });
-      const pushFace = (pts, fill) => {
-        const depth = -(pts[0].x3 + pts[0].y3 + pts[0].z3 + pts[2].x3 + pts[2].y3 + pts[2].z3);
-        faces.push({ pts, fill, depth });
-      };
-      
-      // Caras en X (Izquierda / Derecha)
-      pushFace([p(x1,y1,z1), p(x1,y2,z1), p(x1,y2,z2), p(x1,y1,z2)], cFront);
-      pushFace([p(x2,y1,z1), p(x2,y2,z1), p(x2,y2,z2), p(x2,y1,z2)], cFront);
-      
-      // Caras en Z (Atrás / Frente)
-      pushFace([p(x1,y1,z1), p(x2,y1,z1), p(x2,y2,z1), p(x1,y2,z1)], cSide);
-      pushFace([p(x1,y1,z2), p(x2,y1,z2), p(x2,y2,z2), p(x1,y2,z2)], cSide);
-      
-      // Caras en Y (Abajo / Arriba)
-      pushFace([p(x1,y1,z1), p(x2,y1,z1), p(x2,y1,z2), p(x1,y1,z2)], cTop);
-      pushFace([p(x1,y2,z1), p(x2,y2,z1), p(x2,y2,z2), p(x1,y2,z2)], cTop);
-    };
-
-    const th = Math.min(0.22, w / 24, h / 30);
-    const woodTop = '#e8d6bd', woodFront = '#f5eee5', woodSide = '#d6c2a7';
-    const frontPanel = (x1, y1, x2, y2, z, fill = '#f4eee6', stroke = '#58677a') => {
-      details.push(() => {
-        const points = [iso(x1, y1, z), iso(x2, y1, z), iso(x2, y2, z), iso(x1, y2, z)];
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
-        ctx.closePath();
-        ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 2.2; ctx.lineJoin = 'round';
-        ctx.fill(); ctx.stroke();
-      });
-    };
-    const frontLine = (x1, y1, x2, y2, z, color = '#718096', width = 2) => {
-      details.push(() => {
-        const from = iso(x1, y1, z), to = iso(x2, y2, z);
-        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
-        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.stroke();
-      });
-    };
-    const shell = (x, y, z, width, height, depth, options = {}) => {
-      addSlab(x, y, z, x + width, y + th, z + depth, woodTop, woodFront, woodSide);
-      addSlab(x, y + height - th, z, x + width, y + height, z + depth, woodTop, woodFront, woodSide);
-      addSlab(x, y + th, z, x + th, y + height - th, z + depth, woodTop, woodFront, woodSide);
-      addSlab(x + width - th, y + th, z, x + width, y + height - th, z + depth, woodTop, woodFront, woodSide);
-      addSlab(x + th, y + th, z, x + width - th, y + height - th, z + th, woodTop, woodFront, woodSide);
-      if (options.back !== false) {
-        addSlab(x + th, y + th, z + depth - th, x + width - th, y + height - th, z + depth, woodTop, woodFront, woodSide);
-      }
-    };
-    const doors = (x, y, width, height, z, count = 2) => {
-      const gap = th * 0.35;
-      for (let i = 0; i < count; i++) {
-        const left = x + i * width / count + gap;
-        const right = x + (i + 1) * width / count - gap;
-        frontPanel(left, y + th, right, y + height - th, z, i % 2 ? '#f0e7dc' : '#f8f3ed');
-        const handleX = i % 2 ? left + gap * 2 : right - gap * 2;
-        frontLine(handleX, y + height * 0.48, handleX, y + height * 0.57, z + 0.01, '#b7834d', 3.5);
-      }
-    };
-    const countertop = (x, y, z, width, depth) => {
-      addSlab(x - th * 0.4, y, z - th * 0.5, x + width + th * 0.4, y + th * 0.55, z + depth + th * 0.5,
-        '#d9e1e7', '#edf1f4', '#c5cfd8');
-    };
-    const drawFrame = (withDoor) => {
-      const frame = Math.min(0.35, w / 10);
-      addSlab(0, 0, 0, frame, h, d, woodTop, woodFront, woodSide);
-      addSlab(w - frame, 0, 0, w, h, d, woodTop, woodFront, woodSide);
-      addSlab(0, h - frame, 0, w, h, d, woodTop, woodFront, woodSide);
-      if (withDoor) {
-        const x1 = frame + 0.08, x2 = w - frame - 0.08;
-        const y1 = 0.08, y2 = h - frame - 0.08;
-        frontPanel(x1, y1, x2, y2, d * 0.62, '#f4eee6', '#58677a');
-      }
-    };
-
-    if (type === 'marco') {
-      drawFrame(false);
-    } else if (type === 'puerta' || type === 'puertaTambor') {
-      drawFrame(true);
-    } else if (type === 'cocina') {
-      const lowerH = h * 0.38, upperY = h * 0.59, upperH = h * 0.36, upperD = d * 0.62;
-      shell(0, 0, 0, w, lowerH, d);
-      countertop(-0.04, lowerH, -0.04, w + 0.08, d + 0.08);
-      shell(0.45, upperY, 0, w - 0.9, upperH, upperD);
-      [1, 2].forEach(index => {
-        const x = 0.45 + (w - 0.9) * index / 3;
-        frontLine(x, 0, x, lowerH, d + 0.02, '#718096', 2);
-        frontLine(x, upperY, x, upperY + upperH, upperD + 0.02, '#718096', 2);
-      });
-    } else if (type === 'closet') {
-      shell(0, 0, 0, w, h, d, { back:false });
-      const centerX = w * 0.48;
-      addSlab(centerX - th / 2, th, d * 0.12, centerX + th / 2, h - th, d, woodTop, woodFront, woodSide);
-      const shelfY = h * 0.36;
-      addSlab(th, shelfY, d * 0.08, centerX - th / 2, shelfY + th, d, woodTop, woodFront, woodSide);
-      addSlab(centerX + th / 2, h * 0.76, d * 0.08, w - th, h * 0.76 + th, d, woodTop, woodFront, woodSide);
-      addSlab(centerX + th / 2, h * 0.53, d * 0.08, w - th, h * 0.53 + th, d, woodTop, woodFront, woodSide);
-      addSlab(centerX + th / 2, h * 0.30, d * 0.08, w - th, h * 0.30 + th, d, woodTop, woodFront, woodSide);
-    } else if (type === 'cajonera') {
-      shell(0, 0, 0, w, h, d);
-      const drawers = 5, gap = th * 0.45, drawerH = (h - th * 2 - gap * (drawers - 1)) / drawers;
-      for (let i = 0; i < drawers; i++) {
-        const y1 = th + i * (drawerH + gap);
-        frontLine(th, y1, w - th, y1, d + 0.02, '#718096', 2);
-      }
-    } else if (type === 'isla') {
-      shell(0, 0, 0, w, h, d);
-      frontLine(w / 3, th, w / 3, h - th, d + 0.02, '#718096', 2);
-      frontLine(w * 2 / 3, th, w * 2 / 3, h - th, d + 0.02, '#718096', 2);
-      countertop(-0.18, h, -0.16, w + 0.36, d + 0.32);
-    } else if (type === 'fregadero') {
-      shell(0, 0, 0, w, h, d);
-      frontLine(w / 2, th, w / 2, h - th, d + 0.02, '#718096', 2);
-      countertop(-0.12, h, -0.12, w + 0.24, d + 0.24);
-      const basin = [iso(w * 0.28, h + th * 0.58, d * 0.26), iso(w * 0.72, h + th * 0.58, d * 0.26),
-        iso(w * 0.72, h + th * 0.58, d * 0.72), iso(w * 0.28, h + th * 0.58, d * 0.72)];
-      const faucet = iso(w * 0.5, h + th, d * 0.16);
-      details.push(() => {
-        ctx.beginPath(); ctx.moveTo(basin[0].x, basin[0].y); basin.slice(1).forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
-        ctx.fillStyle = '#c8d9e5'; ctx.strokeStyle = '#72879a'; ctx.lineWidth = 2.5; ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.arc(faucet.x, faucet.y, 9, Math.PI, 0);
-        ctx.strokeStyle = '#748b9e'; ctx.lineWidth = 4; ctx.stroke();
-      });
-    }
-
-    // Ordenar de atrás hacia adelante (Painter's algorithm)
-    faces.sort((a,b) => b.depth - a.depth);
-
-    faces.forEach(f => {
-      ctx.fillStyle = f.fill;
-      ctx.strokeStyle = '#546477';
-      ctx.lineWidth = 2.2;
-      ctx.lineJoin = 'round';
+    const line = (from, to, dashed = false) => {
+      const start = iso(...from), end = iso(...to);
       ctx.beginPath();
-      ctx.moveTo(f.pts[0].x, f.pts[0].y);
-      f.pts.slice(1).forEach(v => ctx.lineTo(v.x, v.y));
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.strokeStyle = '#35465a';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.setLineDash(dashed ? [8, 7] : []);
       ctx.stroke();
-    });
-    details.forEach(draw => draw());
+    };
+    const box = (x, y, z, width, height, depth) => {
+      const a = [x, y, z], b = [x + width, y, z], c = [x + width, y, z + depth], d0 = [x, y, z + depth];
+      const e = [x, y + height, z], f = [x + width, y + height, z], g = [x + width, y + height, z + depth], h0 = [x, y + height, z + depth];
+      [[a,b],[b,c],[c,d0],[d0,a],[e,f],[f,g],[g,h0],[h0,e],[a,e],[b,f],[c,g],[d0,h0]]
+        .forEach(([from, to], index) => line(from, to, index === 2 || index === 6));
+    };
+    const shelf = (x1, x2, y, zFront, zBack) => {
+      line([x1,y,zFront],[x2,y,zFront]);
+      line([x1,y,zBack],[x2,y,zBack], true);
+      line([x1,y,zFront],[x1,y,zBack]);
+      line([x2,y,zFront],[x2,y,zBack]);
+    };
+    ctx.save();
+    ctx.strokeStyle = '#35465a';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (type === 'closet') {
+      box(0, 0, 0, w, h, d);
+      const divider = w * 0.48;
+      line([divider,0,d],[divider,h,d]);
+      line([divider,0,0],[divider,h,0],true);
+      shelf(0,w, h * 0.24, d, 0);
+      shelf(0,w * 0.48, h * 0.46, d, 0);
+      shelf(w * 0.48,w, h * 0.46, d, 0);
+      shelf(w * 0.48,w, h * 0.68, d, 0);
+      shelf(w * 0.48,w, h * 0.86, d, 0);
+      line([w * 0.52,h * 0.78,d * 0.35],[w * 0.96,h * 0.78,d * 0.35]);
+    } else if (type === 'kitchen') {
+      const lowerWidth = w / 2 - 0.25;
+      const lowerDepth = d;
+      box(0, 0, 0, lowerWidth, h * 0.39, lowerDepth);
+      box(lowerWidth + 0.5, 0, 0, lowerWidth, h * 0.39, lowerDepth);
+      box(0.5, h * 0.61, 0, lowerWidth, h * 0.36, d * 0.7);
+      box(lowerWidth + 1, h * 0.61, 0, lowerWidth, h * 0.36, d * 0.7);
+      line([-0.15,h * 0.41,-0.12],[w + 0.15,h * 0.41,-0.12]);
+    } else if (type === 'door') {
+      const post = w * 0.09;
+      box(0, 0, 0, post, h, d);
+      box(w - post, 0, 0, post, h, d);
+      box(0, h - post, 0, w, post, d);
+      box(w + 1.2, 0, d * 0.45, post * 0.65, h, d * 0.12);
+      box(w + 1.2 + post * 0.65, 0, d * 0.45, w - post * 1.3, h, d * 0.12);
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
   };
 
   const TEMPLATES = [
-    { id:'cocina',    label:'Cocina alta y baja', icon:'🍽️', desc:'Módulos superiores e inferiores con cubierta', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,12,9,4,'cocina') },
-    { id:'closet',    label:'Clóset',             icon:'🚪', desc:'Clóset con entrepaños, división y área para colgar', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,10,3,'closet') },
-    { id:'p_solida',  label:'Marco + puerta sólida', icon:'🚪', desc:'Vano con marco y espacio de hoja para tomar medidas', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,6,11,1.5,'puerta') },
-    { id:'p_tambor',  label:'Marco + puerta tambor', icon:'🚪', desc:'Vano con marco y espacio de hoja para tomar medidas', color:'#065f46', bg:'#f0fdf4', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,6,11,1.5,'puertaTambor') },
-    { id:'cajonera',  label:'Cajonera',           icon:'🗄️', desc:'Mueble con frentes de cajón y jaladeras', color:'#0891b2', bg:'#ecfeff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,5,9,3,'cajonera') },
-    { id:'marco',     label:'Marco de puerta',    icon:'🪵', desc:'Jambas y cabezal del marco', color:'#6b7280', bg:'#f9fafb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,6,11,1.5,'marco') },
-    { id:'isla',      label:'Isla de cocina',     icon:'🏝️', desc:'Módulo de isla con cubierta', color:'#d97706', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,4,6,'isla') },
-    { id:'fregadero', label:'Mueble de fregadero',icon:'🚰', desc:'Gabinete bajo con cubierta y tarja', color:'#0284c7', bg:'#f0f9ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,8,4,3.5,'fregadero') },
+    { id:'closet', label:'Clóset', icon:'[C]', desc:'Esqueleto de clóset para anotar medidas', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,9,3,'closet') },
+    { id:'cocina', label:'Cocina alta y baja', icon:'[K]', desc:'Módulos superiores e inferiores para medir', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,12,9,4,'kitchen') },
+    { id:'puerta', label:'Marco + puerta', icon:'[P]', desc:'Esqueleto de vano, marco y hoja', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,6,10,1.5,'door') },
   ];
 
 
