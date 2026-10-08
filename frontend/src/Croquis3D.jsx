@@ -278,82 +278,10 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.fillStyle='#475569'; ctx.font='bold 15px Inter,Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
     ctx.fillText(title, x+8, y+8);
   };
-  const drawWireframe = (ctx, cx, cy, w, h, d, type) => {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 3000, 2000);
-
-    const maxWidth = type === 'kitchen' ? 1200 : 820;
-    const sc = Math.min(maxWidth / ((w + d) * Math.cos(Math.PI / 6)), 900 / (h + (w + d) / 2));
-    const ox = cx - ((w - d) * Math.cos(Math.PI / 6) * sc) / 2;
-    const oy = cy + (h - (w + d) / 2) * sc / 2;
-
-    const iso = (x, y, z) => {
-      const a = Math.PI / 6;
-      return { x: ox + (x - z) * Math.cos(a) * sc, y: oy + (x + z) * Math.sin(a) * sc - y * sc };
-    };
-    const line = (from, to, dashed = false) => {
-      const start = iso(...from), end = iso(...to);
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.strokeStyle = '#35465a';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.setLineDash(dashed ? [8, 7] : []);
-      ctx.stroke();
-    };
-    const box = (x, y, z, width, height, depth) => {
-      const a = [x, y, z], b = [x + width, y, z], c = [x + width, y, z + depth], d0 = [x, y, z + depth];
-      const e = [x, y + height, z], f = [x + width, y + height, z], g = [x + width, y + height, z + depth], h0 = [x, y + height, z + depth];
-      [[a,b],[b,c],[c,d0],[d0,a],[e,f],[f,g],[g,h0],[h0,e],[a,e],[b,f],[c,g],[d0,h0]]
-        .forEach(([from, to], index) => line(from, to, index === 2 || index === 6));
-    };
-    const shelf = (x1, x2, y, zFront, zBack) => {
-      line([x1,y,zFront],[x2,y,zFront]);
-      line([x1,y,zBack],[x2,y,zBack], true);
-      line([x1,y,zFront],[x1,y,zBack]);
-      line([x2,y,zFront],[x2,y,zBack]);
-    };
-    ctx.save();
-    ctx.strokeStyle = '#35465a';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    if (type === 'closet') {
-      box(0, 0, 0, w, h, d);
-      const divider = w * 0.48;
-      line([divider,0,d],[divider,h,d]);
-      line([divider,0,0],[divider,h,0],true);
-      shelf(0,w, h * 0.24, d, 0);
-      shelf(0,w * 0.48, h * 0.46, d, 0);
-      shelf(w * 0.48,w, h * 0.46, d, 0);
-      shelf(w * 0.48,w, h * 0.68, d, 0);
-      shelf(w * 0.48,w, h * 0.86, d, 0);
-      line([w * 0.52,h * 0.78,d * 0.35],[w * 0.96,h * 0.78,d * 0.35]);
-    } else if (type === 'kitchen') {
-      const lowerWidth = w / 2 - 0.25;
-      const lowerDepth = d;
-      box(0, 0, 0, lowerWidth, h * 0.39, lowerDepth);
-      box(lowerWidth + 0.5, 0, 0, lowerWidth, h * 0.39, lowerDepth);
-      box(0.5, h * 0.61, 0, lowerWidth, h * 0.36, d * 0.7);
-      box(lowerWidth + 1, h * 0.61, 0, lowerWidth, h * 0.36, d * 0.7);
-      line([-0.15,h * 0.41,-0.12],[w + 0.15,h * 0.41,-0.12]);
-    } else if (type === 'door') {
-      const post = w * 0.09;
-      box(0, 0, 0, post, h, d);
-      box(w - post, 0, 0, post, h, d);
-      box(0, h - post, 0, w, post, d);
-      box(w + 1.2, 0, d * 0.45, post * 0.65, h, d * 0.12);
-      box(w + 1.2 + post * 0.65, 0, d * 0.45, w - post * 1.3, h, d * 0.12);
-    }
-    ctx.setLineDash([]);
-    ctx.restore();
-  };
-
   const TEMPLATES = [
-    { id:'closet', label:'Clóset', icon:'[C]', desc:'Esqueleto de clóset para anotar medidas', color:'#0369a1', bg:'#eff6ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,10,9,3,'closet') },
-    { id:'cocina', label:'Cocina alta y baja', icon:'[K]', desc:'Módulos superiores e inferiores para medir', color:'#b45309', bg:'#fffbeb', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,12,9,4,'kitchen') },
-    { id:'puerta', label:'Marco + puerta', icon:'[P]', desc:'Esqueleto de vano, marco y hoja', color:'#7c3aed', bg:'#faf5ff', draw:(ctx,cx,cy)=>drawWireframe(ctx,cx,cy,6,10,1.5,'door') },
+    { id:'closet', label:'Clóset', icon:'[C]', desc:'Foto de referencia del clóset', image:'/croquis-reference/closet.png', color:'#0369a1', bg:'#eff6ff' },
+    { id:'cocina', label:'Cocina alta y baja', icon:'[K]', desc:'Foto de referencia de módulos de cocina', image:'/croquis-reference/cocina.png', color:'#b45309', bg:'#fffbeb' },
+    { id:'puerta', label:'Marco + puerta', icon:'[P]', desc:'Foto de referencia de marco y puerta', image:'/croquis-reference/marco-puerta.png', color:'#7c3aed', bg:'#faf5ff' },
   ];
 
 
@@ -618,8 +546,19 @@ const Croquis3D = forwardRef((props, ref) => {
               pushState();
               const canvas = canvasRef.current;
               const ctx = canvas.getContext('2d');
-              ctx.save(); tpl.draw(ctx, canvas.width/2, canvas.height/2 - 30); ctx.restore();
-              scheduleAutoSave();
+              const image = new Image();
+              image.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const scale = Math.min((canvas.width * 0.9) / image.width, (canvas.height * 0.9) / image.height);
+                const width = image.width * scale;
+                const height = image.height * scale;
+                ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+                scheduleAutoSave();
+              };
+              image.onerror = () => console.error(`No se pudo cargar la referencia del croquis: ${tpl.image}`);
+              image.src = tpl.image;
             }}
             style={{ padding:'3px 9px', background:tpl.bg, border:`1.5px solid ${tpl.color}44`, borderRadius:'6px', cursor:'pointer', fontSize:'0.75rem', fontWeight:'700', color:tpl.color, display:'flex', alignItems:'center', gap:'4px', transition:'all 0.12s', whiteSpace:'nowrap' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor=tpl.color; e.currentTarget.style.transform='translateY(-1px)'; }}
