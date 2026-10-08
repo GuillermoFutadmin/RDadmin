@@ -138,6 +138,63 @@ function ProjectMaterials({ prospect }) {
   );
 }
 
+function ContractPriceBreakdown({ estimate, prospect, projectTotal, renderTotal, contractTotal }) {
+  let sheets = Array.isArray(estimate.sheets) ? estimate.sheets : [];
+  if (!sheets.length && (estimate.materials || estimate.labor || estimate.concepts)) {
+    sheets = [{
+      type: prospect.project_type || 'Proyecto',
+      materials: estimate.materials || [],
+      labor: estimate.labor || [],
+      concepts: estimate.concepts || []
+    }];
+  }
+
+  const margin = Number(estimate.margin) || 0;
+  const format = value => formatCurrency(value);
+  const sheetTotal = sheet => {
+    const rows = [...(sheet.materials || []), ...(sheet.labor || []), ...(sheet.concepts || [])];
+    const subtotal = rows.reduce((sum, row) => sum + (Number(row.qty) || 0) * (Number(row.price) || 0), 0);
+    return subtotal * (1 + margin / 100);
+  };
+
+  return (
+    <div style={{ margin:'0 0 14px', border:'1px solid #cbd5e1', borderRadius:'7px', overflow:'hidden', pageBreakInside:'avoid', breakInside:'avoid' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
+        <tbody>
+          <tr style={{ background:'#f1f5f9', color:'#334155' }}>
+            <td colSpan="2" style={{ padding:'7px 9px', fontWeight:'800', textTransform:'uppercase' }}>
+              Desglose del proyecto{(sheets.length + (renderTotal > 0 ? 1 : 0)) > 1 ? ` — ${sheets.length + (renderTotal > 0 ? 1 : 0)} conceptos` : ''}
+            </td>
+          </tr>
+          {sheets.map((sheet, index) => (
+            <tr key={`${sheet.type || 'proyecto'}-${index}`} style={{ borderTop:'1px solid #e2e8f0' }}>
+              <td style={{ padding:'7px 9px', fontWeight:'700', color:'#475569', background:'#f8fafc' }}>
+                #{index + 1} {sheet.type || prospect.project_type || 'Proyecto'}
+              </td>
+              <td style={{ padding:'7px 9px', textAlign:'right', fontWeight:'700' }}>{format(sheetTotal(sheet))}</td>
+            </tr>
+          ))}
+          {renderTotal > 0 && (
+            <tr style={{ borderTop:'1px solid #e2e8f0' }}>
+              <td style={{ padding:'7px 9px', fontWeight:'700', color:'#475569', background:'#fff7ed' }}>Render del proyecto</td>
+              <td style={{ padding:'7px 9px', textAlign:'right', fontWeight:'700' }}>{format(renderTotal)}</td>
+            </tr>
+          )}
+          <tr style={{ borderTop:'2px solid #cbd5e1', background:'#f1f5f9' }}>
+            <td style={{ padding:'8px 9px', fontWeight:'900', textTransform:'uppercase', color:'#334155' }}>Total fabricación{renderTotal > 0 ? ' + render' : ''}</td>
+            <td style={{ padding:'8px 9px', textAlign:'right', fontWeight:'900', color:'#1e293b' }}>{format(contractTotal || projectTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {renderTotal > 0 && (
+        <div style={{ padding:'6px 9px', background:'#fff7ed', color:'#9a3412', fontSize:'10px' }}>
+          El costo del render se cobra completo dentro del anticipo.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   let estData = {};
   if (prospect.estimation_data) {
@@ -149,6 +206,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   }
   const projectDetails = estData.projectDetails || {};
   const estimatedTotal = Number(estData.totalWithMargin) || 0;
+  const renderTotal = prospect.render_applies ? Math.max(0, Number(prospect.render_price) || 0) : 0;
+  const contractTotal = estimatedTotal + renderTotal;
 
   const getInitialDescription = () => {
     const estimateDescription = typeof estData.obsText === 'string' ? estData.obsText.trim() : '';
@@ -171,8 +230,9 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const [anticipoPct, setAnticipoPct] = useState(String(
     estData.anticipoPct ?? prospect.quote_anticipo ?? '60'
   ));
-  const anticipoAmount = estimatedTotal * (Number(anticipoPct) || 0) / 100;
-  const restanteAmount = estimatedTotal - anticipoAmount;
+  const projectAdvance = estimatedTotal * (Number(anticipoPct) || 0) / 100;
+  const anticipoAmount = projectAdvance + renderTotal;
+  const restanteAmount = estimatedTotal - projectAdvance;
   const [saving, setSaving] = useState(false);
 
   const parseDate = value => {
@@ -227,8 +287,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   );
 
   const obsItems = [
-    `La producción de su pedido empezará a partir del pago del anticipo correspondiente al ${anticipoPct}% (${formatCurrency(anticipoAmount)}), el ${100 - Number(anticipoPct)}% restante (${formatCurrency(restanteAmount)}) se entrega a la terminación o entrega de su proyecto.`,
-    'El costo del render del proyecto se incluye en el anticipo.',
+    `La producción de su pedido empezará a partir del pago del anticipo correspondiente al ${anticipoPct}% del proyecto${renderTotal > 0 ? ` más el costo total del render` : ''} (${formatCurrency(anticipoAmount)}); el ${100 - Number(anticipoPct)}% restante (${formatCurrency(restanteAmount)}) se entrega a la terminación o entrega de su proyecto.`,
+    ...(renderTotal > 0 ? [`El render del proyecto, por ${formatCurrency(renderTotal)}, se cobra completo dentro del anticipo.`] : []),
     'Un año de garantía por defectos de fabricación, sujeta a previa revisión.',
     'Todo cambio una vez empezada la producción tendrá costo extra.',
     'No incluye: jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.',
@@ -379,16 +439,17 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             style={{ width: '100%', minHeight: '110px', padding: '0.5rem', marginTop: '6px', fontFamily: 'inherit', fontSize: '0.9rem', border: '1px solid #cbd5e1', borderRadius: '4px', resize: 'vertical' }}
           />
         </div>
+        <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
 
         {/* Totals */}
         <div style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '14px' }}>
-          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
+          <strong>Total: {formatCurrency(contractTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
           <DeliveryCalendar days={diasEntrega} startDate={startDate} onDaysChange={setDiasEntrega} editable />
           <div style={{ marginTop:'0.65rem' }}>
             Para el inicio del proyecto se requiere un anticipo del{' '}
             <input value={anticipoPct} onChange={e => setAnticipoPct(e.target.value)}
               style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />
-            % ({formatCurrency(anticipoAmount)}), el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
+            % del proyecto{renderTotal > 0 ? ' más el 100% del render' : ''} ({formatCurrency(anticipoAmount)}), el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
           </div>
         </div>
 
@@ -451,13 +512,14 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             <strong>Descripción:</strong><br/>
             <div dangerouslySetInnerHTML={{ __html: description.split('\n').map(l => l.trim() ? `<p style="margin:0 0 4px">${l}</p>` : '<br/>').join('') }}></div>
           </div>
+          <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
         </div>
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px', pageBreakInside: 'avoid' }}>
-          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
+          <strong>Total: {formatCurrency(contractTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
           <DeliveryCalendar days={diasEntrega} startDate={startDate} />
           <div style={{ marginTop:'0.65rem' }}>
-            Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}% ({formatCurrency(anticipoAmount)})</strong>, el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
+            Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}% del proyecto{renderTotal > 0 ? ' más el 100% del render' : ''} ({formatCurrency(anticipoAmount)})</strong>, el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
           </div>
         </div>
 
