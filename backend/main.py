@@ -38,6 +38,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_pdf_path VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN project_timeline VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_password VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_rep VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_client VARCHAR;")
@@ -163,6 +164,7 @@ class ProspectCreate(BaseModel):
     exterior_sup_color_type: Optional[str] = None
     exterior_sup_color_code: Optional[str] = None
     estimated_price: Optional[str] = None
+    project_timeline: Optional[str] = None
     production_days: Optional[int] = None
     public_id: Optional[str] = None
     capture_date: Optional[datetime] = None

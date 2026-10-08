@@ -71,6 +71,7 @@ class Prospect(Base):
     exterior_sup_color_type = Column(String, nullable=True)
     exterior_sup_color_code = Column(String, nullable=True)
     estimated_price = Column(String, nullable=True)
+    project_timeline = Column(String, nullable=True)
     production_days = Column(Integer, nullable=True)
     public_id = Column(String, unique=True, index=True, nullable=True)
     capture_date = Column(DateTime, default=datetime.datetime.utcnow)
@@ -121,4 +122,3 @@ class User(Base):
     status = Column(String, default="Activo")
     permissions = Column(String) # JSON string of permissions
     photo_path = Column(String, nullable=True)
-

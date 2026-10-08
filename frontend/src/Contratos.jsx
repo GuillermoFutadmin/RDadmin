@@ -1240,6 +1240,13 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [anticipoPct, setAnticipoPct] = useState(60);
   const [saving, setSaving]       = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false);
+  const [projectDetails, setProjectDetails] = useState(() => ({
+    project_timeline: prospect.project_timeline || '',
+    estimated_price: prospect.estimated_price || '',
+    production_days: prospect.production_days || '',
+    start_date: prospect.start_date || '',
+    delivery_date: prospect.delivery_date || ''
+  }));
 
   const [sheets, setSheets] = useState([]);
   const [activeSheetIdx, setActiveSheetIdx] = useState(0);
@@ -1337,6 +1344,9 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         if (d.obsText) setObsText(d.obsText);
         if (d.photos) setPhotos(d.photos);
         if (d.croquisPhotos) setCroquisPhotos(d.croquisPhotos);
+        if (d.projectDetails) {
+          setProjectDetails(previous => ({ ...previous, ...d.projectDetails }));
+        }
         if (d.croquis_data) {
           setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data), 200);
         }
@@ -1368,7 +1378,10 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     const ptRaw = prospect.project_type || '';
     // Detectar todos los tipos presentes
     const matchedKeys = TEMPLATE_KEYS.filter(k => normalize(ptRaw).includes(normalize(k)));
-    if (matchedKeys.length === 0) return;
+    if (matchedKeys.length === 0) {
+      setTemplateLoaded(true);
+      return;
+    }
 
     fetch(`${API}/api/templates/`)
       .then(r => r.json())
@@ -1395,7 +1408,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         if (newSheets.length > 0) setSheets(newSheets);
         setTemplateLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => setTemplateLoaded(true));
   }, [prospect, templateLoaded]);
 
   const getSheetCost = (sh) => {
@@ -1406,6 +1419,28 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const totalWithMargin = totalCost * (1 + margin / 100);
   const anticipoTotal = totalWithMargin * anticipoPct / 100;
   const restanteTotal = totalWithMargin - anticipoTotal;
+  const estimatedDeliveryDate = (() => {
+    const days = Number.parseInt(projectDetails.production_days, 10);
+    if (!projectDetails.start_date || !Number.isInteger(days) || days < 1) return '';
+
+    const current = new Date(`${projectDetails.start_date}T12:00:00`);
+    if (Number.isNaN(current.getTime())) return '';
+
+    let businessDays = 0;
+    while (businessDays < days) {
+      current.setDate(current.getDate() + 1);
+      if (current.getDay() !== 0 && current.getDay() !== 6) businessDays++;
+    }
+    return current.toISOString().split('T')[0];
+  })();
+  const updateProjectDetails = (field, value) => {
+    setProjectDetails(previous => ({ ...previous, [field]: value }));
+  };
+  const savedProjectDetails = {
+    ...projectDetails,
+    estimated_price: String(totalWithMargin),
+    delivery_date: estimatedDeliveryDate
+  };
 
   // Tablas render helpers (estilo Valoracion)
   const tblSt  = { width: '100%', borderCollapse: 'collapse', marginBottom: '1.4rem' };
@@ -1520,14 +1555,15 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     setAutoSaveStatus('⏳ Guardando borrador...');
     const timer = setTimeout(async () => {
       const data = { 
-        sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos,
+        sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
         croquis_data: croquisRef.current?.getSketchData(), unit
       };
       try {
-        await fetch(`${API}/api/prospects/${prospect.id}`, {
+        const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
           method:'PUT', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ estimation_data: JSON.stringify(data) }) // Guardado silencioso sin cambiar status
         });
+        if (!response.ok) throw new Error(`Error ${response.status}`);
         setAutoSaveStatus('✅ Borrador auto-guardado');
         setTimeout(() => setAutoSaveStatus(''), 4000);
       } catch {
@@ -1535,20 +1571,21 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       }
     }, 2000); // Esperar 2 segundos después de escribir/subir foto
     return () => clearTimeout(timer);
-  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, templateLoaded]);
+  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, projectDetails, totalWithMargin, estimatedDeliveryDate, templateLoaded]);
 
 
   const handleSave = async () => {
     setSaving(true);
     const data = { 
-      sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos,
+      sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
       croquis_data: croquisRef.current?.getSketchData(), unit
     };
     try {
-      await fetch(`${API}/api/prospects/${prospect.id}`, {
+      const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
         method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ estimation_data: JSON.stringify(data), status: 'ESTIMACIÓN' })
       });
+      if (!response.ok) throw new Error(`Error ${response.status}`);
       setSaveMsg('✅ Guardado correctamente');
       setTimeout(() => {
         setSaveMsg('');
@@ -1974,6 +2011,73 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── DATOS DEL PROYECTO EN CONTRATO (se guardan dentro de estimation_data) ── */}
+      <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginTop:'1.5rem', marginBottom:'1.5rem' }}>
+        <h3 style={{ margin:'0 0 1.2rem', paddingBottom:'0.5rem', borderBottom:'1px solid #ba4b24', color:'#ba4b24', textAlign:'center', fontSize:'1.1rem' }}>
+          Fechas del Proyecto
+        </h3>
+        <div style={{ marginBottom:'1rem' }}>
+          <label style={{ display:'block', fontSize:'0.82rem', fontWeight:'700', color:'#475569', marginBottom:'0.5rem' }}>Plazo del Proyecto</label>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'0.6rem' }}>
+            {[
+              { value:'corto', label:'Corto Plazo', detail:'1 semana', icon:'⚡', color:'#f97316', bg:'#fff7ed', border:'#fed7aa', badge:'🎁 ¡Bonificación!' },
+              { value:'mediano', label:'Mediano Plazo', detail:'2 semanas', icon:'📅', color:'#2563eb', bg:'#eff6ff', border:'#bfdbfe' },
+              { value:'largo', label:'Largo Plazo', detail:'Más de 1 mes', icon:'🗓️', color:'#64748b', bg:'#f8fafc', border:'#e2e8f0' }
+            ].map(option => {
+              const selected = projectDetails.project_timeline === option.value;
+              return (
+                <button key={option.value} type="button"
+                  onClick={() => updateProjectDetails('project_timeline', option.value)}
+                  style={{
+                    padding:'0.75rem', borderRadius:'9px', cursor:'pointer', textAlign:'center',
+                    border:`${selected ? 2 : 1}px solid ${option.color}`,
+                    background:selected ? option.bg : 'white',
+                    boxShadow:selected ? `0 0 0 2px ${option.color}22` : 'none'
+                  }}>
+                  <div style={{ fontSize:'1.35rem' }}>{option.icon}</div>
+                  <div style={{ fontWeight:'700', fontSize:'0.84rem', color:selected ? option.color : '#1e293b' }}>{option.label}</div>
+                  <div style={{ fontSize:'0.74rem', color:'#64748b' }}>{option.detail}</div>
+                  {option.badge && <span style={{ display:'inline-block', marginTop:'0.3rem', padding:'2px 7px', borderRadius:'12px', background:'#f97316', color:'white', fontSize:'0.68rem', fontWeight:'700' }}>{option.badge}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:'1rem' }}>
+          <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569' }}>
+            Precio Estimado (Cotizador en Vivo)
+            <input readOnly type="text" value={formatCurrency(totalWithMargin)}
+              style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem', marginTop:'0.4rem', borderRadius:'6px', border:'1px solid #cbd5e1', background:'#f1f5f9', color:'#15803d', fontWeight:'700' }} />
+          </label>
+          <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569' }}>
+            Tiempo de Producción (días hábiles)
+            <input type="number" min="1" value={projectDetails.production_days}
+              onChange={e => updateProjectDetails('production_days', e.target.value)}
+              style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem', marginTop:'0.4rem', borderRadius:'6px', border:'1px solid #cbd5e1' }} />
+          </label>
+          <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569' }}>
+            Fecha de Inicio
+            <input type="date" value={projectDetails.start_date}
+              onChange={e => updateProjectDetails('start_date', e.target.value)}
+              style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem', marginTop:'0.4rem', borderRadius:'6px', border:'1px solid #cbd5e1' }} />
+          </label>
+          <label style={{ fontSize:'0.82rem', fontWeight:'700', color:'#475569' }}>
+            Fecha Estimada de Terminación
+            <input readOnly type="date" value={estimatedDeliveryDate}
+              style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem', marginTop:'0.4rem', borderRadius:'6px', border:'1px solid #cbd5e1', background:'#f1f5f9', color:estimatedDeliveryDate ? '#15803d' : '#94a3b8', fontWeight:'700' }} />
+            {estimatedDeliveryDate && (
+              <span style={{ display:'block', marginTop:'0.25rem', color:'#15803d', fontSize:'0.75rem' }}>
+                {new Date(`${estimatedDeliveryDate}T12:00:00`).toLocaleDateString('es-MX', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+              </span>
+            )}
+          </label>
+        </div>
+        <p style={{ margin:'0.8rem 0 0', color:'#64748b', fontSize:'0.76rem' }}>
+          Estos datos se guardan automáticamente en la Estimación y no modifican la información original de Prospectos.
+        </p>
       </div>
 
       {saveMsg && (

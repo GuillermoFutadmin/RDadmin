@@ -24,6 +24,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         : prospect.estimation_data;
     } catch(e) {}
   }
+  const projectDetails = estData.projectDetails || {};
   const estimatedTotal = Number(estData.totalWithMargin) || 0;
 
   const getInitialDescription = () => {
@@ -42,7 +43,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   };
   const [description, setDescription] = useState(getInitialDescription());
   const deliveryTimeMatch = String(prospect.quote_delivery_time || '').match(/\d+/);
-  const initialDeliveryDays = prospect.production_days || (deliveryTimeMatch && deliveryTimeMatch[0]);
+  const initialDeliveryDays = projectDetails.production_days || prospect.production_days || (deliveryTimeMatch && deliveryTimeMatch[0]);
   const [diasEntrega, setDiasEntrega] = useState(String(initialDeliveryDays || '15'));
   const [anticipoPct, setAnticipoPct] = useState(String(
     estData.anticipoPct ?? prospect.quote_anticipo ?? '60'
@@ -56,8 +57,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     const parsed = new Date(`${String(value).slice(0, 10)}T12:00:00`);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
-  const startDate = parseDate(prospect.start_date);
-  const savedDeliveryDate = parseDate(prospect.delivery_date);
+  const startDate = parseDate(projectDetails.start_date || prospect.start_date);
+  const savedDeliveryDate = parseDate(projectDetails.delivery_date || prospect.delivery_date);
   const calculateDeliveryDate = () => {
     const days = Number(diasEntrega);
     if (!startDate || !Number.isInteger(days) || days <= 0) return null;

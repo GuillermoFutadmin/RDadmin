@@ -239,6 +239,7 @@ function dbToForm(p) {
     has_design: p.has_design || false, design_details: p.design_details || '',
     measurements: p.measurements || '', hardware_details: p.hardware_details || '',
     start_date: p.start_date || '', delivery_date: p.delivery_date || '', production_days: p.production_days || '',
+    project_timeline: p.project_timeline || '',
     project_type: p.project_type || '', project_type_other: p.project_type_other || '', kitchen_layout: p.kitchen_layout || '', kitchen_addons: p.kitchen_addons || '', closet_layout: p.closet_layout || '', closet_addons: p.closet_addons || '',
     kitchen_measurements: p.kitchen_measurements || '', kitchen_island_measurements: p.kitchen_island_measurements || '', kitchen_peninsula_measurements: p.kitchen_peninsula_measurements || '',
     closet_measurements: p.closet_measurements || '', closet_island_measurements: p.closet_island_measurements || '', closet_vanity_measurements: p.closet_vanity_measurements || '',
@@ -294,7 +295,7 @@ function formToPayload(f) {
       if (f.other_measurements) parts.push(`Otros: ${f.other_measurements}`);
       return parts.length > 0 ? parts.join(' | ') : (f.measurements || null);
     })(),
-    material_type: f.material_type, estimated_price: f.estimated_price,
+    material_type: f.material_type, estimated_price: f.estimated_price, project_timeline: f.project_timeline || null,
     interior_color_type: f.interior_color_type, interior_color_code: f.interior_color_code,
     exterior_inf_color_type: f.exterior_inf_color_type, exterior_inf_color_code: f.exterior_inf_color_code,
     exterior_sup_color_type: f.exterior_sup_color_type, exterior_sup_color_code: f.exterior_sup_color_code,
