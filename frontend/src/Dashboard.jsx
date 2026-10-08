@@ -23,6 +23,16 @@ function getClientStatus(c) {
   return 'APROBADO';
 }
 
+function formatRegisteredDate(item) {
+  const value = item.capture_date || item.created_at;
+  if (!value) return 'Fecha no disponible';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Fecha no disponible';
+
+  return date.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 // Compact counter badge
 function CountBadge({ count, color, bg }) {
   return (
@@ -142,7 +152,7 @@ function Dashboard() {
                     <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
                       <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
                       <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {new Date(item.created_at).toLocaleDateString('es-MX', { year:'numeric', month:'short', day:'numeric' })}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {formatRegisteredDate(item)}</div>
                     </div>
                   ))}
                 </div>
@@ -202,7 +212,7 @@ function Dashboard() {
                     <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
                       <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
                       <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {new Date(item.created_at).toLocaleDateString('es-MX', { year:'numeric', month:'short', day:'numeric' })}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {formatRegisteredDate(item)}</div>
                     </div>
                   ))}
                 </div>
