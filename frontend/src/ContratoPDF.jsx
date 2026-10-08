@@ -128,6 +128,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
   const obsItems = [
     `La producción de su pedido empezará a partir del pago del anticipo correspondiente al ${anticipoPct}% (${formatCurrency(anticipoAmount)}), el ${100 - Number(anticipoPct)}% restante (${formatCurrency(restanteAmount)}) se entrega a la terminación o entrega de su proyecto.`,
+    'El costo del render del proyecto se incluye en el anticipo.',
     'Un año de garantía por defectos de fabricación, sujeta a previa revisión.',
     'Todo cambio una vez empezada la producción tendrá costo extra.',
     'No incluye: jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.',

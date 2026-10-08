@@ -911,6 +911,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 );
               })()}
             </li>
+            <li style={{ marginBottom: '0.3rem' }}>El costo del render del proyecto se incluye en el anticipo.</li>
             <li style={{ marginBottom: '0.3rem' }}>Un año de garantía por defectos de fabricación, sujeta a previa revisión.</li>
             <li style={{ marginBottom: '0.3rem' }}>Todo cambio una vez empezada la producción tendrá costo extra.</li>
             <li style={{ marginBottom: '0.3rem' }}><strong>No incluye:</strong> jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.</li>
