@@ -726,13 +726,13 @@ export default function Contratos({ startView = 'list' }) {
 
       
       {/* ── ETAPAS PIPELINE ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.8rem', marginBottom: '1.2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
-          { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: '#f1f5f9', icon: '📋' },
-          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#166534', bg: '#dcfce7', icon: '✅' },
-          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#92400e', bg: '#fef3c7', icon: '🎨' },
-          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#3730a3', bg: '#e0e7ff', icon: '📐' },
-          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#9d174d', bg: '#fce7f3', icon: '📝' },
+          { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: '📋' },
+          { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: '✅' },
+          { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: '🎨' },
+          { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: '📐' },
+          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: '📝' },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
           return (
@@ -741,21 +741,31 @@ export default function Contratos({ startView = 'list' }) {
               onClick={() => setFilterStatus(key)}
               style={{
                 background: isActive ? bg : 'white',
-                border: `2px solid ${isActive ? color : '#e2e8f0'}`,
-                borderRadius: '10px',
-                padding: '0.7rem 0.6rem',
+                border: `1px solid ${isActive ? color : '#e2e8f0'}`,
+                borderRadius: '12px',
+                padding: '1rem',
                 cursor: 'pointer',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '0.3rem',
-                transition: 'all 0.2s',
-                boxShadow: isActive ? `0 4px 12px ${color}33` : '0 1px 3px rgba(0,0,0,0.05)'
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: isActive ? `0 4px 12px ${color}22` : '0 1px 3px rgba(0,0,0,0.05)',
+                transform: isActive ? 'translateY(-2px)' : 'none',
+                minWidth: 0
               }}
             >
-              <div style={{ fontSize: '1.2rem' }}>{icon}</div>
-              <div style={{ fontSize: '0.7rem', fontWeight: '800', color: isActive ? color : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '900', color: isActive ? color : '#1e293b' }}>{count}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <div style={{
+                  width: '36px', height: '36px', flexShrink: 0, borderRadius: '10px',
+                  background: isActive ? 'rgba(255,255,255,0.5)' : '#f8fafc',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
+                }}>
+                  {icon}
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '600', color: isActive ? color : '#64748b', textAlign: 'left' }}>{label}</span>
+              </div>
+              <span style={{ fontSize: '1.5rem', fontWeight: '800', color: isActive ? color : '#1e293b' }}>{count}</span>
             </button>
           );
         })}
@@ -832,11 +842,14 @@ export default function Contratos({ startView = 'list' }) {
                           setRenderApplies(c.render_applies ?? null);
                           setRenderPrice(c.render_price ? String(c.render_price) : '');
                         }} style={{
-                          padding:'0.3rem 0.7rem',
-                          background: c.render_applies !== null && c.render_applies !== undefined ? '#10b981' : '#f59e0b',
-                          color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem'
-                        }}>
-                          {c.render_applies !== null && c.render_applies !== undefined ? '✅ Render SI/NO' : '🎨 Render SI/NO'}
+                          padding:'0.2rem 0.4rem',
+                          background:'#10b981',
+                          color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'600', fontSize:'0.7rem',
+                          transition:'all 0.2s', display:'flex', alignItems:'center', gap:'0.15rem', whiteSpace:'nowrap'
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
+                          ✅ Render SI/NO
                         </button>
                       )}
                       {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
@@ -848,15 +861,17 @@ export default function Contratos({ startView = 'list' }) {
                         }}
                         title={getStatus(c) === 'APROBADO' ? 'Completa el paso de Render primero' : (c.estimation_data ? 'Ver/editar Estimación guardada' : 'Abrir Estimación')}
                         style={{
-                          padding:'0.3rem 0.7rem',
-                          background: getStatus(c) === 'APROBADO' ? '#cbd5e1' : (c.estimation_data ? '#10b981' : '#3b82f6'),
+                          padding:'0.2rem 0.4rem',
+                          background: getStatus(c) === 'APROBADO' ? '#f1f5f9' : '#10b981',
                           color: getStatus(c) === 'APROBADO' ? '#94a3b8' : 'white',
-                          border:'none', borderRadius:'6px',
+                          border:'none', borderRadius:'4px',
                           cursor: getStatus(c) === 'APROBADO' ? 'not-allowed' : 'pointer',
-                          fontWeight:'600', fontSize:'0.85rem',
-                          opacity: getStatus(c) === 'APROBADO' ? 0.7 : 1,
-                          transition: 'all 0.2s ease'
-                        }}>
+                          fontWeight:'600', fontSize:'0.7rem',
+                          opacity: getStatus(c) === 'APROBADO' ? 0.6 : 1,
+                          transition:'all 0.2s', display:'flex', alignItems:'center', gap:'0.15rem', whiteSpace:'nowrap'
+                        }}
+                        onMouseEnter={e => getStatus(c) === 'APROBADO' ? null : e.currentTarget.style.backgroundColor = '#059669'}
+                        onMouseLeave={e => getStatus(c) === 'APROBADO' ? null : e.currentTarget.style.backgroundColor = '#10b981'}>
                         {c.estimation_data ? '✅ Estimación' : '📐 Estimación'}
                       </button>
                       
@@ -871,15 +886,17 @@ export default function Contratos({ startView = 'list' }) {
                           }}
                           title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : (getStatus(c) === 'CONTRATO' ? 'Ver / Imprimir Contrato' : 'Avanzar a Contrato')}
                           style={{ 
-                            padding:'0.3rem 0.7rem', 
-                            background: !c.estimation_data ? '#cbd5e1' : (getStatus(c) === 'CONTRATO' ? '#10b981' : '#8b5cf6'), 
+                            padding:'0.2rem 0.4rem',
+                            background: !c.estimation_data ? '#f1f5f9' : '#10b981',
                             color: !c.estimation_data ? '#94a3b8' : 'white', 
-                            border:'none', borderRadius:'6px', 
+                            border:'none', borderRadius:'4px',
                             cursor: !c.estimation_data ? 'not-allowed' : 'pointer', 
-                            fontWeight:'600', fontSize:'0.8rem',
-                            opacity: !c.estimation_data ? 0.7 : 1,
-                            transition: 'all 0.2s ease'
-                          }}>
+                            fontWeight:'600', fontSize:'0.7rem',
+                            opacity: !c.estimation_data ? 0.6 : 1,
+                            transition:'all 0.2s', display:'flex', alignItems:'center', gap:'0.15rem', whiteSpace:'nowrap'
+                          }}
+                          onMouseEnter={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#059669'}
+                          onMouseLeave={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#10b981'}>
                           {getStatus(c) === 'CONTRATO' ? '✅ Contrato' : '📝 Contrato'}
                         </button>
                       )}
