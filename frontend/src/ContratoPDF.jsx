@@ -112,6 +112,32 @@ function DeliveryCalendar({ days, startDate, onDaysChange, editable = false }) {
   );
 }
 
+function ProjectMaterials({ prospect }) {
+  const entries = [
+    ['Material principal', prospect.material_type],
+    ['Material secundario', prospect.material_type_2 || 'N/A'],
+    ['Color interior', [prospect.interior_color_type, prospect.interior_color_code].filter(Boolean).join(' - ')],
+    ['Color ext. inferior', [prospect.exterior_inf_color_type, prospect.exterior_inf_color_code].filter(Boolean).join(' - ')],
+    ['Color ext. superior', [prospect.exterior_sup_color_type, prospect.exterior_sup_color_code].filter(Boolean).join(' - ')],
+    ['Encimera', prospect.countertop_type],
+    ['Herrajes', prospect.hardware_details]
+  ];
+
+  return (
+    <div style={{ margin:'0 0 14px', padding:'10px', border:'1px solid #fed7aa', borderRadius:'7px', background:'#fffbeb', pageBreakInside:'avoid', breakInside:'avoid' }}>
+      <strong style={{ display:'block', color:'#b45309', fontSize:'12px', marginBottom:'8px' }}>Materiales y Acabado</strong>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:'8px 12px' }}>
+        {entries.map(([label, value]) => (
+          <div key={label} style={{ minWidth:0 }}>
+            <div style={{ color:'#b45309', fontSize:'9px', fontWeight:'700', textTransform:'uppercase' }}>{label}</div>
+            <div style={{ color:'#1e293b', fontSize:'11px', fontWeight:'600', overflowWrap:'anywhere' }}>{value || 'No especificado'}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   let estData = {};
   if (prospect.estimation_data) {
@@ -344,6 +370,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
           FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
         </h3>
+        <ProjectMaterials prospect={prospect} />
         <div style={{ marginBottom: '14px' }}>
           <strong>Descripción:</strong>
           <textarea
@@ -419,6 +446,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
             FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
           </h3>
+          <ProjectMaterials prospect={prospect} />
           <div style={{ marginBottom: '16px', fontSize: '13px' }}>
             <strong>Descripción:</strong><br/>
             <div dangerouslySetInnerHTML={{ __html: description.split('\n').map(l => l.trim() ? `<p style="margin:0 0 4px">${l}</p>` : '<br/>').join('') }}></div>
