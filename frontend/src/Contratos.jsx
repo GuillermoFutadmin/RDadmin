@@ -149,13 +149,17 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
   const valuationGrandTotal = Number(valuationData?.grandTotal ?? valuationData?.totalToPay) || 0;
   const projectDetails = estimationData.projectDetails || {};
   const estimationSheets = Array.isArray(estimationData.sheets) ? estimationData.sheets : [];
-  const countFiles = (value) => Array.isArray(value) ? value.length : value ? String(value).split(',').filter(Boolean).length : 0;
   const imageList = (value) => {
-    if (Array.isArray(value)) return value.filter(Boolean);
     if (!value) return [];
-    if (String(value).startsWith('data:')) return [value];
-    return String(value).split(',').map(image => image.trim()).filter(Boolean);
+    if (Array.isArray(value)) return value.flatMap(imageList);
+    if (typeof value === 'object') {
+      return Object.values(value).flatMap(imageList);
+    }
+    if (typeof value !== 'string') return [];
+    if (value.startsWith('data:')) return [value];
+    return value.split(',').map(image => image.trim()).filter(Boolean);
   };
+  const countFiles = (value) => imageList(value).length;
   const estimationImages = imageList(estimationData.photos);
   const quotationImages = [
     prospect.quote_image_1, prospect.quote_image_2, prospect.quote_image_3, prospect.quote_image_4
