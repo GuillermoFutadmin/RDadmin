@@ -330,23 +330,12 @@ function App() {
             {/* Contratos (con submenú) */}
             {hasAccess('Contratos') && (
               <li
-                className={activeTab === 'Contratos' || activeTab === 'Estimacion' || activeTab === 'Produccion' ? 'active' : ''}
+                className={activeTab === 'Contratos' || activeTab === 'Estimacion' ? 'active' : ''}
                 onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
                 <span style={{ display: 'flex', alignItems: 'center' }}><IconFileText /> Clientes</span>
                 <IconChevronRight style={{ transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
-              </li>
-            )}
-
-            {/* Submenú: Producción */}
-            {contratosOpen && hasProductionAccess && (
-              <li
-                className={activeTab === 'Produccion' ? 'active' : ''}
-                onClick={() => { setActiveTab('Produccion'); setProspectsOpen(false); setColaboradoresOpen(false); }}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Produccion' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconPackage /> Producción
               </li>
             )}
 
@@ -358,6 +347,17 @@ function App() {
                 style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Estimacion' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
               >
                 <IconPenTool /> Estimación
+              </li>
+            )}
+
+            {/* Producción: sección independiente de Clientes */}
+            {hasProductionAccess && (
+              <li
+                className={activeTab === 'Produccion' ? 'active' : ''}
+                onClick={() => { setActiveTab('Produccion'); setProspectsOpen(false); setContratosOpen(false); setColaboradoresOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <IconPackage /> Producción
               </li>
             )}
 
