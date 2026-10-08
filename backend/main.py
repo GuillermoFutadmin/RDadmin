@@ -234,6 +234,21 @@ class TemplateResponse(TemplateCreate):
         from_attributes = True
 
 
+class SupplierCreate(BaseModel):
+    name: str
+    contact_name: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SupplierResponse(SupplierCreate):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to RDadmin API"}
@@ -268,6 +283,36 @@ def delete_template(name: str, db: Session = Depends(get_db)):
     db.delete(db_template)
     db.commit()
     return {"ok": True}
+
+
+@app.get("/api/suppliers", response_model=List[SupplierResponse])
+def get_suppliers(db: Session = Depends(get_db)):
+    return db.query(models.Supplier).order_by(models.Supplier.name).all()
+
+
+@app.post("/api/suppliers", response_model=SupplierResponse)
+def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
+    if not supplier.name.strip():
+        raise HTTPException(status_code=422, detail="El nombre del proveedor es obligatorio")
+    db_supplier = models.Supplier(**supplier.dict(exclude={"name"}), name=supplier.name.strip())
+    db.add(db_supplier)
+    db.commit()
+    db.refresh(db_supplier)
+    return db_supplier
+
+
+@app.put("/api/suppliers/{supplier_id}", response_model=SupplierResponse)
+def update_supplier(supplier_id: int, supplier: SupplierCreate, db: Session = Depends(get_db)):
+    db_supplier = db.query(models.Supplier).filter(models.Supplier.id == supplier_id).first()
+    if not db_supplier:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+    if not supplier.name.strip():
+        raise HTTPException(status_code=422, detail="El nombre del proveedor es obligatorio")
+    for key, value in supplier.dict().items():
+        setattr(db_supplier, key, value.strip() if key == "name" else value)
+    db.commit()
+    db.refresh(db_supplier)
+    return db_supplier
 
 
 @app.get("/api/dashboard")

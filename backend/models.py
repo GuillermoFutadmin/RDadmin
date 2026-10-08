@@ -123,3 +123,12 @@ class User(Base):
     status = Column(String, default="Activo")
     permissions = Column(String) # JSON string of permissions
     photo_path = Column(String, nullable=True)
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    contact_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    notes = Column(String, nullable=True)

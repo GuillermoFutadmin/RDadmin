@@ -30,6 +30,7 @@ export default function Accesos() {
     { id: 'Asistencia', label: '⏱️ Asistencia' },
     { id: 'Nomina', label: '💰 Nómina y Tarifas' },
     { id: 'Pedidos', label: '🏭 Producción' },
+    { id: 'Proveedores', label: '📦 Proveedores' },
     { id: 'Accesos', label: '🔐 Accesos' },
   ];
 

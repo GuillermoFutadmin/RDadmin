@@ -8,11 +8,12 @@ import Contratos from './Contratos';
 import Colaboradores from './Colaboradores';
 import Accesos from './Accesos';
 import Asistencia from './Asistencia';
+import Proveedores from './Proveedores';
 import Login from './Login';
 import { 
   IconUsers, IconTrendingUp, IconFileText, IconPenTool, 
   IconHardHat, IconClock, IconWallet, IconSettings, 
-  IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut 
+  IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut
 } from './icons';
 
 function App() {
@@ -361,6 +362,16 @@ function App() {
               </li>
             )}
 
+            {hasAccess('Proveedores') && (
+              <li
+                className={activeTab === 'Proveedores' ? 'active' : ''}
+                onClick={() => goTo('Proveedores')}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <IconPackage /> Proveedores
+              </li>
+            )}
+
             {/* Colaboradores (con submenú) */}
             {(hasAccess('Colaboradores') || hasAccess('Asistencia') || hasAccess('Nomina')) && (
               <li
@@ -478,6 +489,7 @@ function App() {
         {activeTab === 'Dashboard'     && hasAccess('Dashboard')     && <Dashboard />}
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
         {activeTab === 'Produccion'   && hasProductionAccess         && <Pedidos />}
+        {activeTab === 'Proveedores' && hasAccess('Proveedores') && <Proveedores />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
         {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos startView="list" onProductionStarted={() => setActiveTab('Produccion')} />}
         {activeTab === 'Estimacion'    && hasAccess('Contratos')        && <Contratos startView="estimacion_list" onProductionStarted={() => setActiveTab('Produccion')} />}

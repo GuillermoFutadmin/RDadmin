@@ -100,6 +100,12 @@ function Pedidos() {
   const [stageFilter, setStageFilter] = useState(null);
   const [exportingProjectPdf, setExportingProjectPdf] = useState(false);
   const [showPdfPrompt, setShowPdfPrompt] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierError, setSupplierError] = useState('');
+  const [purchaseDrafts, setPurchaseDrafts] = useState({});
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [supplierForMaterial, setSupplierForMaterial] = useState(null);
+  const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
 
   const refresh = async () => {
     setLoading(true);
@@ -122,6 +128,14 @@ function Pedidos() {
   };
 
   useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    fetch(`${API}/api/suppliers`)
+      .then(async response => {
+        if (!response.ok) throw new Error(`No se pudieron cargar los proveedores (${response.status})`);
+        setSuppliers(await response.json());
+      })
+      .catch(error => setSupplierError(error.message || 'No se pudieron cargar los proveedores.'));
+  }, []);
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -141,6 +155,17 @@ function Pedidos() {
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
+  const estimationMaterialSheets = estimationSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
+    ? estimationSheets
+    : estimation.materials
+      ? [{ type: selected?.project_type || 'Proyecto', materials: estimation.materials }]
+      : estimationSheets;
+  const valuation = parseJson(selected?.valuation_data);
+  const valuationSheets = Array.isArray(valuation.sheets) && valuation.sheets.length
+    ? valuation.sheets
+    : valuation.materials
+      ? [{ type: valuation.projectType || selected?.project_type || 'Proyecto', materials: valuation.materials }]
+      : [];
   const projectDetails = estimation.projectDetails || {};
   const estimationMeasures = estimation.measures && typeof estimation.measures === 'object' ? estimation.measures : {};
   const estimationMeasurePhotos = estimation.photos && typeof estimation.photos === 'object' ? estimation.photos : {};
@@ -163,12 +188,24 @@ function Pedidos() {
     return { key, label, group: field?.group || 'Medidas capturadas', value: formattedValue, photo };
   }).filter(entry => entry.value || entry.photo);
   const croquisImages = collectImageUrls(estimation.croquisPhotos, estimation.croquis_data);
-  const projectMaterials = estimationSheets.flatMap((sheet, sheetIndex) =>
-    (Array.isArray(sheet.materials) ? sheet.materials : []).map(item => ({
+  const materialSheets = estimationMaterialSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
+    ? estimationMaterialSheets
+    : valuationSheets;
+  const projectMaterials = materialSheets.flatMap((sheet, sheetIndex) =>
+    (Array.isArray(sheet.materials) ? sheet.materials : []).map((item, itemIndex) => ({
       ...item,
-      sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`
+      sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`,
+      purchaseKey: `${sheetIndex}:${item.id ?? ''}:${itemIndex}`
     }))
   );
+  const purchaseRecords = production.materialPurchases && typeof production.materialPurchases === 'object'
+    ? production.materialPurchases
+    : {};
+  useEffect(() => {
+    setPurchaseDrafts(production.materialPurchases && typeof production.materialPurchases === 'object'
+      ? production.materialPurchases
+      : {});
+  }, [selectedId]);
   const persist = async (nextProduction, nextStatus) => {
     if (!selected) return;
     setSaving(true);
@@ -190,6 +227,50 @@ function Pedidos() {
     } catch (error) {
       setMessage(error.message || 'No se pudo guardar el avance.');
       return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveMaterialPurchase = async (materialKey, record) => {
+    const nextPurchases = { ...purchaseRecords, [materialKey]: record };
+    const updated = await persist({ ...production, materialPurchases: nextPurchases });
+    if (updated) {
+      setPurchaseDrafts(nextPurchases);
+      setMessage('Compra del material guardada.');
+    }
+  };
+
+  const addSupplierFromProduction = async event => {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    try {
+      const response = await fetch(`${API}/api/suppliers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierForm)
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.detail || `No se pudo guardar el proveedor (${response.status})`);
+      }
+      const supplier = await response.json();
+      setSuppliers(current => [...current, supplier].sort((a, b) => a.name.localeCompare(b.name)));
+      const materialKey = supplierForMaterial;
+      const record = {
+        ...(purchaseDrafts[materialKey] || {}),
+        supplier_id: String(supplier.id),
+        purchase_place: supplier.location || ''
+      };
+      setPurchaseDrafts(current => ({ ...current, [materialKey]: record }));
+      setShowSupplierForm(false);
+      setSupplierForm({ name: '', contact_name: '', phone: '', location: '' });
+      setSupplierError('');
+      if (materialKey) await saveMaterialPurchase(materialKey, record);
+      else setMessage('Proveedor agregado a la agenda.');
+    } catch (error) {
+      setMessage(error.message || 'No se pudo agregar el proveedor.');
     } finally {
       setSaving(false);
     }
@@ -233,6 +314,20 @@ function Pedidos() {
       setActiveStage(nextIndex);
       setNote(nextStages[nextIndex]?.note || '');
       setShowPdfPrompt(true);
+    }
+  };
+
+  const returnToPreviousStage = async () => {
+    if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
+    const previousStage = currentStage - 1;
+    const updated = await persist({
+      ...production,
+      current_stage: previousStage
+    }, 'PRODUCCION');
+    if (updated) {
+      setActiveStage(previousStage);
+      setNote(stages[previousStage]?.note || '');
+      setMessage(`Proyecto regresado a ${STAGE_NAMES[previousStage]}. Se conservaron notas, fotos y compras.`);
     }
   };
 
@@ -345,20 +440,40 @@ function Pedidos() {
     setMessage('');
     try {
       await Promise.all(Array.from(element.querySelectorAll('img')).map(image => {
-        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+        if (image.complete) {
+          return image.naturalWidth > 0
+            ? Promise.resolve()
+            : Promise.reject(new Error('No se pudo cargar una de las fotos para el PDF.'));
+        }
         return new Promise((resolve, reject) => {
-          image.onload = resolve;
-          image.onerror = () => reject(new Error('No se pudo cargar una de las fotos para el PDF.'));
+          image.addEventListener('load', resolve, { once: true });
+          image.addEventListener('error', () => reject(new Error('No se pudo cargar una de las fotos para el PDF.')), { once: true });
         });
       }));
-      await window.html2pdf().set({
+      const pdf = await window.html2pdf().set({
         margin: [10, 10, 12, 10],
         filename: `Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`,
         image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false },
+        html2canvas: {
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: false,
+          onclone: clonedDocument => {
+            const clonedElement = clonedDocument.getElementById('production-project-pdf');
+            if (clonedElement) {
+              Object.assign(clonedElement.style, {
+                position: 'fixed',
+                left: '0',
+                top: '0',
+                zIndex: '2147483647'
+              });
+            }
+          }
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'], avoid: ['.production-pdf-photo'] }
-      }).from(element).save();
+      }).from(element).toPdf().get('pdf');
+      pdf.save(`Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`);
       setMessage('PDF del expediente descargado.');
     } catch (error) {
       setMessage(error.message || 'No se pudo generar el PDF del expediente.');
@@ -468,6 +583,12 @@ function Pedidos() {
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
                       {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar machote completo'}
                     </button>
+                    {(selected.render_pdf_path || selected.render_image_path) && (
+                      <a href={imageUrl(selected.render_pdf_path || selected.render_image_path)} target="_blank" rel="noreferrer"
+                        style={{ padding: '0.55rem 0.8rem', border: '1px solid #bbf7d0', borderRadius: 9, background: '#f0fdf4', color: '#15803d', fontWeight: 800, textDecoration: 'none' }}>
+                        🎨 Render
+                      </a>
+                    )}
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
@@ -508,6 +629,114 @@ function Pedidos() {
                 <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
                   {generalMeasurements.map(([label, value], index) => <InfoCard key={`${label}-${index}`} label={label}>{value}</InfoCard>)}
+                </div>
+              </section>
+            )}
+
+            {currentStage >= 1 && (
+              <section style={{ background: '#fff', border: '1px solid #bfdbfe', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 3px', color: '#1d4f91', fontSize: '0.95rem' }}>Materiales y compras</h3>
+                    <div style={{ color: '#64748b', fontSize: '0.78rem' }}>Lista tomada de Estimación o del cotizador en vivo. Marca las compras conforme lleguen.</div>
+                  </div>
+                  <span style={{ padding: '0.35rem 0.65rem', borderRadius: 20, background: '#eff6ff', color: '#1d4f91', fontSize: '0.75rem', fontWeight: 800 }}>
+                    {projectMaterials.filter(material => (purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired).length} / {projectMaterials.length} adquiridos
+                  </span>
+                </div>
+
+                {supplierError && <div role="alert" style={{ marginBottom: 10, color: '#b91c1c', fontSize: '0.8rem' }}>{supplierError}</div>}
+                {!projectMaterials.length ? (
+                  <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 9, color: '#64748b', fontSize: '0.83rem' }}>La estimación no tiene materiales capturados todavía.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 9 }}>
+                    {projectMaterials.map(material => {
+                      const record = purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey] || {};
+                      const supplier = suppliers.find(item => String(item.id) === String(record.supplier_id));
+                      return (
+                        <article key={material.purchaseKey} style={{ padding: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', marginBottom: 9 }}>
+                            <div>
+                              <div style={{ color: '#64748b', fontSize: '0.69rem', fontWeight: 800 }}>{material.sheetName}</div>
+                              <div style={{ color: '#1e3a5f', fontSize: '0.86rem', fontWeight: 750 }}>
+                                {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
+                              </div>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 7, color: record.acquired ? '#15803d' : '#475569', fontSize: '0.78rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
+                              <input type="checkbox" checked={Boolean(record.acquired)} disabled={saving}
+                                onChange={event => {
+                                  const nextRecord = { ...record, acquired: event.target.checked };
+                                  setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
+                                  saveMaterialPurchase(material.purchaseKey, nextRecord);
+                                }} />
+                              Ya se adquirió
+                            </label>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 8 }}>
+                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                              Precio pagado en tienda
+                              <input type="number" min="0" step="0.01" value={record.store_price ?? ''}
+                                onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, store_price: event.target.value } }))}
+                                onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
+                                placeholder="$ 0.00" style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                            </label>
+                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                              Proveedor
+                              <select value={record.supplier_id || ''}
+                                onChange={event => {
+                                  const selectedSupplier = suppliers.find(item => String(item.id) === event.target.value);
+                                  const nextRecord = {
+                                    ...record,
+                                    supplier_id: event.target.value,
+                                    purchase_place: record.purchase_place || selectedSupplier?.location || ''
+                                  };
+                                  setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
+                                  saveMaterialPurchase(material.purchaseKey, nextRecord);
+                                }}
+                                style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}>
+                                <option value="">Seleccionar proveedor...</option>
+                                {suppliers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                              </select>
+                            </label>
+                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                              Tienda / sucursal donde se compró
+                              <input value={record.purchase_place || ''}
+                                onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, purchase_place: event.target.value } }))}
+                                onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
+                                placeholder="Nombre de tienda o sucursal" style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                            </label>
+                          </div>
+                          {supplier && (supplier.contact_name || supplier.phone) && (
+                            <div style={{ marginTop: 7, color: '#64748b', fontSize: '0.75rem' }}>
+                              Contacto: {supplier.contact_name || '—'}{supplier.phone && <> · <a href={`tel:${supplier.phone}`} style={{ color: '#2563eb' }}>{supplier.phone}</a></>}
+                            </div>
+                          )}
+                          <button type="button" onClick={() => { setSupplierForMaterial(material.purchaseKey); setShowSupplierForm(true); }}
+                            style={{ marginTop: 8, padding: '0.42rem 0.6rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.75rem', fontWeight: 750, cursor: 'pointer' }}>
+                            + Agregar contacto de proveedor
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {showSupplierForm && (
+                  <form onSubmit={addSupplierFromProduction} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 8, marginTop: 12, padding: '0.8rem', background: '#eff6ff', borderRadius: 10 }}>
+                    <strong style={{ gridColumn: '1 / -1', color: '#1d4f91', fontSize: '0.82rem' }}>Nuevo proveedor (también se guardará en la agenda)</strong>
+                    <input required value={supplierForm.name} onChange={event => setSupplierForm(current => ({ ...current, name: event.target.value }))} placeholder="Nombre del proveedor *" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                    <input value={supplierForm.contact_name} onChange={event => setSupplierForm(current => ({ ...current, contact_name: event.target.value }))} placeholder="Nombre de contacto" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                    <input type="tel" value={supplierForm.phone} onChange={event => setSupplierForm(current => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                    <input value={supplierForm.location} onChange={event => setSupplierForm(current => ({ ...current, location: event.target.value }))} placeholder="Tienda o ubicación" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                    <div style={{ display: 'flex', gap: 7 }}>
+                      <button type="submit" disabled={saving} style={{ padding: '0.55rem 0.7rem', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>{saving ? 'Guardando...' : 'Guardar proveedor'}</button>
+                      <button type="button" onClick={() => setShowSupplierForm(false)} style={{ padding: '0.55rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', color: '#475569', fontWeight: 700 }}>Cancelar</button>
+                    </div>
+                  </form>
+                )}
+                <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
+                  Puedes iniciar Producción aunque falten materiales; marca las compras pendientes conforme se vayan adquiriendo.
                 </div>
               </section>
             )}
@@ -594,9 +823,17 @@ function Pedidos() {
                 rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, font: 'inherit', fontSize: '0.85rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
-                <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
-                    {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : currentStage === 0 ? 'Pasar a Preparación de materiales →' : 'Guardar y avanzar →'}
-                </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {currentStage > 0 && selected.status !== 'ENTREGADO' && (
+                    <button type="button" disabled={saving} onClick={returnToPreviousStage}
+                      style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
+                      ← Regresar a {STAGE_NAMES[currentStage - 1]}
+                    </button>
+                  )}
+                  <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
+                      {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : currentStage === 0 ? 'Pasar a Preparación de materiales →' : 'Guardar y avanzar →'}
+                  </button>
+                </div>
               </div>
               {!!(selectedStage.photos || []).length && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginTop: 14 }}>
