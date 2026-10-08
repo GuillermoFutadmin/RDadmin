@@ -760,6 +760,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const filtered = contratos.filter(c => {
     if (txt && !((c.name||'').toLowerCase().includes(txt) || (c.public_id||'').toLowerCase().includes(txt) || (c.contact_info||'').toLowerCase().includes(txt) || (c.project_type||'').toLowerCase().includes(txt))) return false;
     if (filterType && c.project_type !== filterType) return false;
+    if (filterStatus === 'PRODUCCION') return ['PRODUCCION', 'ENTREGADO'].includes(getStatus(c));
     if (filterStatus && getStatus(c) !== filterStatus) return false;
     return true;
   });
@@ -1006,8 +1007,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
           { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconPalette },
           { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPenTool },
           { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: IconFileText },
-          { key: 'PRODUCCION', label: 'Producción', count: contratos.filter(c => getStatus(c) === 'PRODUCCION').length, color: '#1d4ed8', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPackage },
-          { key: 'ENTREGADO', label: 'Entregado', count: contratos.filter(c => getStatus(c) === 'ENTREGADO').length, color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconCheckCircle },
+          { key: 'PRODUCCION', label: 'Producción', count: contratos.filter(c => ['PRODUCCION', 'ENTREGADO'].includes(getStatus(c))).length, color: '#1d4ed8', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPackage },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
           const StageIcon = icon;
