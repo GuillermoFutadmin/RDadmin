@@ -55,6 +55,28 @@ const formatDate = (value) => value
 
 const imageUrl = (url) => url?.startsWith('http') || url?.startsWith('data:') ? url : `${API}${url || ''}`;
 
+const collectImageUrls = (...values) => {
+  const urls = new Set();
+  const visit = (value) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+    } else if (typeof value === 'object') {
+      if (value.url || value.path || value.image) visit(value.url || value.path || value.image);
+      else Object.values(value).forEach(visit);
+    } else if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (normalized.startsWith('data:')) {
+        urls.add(normalized);
+      } else {
+        normalized.split(',').map(item => item.trim()).filter(Boolean).forEach(url => urls.add(url));
+      }
+    }
+  };
+  values.forEach(visit);
+  return [...urls];
+};
+
 function InfoCard({ label, children }) {
   if (children === null || children === undefined || children === '') return null;
   return (
@@ -268,27 +290,6 @@ function Pedidos() {
   };
 
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
-  const collectImageUrls = (...values) => {
-    const urls = new Set();
-    const visit = (value) => {
-      if (!value) return;
-      if (Array.isArray(value)) {
-        value.forEach(visit);
-      } else if (typeof value === 'object') {
-        if (value.url || value.path || value.image) visit(value.url || value.path || value.image);
-        else Object.values(value).forEach(visit);
-      } else if (typeof value === 'string') {
-        const normalized = value.trim();
-        if (normalized.startsWith('data:')) {
-          urls.add(normalized);
-        } else {
-          normalized.split(',').map(item => item.trim()).filter(Boolean).forEach(url => urls.add(url));
-        }
-      }
-    };
-    values.forEach(visit);
-    return [...urls];
-  };
   const measurementPhotos = measurementEntries.flatMap(entry => collectImageUrls(entry.photo));
   const otherProjectImages = selected ? collectImageUrls(
     selected.space_image_path,
