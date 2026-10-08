@@ -3,6 +3,7 @@ import { ContratoDetail } from './Contratos';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
+  'Producción',
   'Generando información',
   'Preparación de materiales',
   'Producción iniciada',
@@ -15,6 +16,23 @@ const parseJson = (value, fallback = {}) => {
   if (!value) return fallback;
   if (typeof value === 'object') return value;
   try { return JSON.parse(value); } catch { return fallback; }
+};
+
+const normalizeProduction = (value) => {
+  const production = parseJson(value);
+  if (!Array.isArray(production.stages)) return { ...production, stages: [] };
+  if (production.stages.length === STAGE_NAMES.length - 1) {
+    const enteredAt = production.started_at || production.stages[0]?.entered_at || null;
+    return {
+      ...production,
+      current_stage: (Number.isInteger(production.current_stage) ? production.current_stage : 0) + 1,
+      stages: [
+        { name: STAGE_NAMES[0], entered_at: enteredAt, note: '', photos: [] },
+        ...production.stages.map((stage, index) => ({ ...stage, name: STAGE_NAMES[index + 1] }))
+      ]
+    };
+  }
+  return production;
 };
 
 const formatDate = (value) => value
@@ -43,6 +61,7 @@ function Pedidos() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showTechnicalSheet, setShowTechnicalSheet] = useState(false);
+  const [stageFilter, setStageFilter] = useState(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -68,16 +87,17 @@ function Pedidos() {
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return projects;
-    return projects.filter(project =>
-      [project.name, project.public_id, project.project_type, project.contact_info]
-        .some(value => String(value || '').toLocaleLowerCase().includes(query))
-    );
-  }, [projects, search]);
+    return projects.filter(project => {
+      const matchesQuery = !query || [project.name, project.public_id, project.project_type, project.contact_info]
+        .some(value => String(value || '').toLocaleLowerCase().includes(query));
+      const matchesStage = stageFilter === null || normalizeProduction(project.production_data).current_stage === stageFilter;
+      return matchesQuery && matchesStage;
+    });
+  }, [projects, search, stageFilter]);
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
-  const production = parseJson(selected?.production_data);
+  const production = normalizeProduction(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
@@ -209,6 +229,16 @@ function Pedidos() {
     }
   };
 
+  const selectStage = (stageIndex) => {
+    setStageFilter(stageIndex);
+    const matching = stageIndex === null
+      ? projects
+      : projects.filter(project => normalizeProduction(project.production_data).current_stage === stageIndex);
+    if (!matching.some(project => project.id === selectedId)) {
+      setSelectedId(matching[0]?.id ?? null);
+    }
+  };
+
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
   const money = (value) => Number.isFinite(Number(value))
     ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value))
@@ -245,6 +275,31 @@ function Pedidos() {
 
       {message && <div role="status" style={{ marginBottom: 12, padding: '0.7rem 0.9rem', background: message.includes('no pudo') || message.includes('No se pudo') ? '#fef2f2' : '#eff6ff', color: message.includes('no pudo') || message.includes('No se pudo') ? '#b91c1c' : '#1d4f91', borderRadius: 10 }}>{message}</div>}
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem', marginBottom: '1.2rem' }}>
+        {[
+          { index: null, label: 'Todos', count: projects.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' },
+          ...STAGE_NAMES.map((label, index) => ({
+            index,
+            label,
+            count: projects.filter(project => normalizeProduction(project.production_data).current_stage === index).length,
+            color: index === 0 ? '#1d4ed8' : '#2563a8',
+            bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+          }))
+        ].map(({ index, label, count, color, bg }) => {
+          const active = stageFilter === index;
+          return (
+            <button key={label} type="button" onClick={() => selectStage(index)}
+              style={{ minWidth: 0, padding: '0.8rem 0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: active ? bg : '#fff', border: `1px solid ${active ? color : '#e2e8f0'}`, borderRadius: 12, boxShadow: active ? `0 3px 10px ${color}20` : '0 1px 3px rgba(15,23,42,0.05)', cursor: 'pointer', textAlign: 'left' }}>
+              <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, color: active ? color : '#64748b', fontSize: '0.78rem', fontWeight: active ? 800 : 700 }}>
+                <span style={{ width: 30, height: 30, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: active ? '#fff' : '#f8fafc', borderRadius: 9, color }}>{index === null ? '☷' : index === 0 ? '📦' : index + 1}</span>
+                <span>{label}</span>
+              </span>
+              <span style={{ color: '#1e293b', fontSize: '1.1rem', fontWeight: 800 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 300px) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
         <aside style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ padding: '1rem', borderBottom: '1px solid #edf1f5', fontWeight: 800, color: '#334155' }}>
@@ -255,7 +310,7 @@ function Pedidos() {
               style={{ display: 'block', width: '100%', padding: '0.9rem 1rem', textAlign: 'left', border: 0, borderBottom: '1px solid #f1f5f9', background: project.id === selectedId ? '#eff6ff' : '#fff', cursor: 'pointer' }}>
               <span style={{ display: 'block', color: '#1e293b', fontWeight: 750 }}>{project.name || 'Cliente sin nombre'}</span>
               <span style={{ display: 'block', marginTop: 4, color: '#64748b', fontSize: '0.78rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
-              <span style={{ display: 'inline-block', marginTop: 8, color: '#1d4f91', fontWeight: 700, fontSize: '0.73rem' }}>{STAGE_NAMES[parseJson(project.production_data).current_stage || 0]}</span>
+              <span style={{ display: 'inline-block', marginTop: 8, color: '#1d4f91', fontWeight: 700, fontSize: '0.73rem' }}>{STAGE_NAMES[normalizeProduction(project.production_data).current_stage || 0]}</span>
             </button>
           )) : <p style={{ padding: '1rem', margin: 0, color: '#64748b', lineHeight: 1.5 }}>{projects.length ? 'No hay proyectos que coincidan con la búsqueda.' : 'Aún no hay proyectos en producción. Desde Contratos, usa “Enviar a Producción” para iniciar el seguimiento.'}</p>}
         </aside>
@@ -376,7 +431,13 @@ function Pedidos() {
           </section>
         ) : !loading ? (
           <div style={{ padding: '2rem', color: '#64748b', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16 }}>
-            {projects.length ? 'Selecciona un proyecto para revisar su avance.' : 'Los contratos se incorporan desde el módulo Contratos.'}
+            {filteredProjects.length
+              ? 'Selecciona un proyecto para revisar su avance.'
+              : projects.length && stageFilter !== null
+                ? `No hay proyectos actualmente en la etapa “${STAGE_NAMES[stageFilter]}”.`
+                : projects.length
+                  ? 'No hay proyectos que coincidan con la búsqueda.'
+                  : 'Los contratos se incorporan desde el módulo Clientes.'}
           </div>
         ) : null}
       </div>

@@ -621,6 +621,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
         current_stage: 0,
         started_at: now,
         stages: [
+          'Producción',
           'Generando información',
           'Preparación de materiales',
           'Producción iniciada',

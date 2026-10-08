@@ -363,7 +363,7 @@ async def upload_production_evidence(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    if stage_index < 0 or stage_index > 5:
+    if stage_index < 0 or stage_index > 6:
         raise HTTPException(status_code=400, detail="Invalid production stage")
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image evidence is allowed")
@@ -381,7 +381,15 @@ async def upload_production_evidence(
         raise HTTPException(status_code=409, detail="Production data is invalid") from exc
 
     stages = production.get("stages")
-    if not isinstance(stages, list) or len(stages) != 6:
+    if isinstance(stages, list) and len(stages) == 6:
+        stages.insert(0, {
+            "name": "Producción",
+            "entered_at": production.get("started_at") or stages[0].get("entered_at"),
+            "note": "",
+            "photos": [],
+        })
+        production["current_stage"] = (production.get("current_stage") or 0) + 1
+    if not isinstance(stages, list) or len(stages) != 7:
         raise HTTPException(status_code=409, detail="Production stages are invalid")
 
     image_url = await upload_to_storage(file, f"production_{prospect_id}_{stage_index}")
