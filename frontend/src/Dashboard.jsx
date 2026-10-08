@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconPlusCircle, IconTrendingUp, IconTrash } from './icons';
 
 const API = '';
 
 const CLIENT_STAGES = [
-  { key: 'APROBADO',     label: 'Aprobado',     icon: '✅', color: '#166534', bg: '#dcfce7', border: '#86efac' },
-  { key: 'RENDER SI/NO', label: 'Render',        icon: '🎨', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
-  { key: 'ESTIMACIÓN',   label: 'Estimación',   icon: '📐', color: '#3730a3', bg: '#e0e7ff', border: '#a5b4fc' },
-  { key: 'CONTRATO',     label: 'Contrato',     icon: '📄', color: '#9d174d', bg: '#fce7f3', border: '#f9a8d4' },
+  { key: 'APROBADO',     label: 'Aprobado',     icon: IconCheckCircle, color: '#166534', bg: '#dcfce7', border: '#86efac' },
+  { key: 'RENDER SI/NO', label: 'Render',       icon: IconPalette, color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
+  { key: 'ESTIMACIÓN',   label: 'Estimación',   icon: IconRuler, color: '#3730a3', bg: '#e0e7ff', border: '#a5b4fc' },
+  { key: 'CONTRATO',     label: 'Contrato',     icon: IconFileText, color: '#9d174d', bg: '#fce7f3', border: '#f9a8d4' },
 ];
 
 const PROSPECT_STAGES = [
-  { key: 'Prospecto',   label: 'Nuevo',        icon: '🆕', color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
-  { key: 'Valoración',  label: 'Valoración',    icon: '📊', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
-  { key: 'Cotización',  label: 'Cotización',    icon: '💰', color: '#14532d', bg: '#f0fdf4', border: '#86efac' },
-  { key: 'papelera',    label: 'Papelera',      icon: '🗑️', color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
+  { key: 'Prospecto',   label: 'Nuevo',        icon: IconPlusCircle, color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
+  { key: 'Valoración',  label: 'Valoración',   icon: IconTrendingUp, color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
+  { key: 'Cotización',  label: 'Cotización',   icon: IconFileText, color: '#14532d', bg: '#f0fdf4', border: '#86efac' },
+  { key: 'papelera',    label: 'Papelera',     icon: IconTrash, color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 ];
 
 function getClientStatus(c) {
@@ -95,7 +96,7 @@ function Dashboard() {
       <div style={{ ...cardStyle, borderTop: '4px solid #ba4b24', minWidth: '220px', flex: '0 0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>👥</span>
+            <IconUsers style={{ width:'22px', height:'22px', marginRight:0, color:'#ba4b24' }} />
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Prospectos</div>
               <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prospectos</div>
@@ -125,7 +126,7 @@ function Dashboard() {
                 background: st.bg, border: `1px solid ${st.border}`
               }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span>{st.icon}</span>{st.label}
+                <st.icon style={{ width:'14px', height:'14px', marginRight:0, flexShrink:0 }} />{st.label}
               </span>
               <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
               
@@ -155,7 +156,7 @@ function Dashboard() {
       <div style={{ ...cardStyle, borderTop: '4px solid #7c3aed', minWidth: '220px', flex: '0 0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>📋</span>
+            <IconFileText style={{ width:'22px', height:'22px', marginRight:0, color:'#7c3aed' }} />
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Clientes</div>
               <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Clientes</div>
@@ -185,7 +186,7 @@ function Dashboard() {
                 background: st.bg, border: `1px solid ${st.border}`
               }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span>{st.icon}</span>{st.label}
+                <st.icon style={{ width:'14px', height:'14px', marginRight:0, flexShrink:0 }} />{st.label}
               </span>
               <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
 
