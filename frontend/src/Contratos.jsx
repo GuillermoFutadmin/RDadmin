@@ -62,6 +62,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
 function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh }) {
   const [localProspect, setLocalProspect] = React.useState(_prospectProp);
+  const [showPhotos, setShowPhotos] = React.useState(false);
 
   React.useEffect(() => { setLocalProspect(_prospectProp); }, [_prospectProp]);
 
@@ -71,9 +72,128 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
   const chip = (label, value) => value ? (
     <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
       <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
-      <p style={{ fontWeight:'600', fontSize:'0.82rem', color:'#1e293b', margin:0, lineHeight:'1.3' }}>{value}</p>
+      <p style={{ fontWeight:'600', fontSize:'0.82rem', color:'#1e293b', margin:0, lineHeight:'1.3', whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{value}</p>
     </div>
   ) : null;
+
+  const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
+    .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
+
+  const displayValue = (value) => {
+    if (value === true) return 'Sí';
+    if (value === false) return 'No';
+    if (value === null || value === undefined || value === '') return null;
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return value;
+  };
+  const stageSection = (title, subtitle, items, tint = '#64748b') => {
+    const visibleItems = items.filter(([, value]) => displayValue(value) !== null);
+    if (!visibleItems.length) return null;
+    return (
+      <section style={{ marginTop:'0.8rem', padding:'0.8rem', background:'#fff', border:'1px solid #e2e8f0', borderRadius:'12px' }}>
+        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.65rem' }}>
+          <h4 style={{ margin:0, color:'#1e293b', fontSize:'0.9rem' }}>{title}</h4>
+          <span style={{ color:tint, fontSize:'0.66rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{subtitle}</span>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(155px, 1fr))', gap:'0.45rem' }}>
+          {visibleItems.map(([label, value]) => chip(label, displayValue(value)))}
+        </div>
+      </section>
+    );
+  };
+
+  let estimationData = {};
+  if (prospect.estimation_data) {
+    try {
+      const parsedData = typeof prospect.estimation_data === 'string'
+        ? JSON.parse(prospect.estimation_data)
+        : prospect.estimation_data;
+      if (parsedData && typeof parsedData === 'object') estimationData = parsedData;
+    } catch (error) {
+      console.error('No se pudo leer la estimación guardada del contrato:', error);
+    }
+  }
+  const projectDetails = estimationData.projectDetails || {};
+  const estimationSheets = Array.isArray(estimationData.sheets) ? estimationData.sheets : [];
+  const countFiles = (value) => Array.isArray(value) ? value.length : value ? String(value).split(',').filter(Boolean).length : 0;
+  const imageList = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (!value) return [];
+    if (String(value).startsWith('data:')) return [value];
+    return String(value).split(',').map(image => image.trim()).filter(Boolean);
+  };
+  const estimationImages = imageList(estimationData.photos);
+  const quotationImages = [
+    prospect.quote_image_1, prospect.quote_image_2, prospect.quote_image_3, prospect.quote_image_4
+  ].flatMap(imageList);
+  const estimationPhotoCount = countFiles(estimationData.croquisPhotos) + estimationImages.length + (estimationData.croquis_data ? 1 : 0);
+  const photosCount = [
+    prospect.space_image_path,
+    prospect.reference_image_path || prospect.design_image_path,
+    prospect.render_image_path,
+    prospect.contract_photo_client,
+    prospect.contract_photo_rep,
+    prospect.contract_signature_client,
+    prospect.contract_signature_rep
+  ].reduce((total, files) => total + countFiles(files), 0) + estimationPhotoCount + quotationImages.length;
+  const estimationSheetItems = estimationSheets.map((sheet, index) => {
+    const rows = ['materials', 'labor', 'concepts'].flatMap((section) => sheet[section] || []);
+    const breakdown = rows.map((row) => {
+      const quantity = row.qty ? ` × ${row.qty}` : '';
+      const unit = row.unit ? ` ${row.unit}` : '';
+      const price = row.price !== null && row.price !== undefined && row.price !== ''
+        ? ` (${formatCurrency(Number(row.price))})`
+        : '';
+      return `${row.desc || 'Concepto'}${quantity}${unit}${price}`;
+    }).join('; ');
+    return [`Proyecto ${index + 1} · ${sheet.type || 'Sin nombre'}`, breakdown || 'Sin conceptos capturados'];
+  });
+  const prospectItems = [
+    ['Fecha de registro', prospect.capture_date ? fmtDate(prospect.capture_date) : null],
+    ['Cliente', prospect.name],
+    ['Contacto', prospect.contact_info],
+    ['Ubicación / domicilio', prospect.location],
+    ['Tipo de proyecto', prospect.project_type],
+    ['Otro tipo de proyecto', prospect.project_type_other],
+    ['Casa habitada', prospect.inhabited_house],
+    ['Cómo nos encontró', prospect.how_found],
+    ['Prioridades', prospect.project_priorities],
+    ['Expectativas', prospect.expectations],
+    ['Diseño existente', prospect.has_design],
+    ['Detalles de diseño', prospect.design_details],
+    ['Estado al pasar a contrato', prospect.status],
+    ['Material principal', prospect.material_type],
+    ['Material secundario', prospect.material_type_2],
+    ['Color de mobiliario', prospect.furniture_color],
+    ['Color interior', [prospect.interior_color_type, prospect.interior_color_code].filter(Boolean).join(' · ')],
+    ['Color inferior exterior', [prospect.exterior_inf_color_type, prospect.exterior_inf_color_code].filter(Boolean).join(' · ')],
+    ['Color superior exterior', [prospect.exterior_sup_color_type, prospect.exterior_sup_color_code].filter(Boolean).join(' · ')],
+    ['Encimera', prospect.countertop_type],
+    ['Herrajes', prospect.hardware_details],
+    ['Inicio solicitado', prospect.start_date],
+    ['Entrega solicitada', prospect.delivery_date],
+    ['Plazo solicitado', prospect.project_timeline],
+    ['Días de producción', prospect.production_days],
+    ['Precio de valoración', prospect.estimated_price],
+    ['Medidas generales', prospect.measurements],
+    ['Distribución de cocina', prospect.kitchen_layout],
+    ['Complementos de cocina', prospect.kitchen_addons],
+    ['Medidas de cocina', prospect.kitchen_measurements],
+    ['Medidas de isla', prospect.kitchen_island_measurements],
+    ['Medidas de península', prospect.kitchen_peninsula_measurements],
+    ['Distribución de clóset', prospect.closet_layout],
+    ['Complementos de clóset', prospect.closet_addons],
+    ['Medidas de clóset', prospect.closet_measurements],
+    ['Medidas de isla de clóset', prospect.closet_island_measurements],
+    ['Medidas de tocador', prospect.closet_vanity_measurements],
+    ['Medidas de puertas sólidas', prospect.door_solid_measurements],
+    ['Medidas de puertas tambor', prospect.door_tambor_measurements],
+    ['Detalles de restauración', prospect.restoration_details],
+    ['Medidas de restauración', prospect.restoration_measurements],
+    ['Otras medidas', prospect.other_measurements],
+    ['Información de valoración', prospect.valuation_data]
+  ];
 
   const generatePassword = async () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -93,9 +213,6 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
       alert('Error al generar contraseña');
     }
   };
-
-  const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
-    .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
 
   return (
     <div className="card" style={{ marginBottom:'2rem' }}>
@@ -134,78 +251,61 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         </button>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'0.4rem' }}>
-        {chip('Fecha Captura', fmtDate(prospect.capture_date))}
-        {chip('Contacto', prospect.contact_info)}
-        {chip('Ubicación', prospect.location)}
-        {chip('Casa habitada', prospect.inhabited_house)}
-        {chip('Tipo de Proyecto', prospect.project_type)}
-        {chip('Inicio', prospect.start_date)}
-        {chip('Entrega', prospect.delivery_date)}
-        {chip('Precio Estimado', prospect.estimated_price)}
-        {chip('Material 1', prospect.material_type)}
-        {prospect.material_type_2 && chip('Material 2', prospect.material_type_2)}
-        {chip('Encimera', prospect.countertop_type)}
-        {chip('Herrajes', prospect.hardware_details)}
-        {chip('Medidas', prospect.measurements)}
-        {chip('Estado', prospect.status)}
-        {chip('Prioridades', prospect.project_priorities)}
-      </div>
+      {stageSection('Captura y valoración inicial', 'Etapa Prospectos · Información original', prospectItems, '#2563eb')}
       {prospect.papelera_reason && (
         <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'1px solid #fca5a5', borderRadius:'8px' }}>
           <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
           <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
         </div>
       )}
-      {prospect.expectations && (
-        <div style={{ marginTop:'0.4rem', padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
-          <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase' }}>Expectativas</p>
-          <p style={{ fontSize:'0.82rem', margin:0 }}>{prospect.expectations}</p>
-        </div>
+      {stageSection('Cotización', 'Etapa Estimación · Cotizador', [
+        ['Saludo', prospect.quote_saludo],
+        ['Título', prospect.quote_title],
+        ['Descripción / observaciones', prospect.quote_description],
+        ['Total cotizado', prospect.quote_total_price],
+        ['Anticipo acordado', prospect.quote_anticipo],
+        ['Tiempo de entrega cotizado', prospect.quote_delivery_time],
+        ['Vigencia de cotización', prospect.quote_validez],
+        ['Precio de valoración inicial', prospect.estimated_price]
+      ], '#0891b2')}
+      {stageSection('Estimación del proyecto', 'Etapa Estimación · Datos guardados', [
+        ['Plazo rectificado', projectDetails.project_timeline],
+        ['Días de producción rectificados', projectDetails.production_days],
+        ['Inicio rectificado', projectDetails.start_date],
+        ['Entrega rectificada', projectDetails.delivery_date],
+        ['Precio rectificado', projectDetails.estimated_price],
+        ['Margen', estimationData.margin],
+        ['Anticipo configurado', estimationData.anticipoPct ? `${estimationData.anticipoPct}%` : null],
+        ['Total calculado', estimationData.totalWithMargin ? formatCurrency(Number(estimationData.totalWithMargin)) : null],
+        ['Unidad de cotización', estimationData.unit],
+        ['Fecha de entrega calculada', estimationData.estimatedDeliveryDate],
+        ['Medidas de estimación', estimationData.measures],
+        ['Observaciones de estimación', estimationData.obsText],
+        ['Hojas / proyectos cotizados', estimationSheets.length || null],
+        ...estimationSheetItems
+      ], '#7c3aed')}
+      {stageSection('Datos del contrato', 'Etapa Cliente / Contrato', [
+        ['Fecha de contrato', prospect.contract_date ? fmtDate(prospect.contract_date) : null],
+        ['Estado actual', prospect.status],
+        ['Render incluido', prospect.render_applies],
+        ['Precio del render', prospect.render_price],
+        ['Total con render', prospect.render_total_price],
+        ['Entrega del render', prospect.render_delivery_time],
+        ['Observaciones del render', prospect.render_comments]
+      ], '#16a34a')}
+      {photosCount > 0 && (
+        <button type="button" onClick={() => setShowPhotos(value => !value)}
+          aria-expanded={showPhotos}
+          style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', marginTop:'0.8rem', padding:'0.7rem 0.9rem', background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:'10px', color:'#334155', cursor:'pointer', fontWeight:700, textAlign:'left' }}>
+          <span>{showPhotos ? 'Ocultar fotos y evidencias' : 'Ver fotos y evidencias'} <span style={{ color:'#64748b', fontWeight:500 }}>({photosCount})</span></span>
+          <span aria-hidden="true">{showPhotos ? '−' : '+'}</span>
+        </button>
       )}
-      {prospect.has_design && (
+      {photosCount > 0 && (
         <div style={{ marginTop:'0.6rem' }}>
 
-          {/* ── RENDER INFO CARD (datos capturados en etapa de Contrato) ─── */}
-          {(prospect.render_applies !== null && prospect.render_applies !== undefined) && (
-            <div style={{ marginBottom:'0.75rem', padding:'0.75rem 1rem', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', border:'2px solid #86efac', borderRadius:'12px' }}>
-              <p style={{ fontSize:'0.68rem', fontWeight:'900', color:'#166534', margin:'0 0 0.5rem', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-                🎨 Información del Render — <span style={{ color:'#15803d' }}>Etapa Cliente / Contrato</span>
-              </p>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.4rem' }}>
-                <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
-                  <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>¿Aplica Render?</span>
-                  <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color: prospect.render_applies ? '#15803d' : '#dc2626' }}>
-                    {prospect.render_applies ? '✅ SÍ' : '❌ NO'}
-                  </p>
-                </div>
-                {prospect.render_applies && prospect.render_price && (
-                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
-                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Precio Render</span>
-                    <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color:'#1e293b' }}>${Number(prospect.render_price).toLocaleString()}</p>
-                  </div>
-                )}
-                {prospect.render_applies && prospect.render_delivery_time && (
-                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
-                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Tiempo Entrega</span>
-                    <p style={{ margin:0, fontWeight:'700', fontSize:'0.88rem', color:'#1e293b' }}>{prospect.render_delivery_time}</p>
-                  </div>
-                )}
-                {prospect.render_applies && prospect.render_total_price && (
-                  <div style={{ background:'white', borderRadius:'8px', padding:'0.4rem 0.6rem', border:'1px solid #bbf7d0' }}>
-                    <span style={{ fontSize:'0.6rem', color:'#6b7280', textTransform:'uppercase', fontWeight:'700' }}>Total c/Render</span>
-                    <p style={{ margin:0, fontWeight:'800', fontSize:'0.9rem', color:'#1e293b' }}>${Number(prospect.render_total_price).toLocaleString()}</p>
-                  </div>
-                )}
-              </div>
-              {prospect.render_comments && (
-                <p style={{ margin:'0.5rem 0 0', fontSize:'0.82rem', color:'#166534', fontStyle:'italic' }}>💬 {prospect.render_comments}</p>
-              )}
-            </div>
-          )}
-
           {/* ── FOTOS ─── */}
-          <div style={{ padding:'0.6rem 0.75rem', backgroundColor:'#f8f9fa', borderRadius:'12px', border:'1px solid #e2e8f0' }}>
+          {showPhotos && <div style={{ padding:'0.6rem 0.75rem', backgroundColor:'#f8f9fa', borderRadius:'12px', border:'1px solid #e2e8f0' }}>
             {/* Encabezado que diferencia el origen de datos */}
             <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.6rem', flexWrap:'wrap' }}>
               <span style={{ fontSize:'0.68rem', color:'#94a3b8', textTransform:'uppercase', fontWeight:'700' }}>Diseño y Fotos del Proyecto</span>
@@ -224,7 +324,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
                     🏠 Foto del Espacio
                   </div>
                   <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
-                    {prospect.space_image_path.split(',').map((imgPath, idx) => (
+                    {imageList(prospect.space_image_path).map((imgPath, idx) => (
                       <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
                         alt={`Espacio ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
                     ))}
@@ -239,9 +339,37 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
                     💡 Foto de Referencia
                   </div>
                   <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
-                    {(prospect.reference_image_path || prospect.design_image_path).split(',').map((imgPath, idx) => (
+                    {imageList(prospect.reference_image_path || prospect.design_image_path).map((imgPath, idx) => (
                       <img key={idx} src={imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`}
                         alt={`Referencia ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {estimationImages.length > 0 && (
+                <div style={{ border:'1px solid #ddd6fe', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.82rem', fontWeight:700, color:'#6d28d9', backgroundColor:'#f5f3ff', textAlign:'center' }}>
+                    Fotos de estimación
+                  </div>
+                  <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', padding:'8px' }}>
+                    {estimationImages.map((image, idx) => (
+                      <img key={idx} src={image.startsWith('http') || image.startsWith('data:') ? image : `${API}${image}`}
+                        alt={`Estimación ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {quotationImages.length > 0 && (
+                <div style={{ border:'1px solid #a5f3fc', borderRadius:'10px', overflow:'hidden', backgroundColor:'white' }}>
+                  <div style={{ padding:'10px 12px', fontSize:'0.82rem', fontWeight:700, color:'#0e7490', backgroundColor:'#ecfeff', textAlign:'center' }}>
+                    Imágenes de cotización
+                  </div>
+                  <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', padding:'8px' }}>
+                    {quotationImages.map((image, idx) => (
+                      <img key={idx} src={image.startsWith('http') || image.startsWith('data:') ? image : `${API}${image}`}
+                        alt={`Cotización ${idx + 1}`} style={{ flex:'1 1 45%', width:'100%', height:'auto', borderRadius:'6px', objectFit:'cover' }} />
                     ))}
                   </div>
                 </div>
@@ -254,7 +382,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
                     🎨 Imágenes de Render
                   </div>
                   <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'6px' }}>
-                    {prospect.render_image_path.split(',').map((imgPath, idx) => {
+                    {imageList(prospect.render_image_path).map((imgPath, idx) => {
                       let url = imgPath.trim().startsWith('http') ? imgPath.trim() : `${API}${imgPath.trim()}`;
                       if (url.includes('res.cloudinary.com') && url.toLowerCase().endsWith('.pdf')) {
                         url = url.substring(0, url.length - 4) + '.jpg';
@@ -283,12 +411,12 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </div>
       )}
 
       {/* ── CROQUIS DIBUJADOS ── */}
-      {(() => {
+      {showPhotos && (() => {
         if (!prospect.estimation_data) return null;
         try {
           const d = typeof prospect.estimation_data === 'string' ? JSON.parse(prospect.estimation_data) : prospect.estimation_data;
