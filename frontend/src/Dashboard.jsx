@@ -19,8 +19,7 @@ const PROSPECT_STAGES = [
 ];
 
 const PRODUCTION_STAGE_NAMES = [
-  'Producción',
-  'Generando información',
+  'Producción / Generando información',
   'Preparación de materiales',
   'Producción iniciada',
   'Avance 1',
@@ -54,9 +53,10 @@ function parseProductionData(value) {
 function getProductionStage(project) {
   const production = parseProductionData(project.production_data);
   const stage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
-  return Array.isArray(production.stages) && production.stages.length === 6 && stage > 0
-    ? stage + 1
-    : stage;
+  if (Array.isArray(production.stages) && production.stages.length === 7) {
+    return stage <= 1 ? 0 : stage - 1;
+  }
+  return stage;
 }
 
 function getClientStatus(c) {

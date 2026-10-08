@@ -3,8 +3,7 @@ import { ContratoDetail, getMeasureSections } from './Contratos';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
-  'Producción',
-  'Generando información',
+  'Producción / Generando información',
   'Preparación de materiales',
   'Producción iniciada',
   'Avance 1',
@@ -21,16 +20,30 @@ const parseJson = (value, fallback = {}) => {
 const normalizeProduction = (value) => {
   const production = parseJson(value);
   if (!Array.isArray(production.stages)) return { ...production, stages: [] };
-  if (production.stages.length === STAGE_NAMES.length - 1) {
+  if (production.stages.length === STAGE_NAMES.length + 1) {
     const legacyStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
-    const enteredAt = production.started_at || production.stages[0]?.entered_at || null;
+    const firstStage = production.stages[0] || {};
+    const secondStage = production.stages[1] || {};
+    const notes = [firstStage.note, secondStage.note].filter(Boolean);
     return {
       ...production,
-      current_stage: legacyStage === 0 ? 0 : legacyStage + 1,
+      current_stage: legacyStage <= 1 ? 0 : legacyStage - 1,
       stages: [
-        { name: STAGE_NAMES[0], entered_at: enteredAt, note: '', photos: [] },
-        ...production.stages.map((stage, index) => ({ ...stage, name: STAGE_NAMES[index + 1] }))
+        {
+          ...firstStage,
+          name: STAGE_NAMES[0],
+          entered_at: firstStage.entered_at || production.started_at || null,
+          note: notes.join('\n'),
+          photos: [...(firstStage.photos || []), ...(secondStage.photos || [])]
+        },
+        ...production.stages.slice(2).map((stage, index) => ({ ...stage, name: STAGE_NAMES[index + 1] }))
       ]
+    };
+  }
+  if (production.stages.length === STAGE_NAMES.length) {
+    return {
+      ...production,
+      stages: production.stages.map((stage, index) => ({ ...stage, name: STAGE_NAMES[index] }))
     };
   }
   return production;
@@ -553,7 +566,7 @@ function Pedidos() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
-                  {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage === 0 ? 'Pasar a Generando información →' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : 'Guardar y avanzar →'}
+                    {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : currentStage === 0 ? 'Pasar a Preparación de materiales →' : 'Guardar y avanzar →'}
                 </button>
               </div>
               {!!(selectedStage.photos || []).length && (

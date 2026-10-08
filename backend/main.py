@@ -363,7 +363,7 @@ async def upload_production_evidence(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    if stage_index < 0 or stage_index > 6:
+    if stage_index < 0 or stage_index > 5:
         raise HTTPException(status_code=400, detail="Invalid production stage")
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image evidence is allowed")
@@ -381,17 +381,37 @@ async def upload_production_evidence(
         raise HTTPException(status_code=409, detail="Production data is invalid") from exc
 
     stages = production.get("stages")
-    if isinstance(stages, list) and len(stages) == 6:
+    if isinstance(stages, list) and len(stages) == 7:
         legacy_stage = production.get("current_stage") or 0
-        stages.insert(0, {
-            "name": "Producción",
-            "entered_at": production.get("started_at") or stages[0].get("entered_at"),
-            "note": "",
-            "photos": [],
-        })
-        production["current_stage"] = 0 if legacy_stage == 0 else legacy_stage + 1
-    if not isinstance(stages, list) or len(stages) != 7:
+        first_stage = stages[0]
+        second_stage = stages[1]
+        notes = [note for note in (first_stage.get("note"), second_stage.get("note")) if note]
+        stages = [
+            {
+                **first_stage,
+                "name": "Producción / Generando información",
+                "entered_at": first_stage.get("entered_at") or production.get("started_at"),
+                "note": "\n".join(notes),
+                "photos": first_stage.get("photos", []) + second_stage.get("photos", []),
+            },
+            *stages[2:],
+        ]
+        production["current_stage"] = 0 if legacy_stage <= 1 else legacy_stage - 1
+    if not isinstance(stages, list) or len(stages) != 6:
         raise HTTPException(status_code=409, detail="Production stages are invalid")
+
+    stage_names = [
+        "Producción / Generando información",
+        "Preparación de materiales",
+        "Producción iniciada",
+        "Avance 1",
+        "Avance 2 / revisión",
+        "Entrega del proyecto",
+    ]
+    stages[0]["name"] = stage_names[0]
+    for index, stage in enumerate(stages):
+        stage["name"] = stage_names[index]
+    production["stages"] = stages
 
     image_url = await upload_to_storage(file, f"production_{prospect_id}_{stage_index}")
     photos = stages[stage_index].setdefault("photos", [])
