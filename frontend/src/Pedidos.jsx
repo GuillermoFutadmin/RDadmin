@@ -442,10 +442,10 @@ function Pedidos() {
     const exportElement = element.cloneNode(true);
     exportElement.removeAttribute('id');
     Object.assign(exportElement.style, {
-      position: 'absolute',
+      position: 'fixed',
       left: '0',
       top: '0',
-      zIndex: '-1',
+      zIndex: '2147483647',
       width: '794px',
       minHeight: '1123px',
       height: 'auto',
@@ -481,14 +481,14 @@ function Pedidos() {
       if (!canvas.width || !canvas.height) throw new Error('No se pudo capturar el contenido del machote.');
       const context = canvas.getContext('2d', { willReadFrequently: true });
       const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let hasContent = false;
-      for (let pixel = 0; pixel < sample.length; pixel += 4 * 97) {
+      let contentPixels = 0;
+      for (let pixel = 0; pixel < sample.length; pixel += 4) {
         if (sample[pixel + 3] > 0 && (sample[pixel] < 245 || sample[pixel + 1] < 245 || sample[pixel + 2] < 245)) {
-          hasContent = true;
-          break;
+          contentPixels += 1;
+          if (contentPixels >= 10) break;
         }
       }
-      if (!hasContent) throw new Error('El machote se capturó en blanco. No se descargó el PDF; vuelve a intentarlo.');
+      if (!contentPixels) throw new Error('La captura del machote está vacía. No se descargó el PDF; vuelve a intentarlo.');
       const pdf = await worker.toPdf().get('pdf');
       pdf.save(`Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`);
       setMessage('PDF del expediente descargado.');
