@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ContratoDetail } from './Contratos';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
@@ -41,6 +42,7 @@ function Pedidos() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [showTechnicalSheet, setShowTechnicalSheet] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -72,6 +74,7 @@ function Pedidos() {
   }, [projects, search]);
 
   const selected = projects.find(project => project.id === selectedId) || null;
+  useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
   const production = parseJson(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
@@ -184,6 +187,19 @@ function Pedidos() {
     ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value))
     : value;
 
+  if (selected && showTechnicalSheet) {
+    return (
+      <div style={{ padding: '1rem' }}>
+        <ContratoDetail
+          prospect={selected}
+          productionMode
+          onBack={() => setShowTechnicalSheet(false)}
+          onRefresh={refresh}
+        />
+      </div>
+    );
+  }
+
   return (
     <main style={{ padding: 'clamp(0.8rem, 2vw, 1.6rem)', color: '#1e293b' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -224,7 +240,12 @@ function Pedidos() {
                   <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#172b4d' }}>{selected.name}</h2>
                   <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
                 </div>
-                <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
+                    📋 Ficha técnica
+                  </button>
+                  <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '1.25rem 0 0.2rem' }}>
                 {STAGE_NAMES.map((name, index) => {

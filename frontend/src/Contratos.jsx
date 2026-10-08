@@ -60,7 +60,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh, onStartProduction }) {
+export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh, onStartProduction, productionMode = false }) {
   const [localProspect, setLocalProspect] = React.useState(_prospectProp);
   const [showPhotos, setShowPhotos] = React.useState(false);
 
@@ -258,16 +258,16 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         <h3 style={{ color:'var(--accent)', margin:0, fontSize:'1.15rem' }}>{prospect.name}</h3>
         <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
           <button onClick={onBack} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#eee', border:'none', borderRadius:'6px', cursor:'pointer' }}>Volver</button>
-          <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          {!productionMode && <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconPenTool style={{ width:'14px', height:'14px', marginRight:0 }} /> Estimación
-          </button>
-          <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          </button>}
+          {!productionMode && <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconFileText style={{ width:'14px', height:'14px', marginRight:0 }} /> Descargar Cotización
-          </button>
-          <button onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
+          </button>}
+          {!productionMode && <button onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
             🏭 {prospect.production_data ? 'Ver Producción' : 'Enviar a Producción'}
-          </button>
-          <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
+          </button>}
+          {!productionMode && <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>}
         </div>
       </div>
 
@@ -286,10 +286,10 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
             </p>
           </div>
         </div>
-        <button onClick={generatePassword}
+        {!productionMode && <button onClick={generatePassword}
           style={{ padding:'0.4rem 0.9rem', background:'#16a34a', color:'white', border:'none', borderRadius:'7px', cursor:'pointer', fontWeight:'800', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
           🔄 Nueva Contraseña
-        </button>
+        </button>}
       </div>
 
       {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}
@@ -585,7 +585,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     try {
       const res = await fetch(`${API}/api/prospects`);
       const data = await res.json();
-      setContratos(data.filter(p => p.is_contract));
+      setContratos(data.filter(p => p.is_contract && !p.production_data));
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -690,7 +690,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
             // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
             const res = await fetch(`${API}/api/prospects`);
             const data = await res.json();
-            const freshContratos = data.filter(p => p.is_contract);
+            const freshContratos = data.filter(p => p.is_contract && !p.production_data);
             setContratos(freshContratos);
             const freshSelected = freshContratos.find(p => p.id === selected.id);
             if (freshSelected) setSelected(freshSelected);
