@@ -389,7 +389,7 @@ async def upload_production_evidence(
         stages = [
             {
                 **first_stage,
-                "name": "Producción / Generando información",
+                "name": "Generando información",
                 "entered_at": first_stage.get("entered_at") or production.get("started_at"),
                 "note": "\n".join(notes),
                 "photos": first_stage.get("photos", []) + second_stage.get("photos", []),
@@ -401,7 +401,7 @@ async def upload_production_evidence(
         raise HTTPException(status_code=409, detail="Production stages are invalid")
 
     stage_names = [
-        "Producción / Generando información",
+        "Generando información",
         "Preparación de materiales",
         "Producción iniciada",
         "Avance 1",

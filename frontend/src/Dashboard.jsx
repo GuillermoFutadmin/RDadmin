@@ -19,7 +19,7 @@ const PROSPECT_STAGES = [
 ];
 
 const PRODUCTION_STAGE_NAMES = [
-  'Producción / Generando información',
+  'Generando información',
   'Preparación de materiales',
   'Producción iniciada',
   'Avance 1',
