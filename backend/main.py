@@ -382,13 +382,14 @@ async def upload_production_evidence(
 
     stages = production.get("stages")
     if isinstance(stages, list) and len(stages) == 6:
+        legacy_stage = production.get("current_stage") or 0
         stages.insert(0, {
             "name": "Producción",
             "entered_at": production.get("started_at") or stages[0].get("entered_at"),
             "note": "",
             "photos": [],
         })
-        production["current_stage"] = (production.get("current_stage") or 0) + 1
+        production["current_stage"] = 0 if legacy_stage == 0 else legacy_stage + 1
     if not isinstance(stages, list) or len(stages) != 7:
         raise HTTPException(status_code=409, detail="Production stages are invalid")
 

@@ -93,7 +93,10 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
     return value;
   };
   const stageSection = (title, subtitle, items, tint = '#64748b', countLabel = 'datos') => {
-    const visibleItems = items.filter(([, value]) => displayValue(value) !== null);
+    const hiddenInProduction = /precio|total|margen|anticipo|importe|cotizad|valoración inicial/i;
+    const visibleItems = items.filter(([label, value]) =>
+      (!productionMode || !hiddenInProduction.test(label)) && displayValue(value) !== null
+    );
     if (!visibleItems.length) return null;
     return (
       <details style={{ marginTop:'0.7rem', background:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', overflow:'hidden' }}>
@@ -175,11 +178,12 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
     prospect.contract_signature_rep
   ].reduce((total, files) => total + countFiles(files), 0) + estimationPhotoCount + quotationImages.length;
   const estimationSheetItems = estimationSheets.map((sheet, index) => {
-    const rows = ['materials', 'labor', 'concepts'].flatMap((section) => sheet[section] || []);
+    const sections = productionMode ? ['materials'] : ['materials', 'labor', 'concepts'];
+    const rows = sections.flatMap((section) => sheet[section] || []);
     const breakdown = rows.map((row) => {
       const quantity = row.qty ? ` × ${row.qty}` : '';
       const unit = row.unit ? ` ${row.unit}` : '';
-      const price = row.price !== null && row.price !== undefined && row.price !== ''
+      const price = !productionMode && row.price !== null && row.price !== undefined && row.price !== ''
         ? ` (${formatCurrency(Number(row.price))})`
         : '';
       return `${row.desc || 'Concepto'}${quantity}${unit}${price}`;
@@ -294,7 +298,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
       </div>
 
       {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}
-      {valuationSummary.length > 0 && (
+      {!productionMode && valuationSummary.length > 0 && (
         <details style={{ marginTop:'0.7rem', background:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', overflow:'hidden' }}>
           <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none', background:'#f5f9ff' }}>
             <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:'#2563a8' }} />

@@ -22,10 +22,11 @@ const normalizeProduction = (value) => {
   const production = parseJson(value);
   if (!Array.isArray(production.stages)) return { ...production, stages: [] };
   if (production.stages.length === STAGE_NAMES.length - 1) {
+    const legacyStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
     const enteredAt = production.started_at || production.stages[0]?.entered_at || null;
     return {
       ...production,
-      current_stage: (Number.isInteger(production.current_stage) ? production.current_stage : 0) + 1,
+      current_stage: legacyStage === 0 ? 0 : legacyStage + 1,
       stages: [
         { name: STAGE_NAMES[0], entered_at: enteredAt, note: '', photos: [] },
         ...production.stages.map((stage, index) => ({ ...stage, name: STAGE_NAMES[index + 1] }))
@@ -62,6 +63,7 @@ function Pedidos() {
   const [message, setMessage] = useState('');
   const [showTechnicalSheet, setShowTechnicalSheet] = useState(false);
   const [stageFilter, setStageFilter] = useState(null);
+  const [exportingProjectPdf, setExportingProjectPdf] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -104,14 +106,11 @@ function Pedidos() {
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
   const projectDetails = estimation.projectDetails || {};
-  const allMaterials = estimationSheets.flatMap((sheet, sheetIndex) =>
-    ['materials', 'labor', 'concepts'].flatMap(section =>
-      (Array.isArray(sheet[section]) ? sheet[section] : []).map(item => ({
-        ...item,
-        sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`,
-        group: section === 'materials' ? 'Material' : section === 'labor' ? 'Mano de obra' : 'Concepto'
-      }))
-    )
+  const projectMaterials = estimationSheets.flatMap((sheet, sheetIndex) =>
+    (Array.isArray(sheet.materials) ? sheet.materials : []).map(item => ({
+      ...item,
+      sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`
+    }))
   );
   const measurements = Object.entries({
     ...(selected || {}),
@@ -240,9 +239,94 @@ function Pedidos() {
   };
 
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
-  const money = (value) => Number.isFinite(Number(value))
-    ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value))
-    : value;
+  const collectImageUrls = (...values) => {
+    const urls = new Set();
+    const visit = (value) => {
+      if (!value) return;
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+      } else if (typeof value === 'object') {
+        if (value.url || value.path || value.image) visit(value.url || value.path || value.image);
+        else Object.values(value).forEach(visit);
+      } else if (typeof value === 'string') {
+        value.split(',').map(item => item.trim()).filter(Boolean).forEach(url => urls.add(url));
+      }
+    };
+    values.forEach(visit);
+    return [...urls];
+  };
+  const projectImages = selected ? collectImageUrls(
+    selected.space_image_path,
+    selected.reference_image_path,
+    selected.design_image_path,
+    selected.quote_image_1,
+    selected.quote_image_2,
+    selected.quote_image_3,
+    selected.quote_image_4,
+    selected.render_image_path,
+    estimation.croquisPhotos,
+    estimation.croquis_data,
+    estimation.photos,
+    stages.map(stage => stage.photos)
+  ) : [];
+  const generalMeasurements = [
+    selected?.measurements && ['Medidas generales del cliente', selected.measurements],
+    ...measurements
+      .filter(([key]) => key !== 'measurements')
+      .map(([key, value]) => [key.replaceAll('_', ' '), String(value)])
+  ].filter(Boolean);
+  const clientSurname = selected?.name?.trim().split(/\s+/).slice(-1)[0] || 'Cliente';
+
+  const downloadProjectPdf = async () => {
+    if (!selected || !projectImages.length) return;
+    const element = document.getElementById('production-project-pdf');
+    if (!element || typeof window.html2pdf !== 'function') {
+      setMessage('No está disponible el generador de PDF. Actualiza la página e inténtalo de nuevo.');
+      return;
+    }
+    setExportingProjectPdf(true);
+    setMessage('');
+    try {
+      await Promise.all(Array.from(element.querySelectorAll('img')).map(image => {
+        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = () => reject(new Error('No se pudo cargar una de las fotos para el PDF.'));
+        });
+      }));
+      await window.html2pdf().set({
+        margin: [10, 10, 12, 10],
+        filename: `Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.production-pdf-photo'] }
+      }).from(element).save();
+      setMessage('PDF del expediente descargado.');
+    } catch (error) {
+      setMessage(error.message || 'No se pudo generar el PDF del expediente.');
+    } finally {
+      setExportingProjectPdf(false);
+    }
+  };
+
+  const downloadRenderPdf = async () => {
+    if (!selected?.render_pdf_path) return;
+    try {
+      const response = await fetch(imageUrl(selected.render_pdf_path));
+      if (!response.ok) throw new Error(`No se pudo descargar el PDF de render (${response.status})`);
+      const fileUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = `Render_${selected.public_id || selected.id}_${clientSurname}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+    } catch (error) {
+      setMessage(error.message || 'No se pudo descargar el PDF de render.');
+    }
+  };
 
   if (selected && showTechnicalSheet) {
     return (
@@ -324,7 +408,10 @@ function Pedidos() {
                   <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
+                    <button type="button" disabled={exportingProjectPdf || !projectImages.length} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: projectImages.length ? '#eff6ff' : '#f1f5f9', color: projectImages.length ? '#1d4f91' : '#94a3b8', fontWeight: 800, cursor: projectImages.length && !exportingProjectPdf ? 'pointer' : 'not-allowed' }}>
+                      {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar fotos en PDF'}
+                    </button>
+                    <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
                   <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
@@ -355,41 +442,42 @@ function Pedidos() {
               <InfoCard label="Contacto">{selected.contact_info}</InfoCard>
               <InfoCard label="Domicilio del proyecto">{selected.location}</InfoCard>
               <InfoCard label="Entrega estimada">{selected.quote_delivery_time || selected.project_timeline || selected.delivery_date}</InfoCard>
-              <InfoCard label="Total cotizado">{selected.quote_total_price ? money(selected.quote_total_price) : selected.estimated_price ? money(selected.estimated_price) : null}</InfoCard>
               <InfoCard label="Material / acabado">{[selected.material_type, selected.material_type_2, selected.furniture_color].filter(Boolean).join(' · ')}</InfoCard>
-              <InfoCard label="Render">{selected.render_applies ? `Sí${selected.render_price ? ` · ${money(selected.render_price)}` : ''}` : selected.render_applies === false ? 'No aplica' : null}</InfoCard>
+              <InfoCard label="Render">{selected.render_applies ? 'Sí' : selected.render_applies === false ? 'No aplica' : null}</InfoCard>
             </div>
+
+            {generalMeasurements.length > 0 && (
+              <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+                <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
+                  {generalMeasurements.map(([label, value], index) => <InfoCard key={`${label}-${index}`} label={label}>{value}</InfoCard>)}
+                </div>
+              </section>
+            )}
 
             <details open style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, marginBottom: 14 }}>
               <summary style={{ padding: '0.9rem 1rem', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>Información de Estimación y materiales</summary>
               <div style={{ padding: '0 1rem 1rem' }}>
-                {(selected.measurements || measurements.length > 0 || Object.keys(projectDetails).length > 0) && (
+                {Object.keys(projectDetails).length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    <h3 style={{ fontSize: '0.82rem', color: '#334155' }}>Medidas y especificaciones</h3>
+                    <h3 style={{ fontSize: '0.82rem', color: '#334155' }}>Especificaciones del proyecto</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 8 }}>
-                      <InfoCard label="Medidas generales">{selected.measurements}</InfoCard>
-                      {measurements.filter(([key]) => key !== 'measurements').map(([key, value]) => <InfoCard key={key} label={key.replaceAll('_', ' ')}>{String(value)}</InfoCard>)}
-                      {Object.entries(projectDetails).map(([key, value]) => typeof value !== 'object' && <InfoCard key={key} label={key.replaceAll('_', ' ')}>{String(value)}</InfoCard>)}
+                      {Object.entries(projectDetails).filter(([key, value]) => !/price|precio|total|margin|anticipo|cost/i.test(key) && typeof value !== 'object' && value !== '').map(([key, value]) => <InfoCard key={key} label={key.replaceAll('_', ' ')}>{String(value)}</InfoCard>)}
                     </div>
                   </div>
                 )}
                 {estimationSheets.map((sheet, index) => (
                   <div key={`${sheet.type}-${index}`} style={{ margin: '0 0 14px', padding: '0.8rem', background: '#f8fafc', borderRadius: 10 }}>
                     <div style={{ fontWeight: 800, color: '#334155', marginBottom: 7 }}>{sheet.type || `Proyecto ${index + 1}`}</div>
-                    {['materials', 'labor', 'concepts'].map(section => {
-                      const rows = Array.isArray(sheet[section]) ? sheet[section] : [];
-                      if (!rows.length) return null;
-                      const label = section === 'materials' ? 'Materiales' : section === 'labor' ? 'Mano de obra' : 'Conceptos';
-                      return <div key={section} style={{ marginTop: 8 }}>
-                        <div style={{ color: '#2563a8', fontSize: '0.72rem', fontWeight: 800, marginBottom: 4 }}>{label}</div>
-                        {rows.map((row, rowIndex) => <div key={row.id || rowIndex} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '0.3rem 0', borderBottom: '1px solid #e8edf3', color: '#475569', fontSize: '0.8rem' }}>
-                          <span>{row.desc || 'Concepto'} · {row.qty || 0} {row.unit || 'pza'}</span><span>{money((Number(row.qty) || 0) * (Number(row.price) || 0))}</span>
-                        </div>)}
-                      </div>;
-                    })}
+                    {(Array.isArray(sheet.materials) ? sheet.materials : []).length > 0 && <div style={{ marginTop: 8 }}>
+                      <div style={{ color: '#2563a8', fontSize: '0.72rem', fontWeight: 800, marginBottom: 4 }}>Materiales</div>
+                      {sheet.materials.map((row, rowIndex) => <div key={row.id || rowIndex} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '0.3rem 0', borderBottom: '1px solid #e8edf3', color: '#475569', fontSize: '0.8rem' }}>
+                        <span>{row.desc || 'Material'}{Number(row.qty) > 0 ? ` · ${row.qty} ${row.unit || 'pza'}` : ''}</span>
+                      </div>)}
+                    </div>}
                   </div>
                 ))}
-                {!estimationSheets.length && !selected.measurements && !measurements.length && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>No hay medidas o desglose de materiales guardados en la estimación.</div>}
+                {!projectMaterials.length && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>No hay materiales capturados en la estimación.</div>}
                 {(estimation.croquisPhotos || estimation.croquis_data || estimation.photos) && (
                   <details style={{ marginTop: 8 }}>
                     <summary style={{ cursor: 'pointer', color: '#334155', fontSize: '0.82rem', fontWeight: 700 }}>Ver croquis y fotos de estimación</summary>
@@ -402,6 +490,14 @@ function Pedidos() {
                 )}
               </div>
             </details>
+
+            {selected.render_pdf_path && (
+              <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '0.9rem 1rem', marginBottom: 14 }}>
+                <strong style={{ color: '#334155', fontSize: '0.85rem' }}>PDF de render disponible</strong>
+                <a href={imageUrl(selected.render_pdf_path)} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.75rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>Ver PDF</a>
+                <button type="button" onClick={downloadRenderPdf} style={{ padding: '0.5rem 0.75rem', border: 0, borderRadius: 8, background: '#1d4ed8', color: '#fff', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}>Descargar PDF</button>
+              </section>
+            )}
 
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -416,7 +512,7 @@ function Pedidos() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
-                  {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : 'Guardar y avanzar →'}
+                  {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage === 0 ? 'Pasar a Generando información →' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : 'Guardar y avanzar →'}
                 </button>
               </div>
               {!!(selectedStage.photos || []).length && (
@@ -427,6 +523,29 @@ function Pedidos() {
                   })}
                 </div>
               )}
+            </div>
+            <div id="production-project-pdf" style={{ position: 'fixed', left: '-10000px', top: 0, width: '794px', padding: '28px', background: '#fff', color: '#1e293b', fontFamily: 'Arial, sans-serif', fontSize: '12px', lineHeight: 1.5 }}>
+              <h1 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '22px' }}>Expediente de producción</h1>
+              <p style={{ margin: '0 0 16px', color: '#475569' }}>ID: {selected.public_id || selected.id} · Cliente: {clientSurname}</p>
+              <h2 style={{ margin: '0 0 8px', fontSize: '15px' }}>Medidas generales del cliente</h2>
+              {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
+                <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
+              )) : <p style={{ margin: '0 0 14px' }}>Sin medidas generales capturadas.</p>}
+              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Materiales</h2>
+              {projectMaterials.length ? projectMaterials.map((material, index) => (
+                <p key={`${material.sheetName}-${material.id || index}`} style={{ margin: '0 0 4px' }}>
+                  {material.sheetName}: {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
+                </p>
+              )) : <p>Sin materiales capturados.</p>}
+              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Fotografías, croquis y render</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {projectImages.map((photo, index) => (
+                  <figure className="production-pdf-photo" key={`${photo.slice(0, 80)}-${index}`} style={{ margin: 0, padding: 8, border: '1px solid #cbd5e1', borderRadius: 8, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                    <img src={imageUrl(photo)} alt={photo === selected.render_image_path ? 'Render del proyecto' : `Foto de proyecto ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '330px', objectFit: 'contain' }} />
+                    <figcaption style={{ marginTop: 4, color: '#475569', fontSize: '10px' }}>{photo === selected.render_image_path ? 'Render del proyecto' : `Imagen ${index + 1}`}</figcaption>
+                  </figure>
+                ))}
+              </div>
             </div>
           </section>
         ) : !loading ? (
