@@ -149,6 +149,7 @@ function Pedidos() {
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
+  const renderPreview = selected ? collectImageUrls(selected.render_image_path)[0] : null;
   const production = normalizeProduction(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
@@ -585,8 +586,8 @@ function Pedidos() {
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
                       {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar machote completo'}
                     </button>
-                    {(selected.render_pdf_path || selected.render_image_path) && (
-                      <a href={imageUrl(selected.render_pdf_path || selected.render_image_path)} target="_blank" rel="noreferrer"
+                    {renderPreview && (
+                      <a href={imageUrl(renderPreview)} target="_blank" rel="noreferrer"
                         style={{ padding: '0.55rem 0.8rem', border: '1px solid #bbf7d0', borderRadius: 9, background: '#f0fdf4', color: '#15803d', fontWeight: 800, textDecoration: 'none' }}>
                         🎨 Render
                       </a>
