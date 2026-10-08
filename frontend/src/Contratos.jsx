@@ -69,51 +69,84 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
   // Alias para que el resto del JSX no cambie
   const prospect = localProspect;
 
-  const chip = (label, value) => value ? (
-    <div style={{ padding:'0.4rem 0.55rem', backgroundColor:'#f8f9fa', borderRadius:'6px' }}>
-      <p style={{ fontSize:'0.64rem', color:'#94a3b8', margin:'0 0 0.1rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</p>
-      <p style={{ fontWeight:'600', fontSize:'0.82rem', color:'#1e293b', margin:0, lineHeight:'1.3', whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{value}</p>
+  const chip = (label, value) => value !== null && value !== undefined && value !== '' ? (
+    <div style={{ minWidth:0, padding:'0.8rem 0.9rem', background:'#fff', border:'1px solid #edf0f3', borderRadius:'10px' }}>
+      <p style={{ fontSize:'0.68rem', color:'#8993a1', margin:'0 0 0.35rem', textTransform:'uppercase', letterSpacing:'0.055em', fontWeight:700 }}>{label}</p>
+      <p style={{ fontWeight:550, fontSize:'0.88rem', color:'#202938', margin:0, lineHeight:'1.5', whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{value}</p>
     </div>
   ) : null;
 
   const fmtDate = (d) => d ? new Date(d + (d.endsWith('Z') ? '' : 'Z'))
     .toLocaleString('es-MX', { timeZone:'America/Tijuana', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : null;
 
+  const parseStoredJson = (value, fallback = null) => {
+    if (!value) return fallback;
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); } catch { return fallback; }
+  };
   const displayValue = (value) => {
     if (value === true) return 'Sí';
     if (value === false) return 'No';
     if (value === null || value === undefined || value === '') return null;
-    if (Array.isArray(value)) return value.join(', ');
-    if (typeof value === 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return value.map(displayValue).filter(Boolean).join(', ');
+    if (typeof value === 'object') return null;
     return value;
   };
-  const stageSection = (title, subtitle, items, tint = '#64748b') => {
+  const stageSection = (title, subtitle, items, tint = '#64748b', countLabel = 'datos') => {
     const visibleItems = items.filter(([, value]) => displayValue(value) !== null);
     if (!visibleItems.length) return null;
     return (
-      <section style={{ marginTop:'0.8rem', padding:'0.8rem', background:'#fff', border:'1px solid #e2e8f0', borderRadius:'12px' }}>
-        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.65rem' }}>
-          <h4 style={{ margin:0, color:'#1e293b', fontSize:'0.9rem' }}>{title}</h4>
-          <span style={{ color:tint, fontSize:'0.66rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{subtitle}</span>
+      <details style={{ marginTop:'0.7rem', background:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', overflow:'hidden' }}>
+        <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none' }}>
+          <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:tint }} />
+          <span style={{ minWidth:0, flex:1 }}>
+            <span style={{ display:'block', color:'#202938', fontWeight:700, fontSize:'0.95rem' }}>{title}</span>
+            <span style={{ display:'block', marginTop:'0.22rem', color:'#8993a1', fontSize:'0.76rem' }}>{subtitle}</span>
+          </span>
+          <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#f3f5f7', color:'#687384', fontSize:'0.7rem', fontWeight:700 }}>{visibleItems.length} {countLabel}</span>
+          <span aria-hidden="true" style={{ color:'#7a8492', fontSize:'1rem' }}>⌄</span>
+        </summary>
+        <div style={{ padding:'0 1.1rem 1.1rem', borderTop:'1px solid #f0f2f5' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 235px), 1fr))', gap:'0.6rem', paddingTop:'0.85rem' }}>
+            {visibleItems.map(([label, value]) => chip(label, displayValue(value)))}
+          </div>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(155px, 1fr))', gap:'0.45rem' }}>
-          {visibleItems.map(([label, value]) => chip(label, displayValue(value)))}
-        </div>
-      </section>
+      </details>
     );
   };
 
-  let estimationData = {};
-  if (prospect.estimation_data) {
-    try {
-      const parsedData = typeof prospect.estimation_data === 'string'
-        ? JSON.parse(prospect.estimation_data)
-        : prospect.estimation_data;
-      if (parsedData && typeof parsedData === 'object') estimationData = parsedData;
-    } catch (error) {
-      console.error('No se pudo leer la estimación guardada del contrato:', error);
-    }
-  }
+  const estimationData = parseStoredJson(prospect.estimation_data, {}) || {};
+  const restorationRows = parseStoredJson(prospect.restoration_details, []);
+  const restorations = Array.isArray(restorationRows)
+    ? restorationRows.map((item) => [item.type || 'Restauración', item.measurements || item.details]).filter(([, value]) => value)
+    : [];
+  const valuationData = parseStoredJson(prospect.valuation_data, {});
+  const valuationIsStructured = typeof prospect.valuation_data === 'string'
+    && /^[\s]*[\[{]/.test(prospect.valuation_data);
+  const restorationIsStructured = typeof prospect.restoration_details === 'string'
+    && /^[\s]*[\[{]/.test(prospect.restoration_details);
+  const valuationSheets = Array.isArray(valuationData?.sheets)
+    ? valuationData.sheets
+    : valuationData && (valuationData.materials || valuationData.labor || valuationData.concepts)
+      ? [{ type: valuationData.projectType || 'Proyecto', materials: valuationData.materials || [], labor: valuationData.labor || [], concepts: valuationData.concepts || [] }]
+      : [];
+  const valuationSummary = valuationSheets.map((sheet) => ({
+    type: sheet.type || 'Proyecto',
+    groups: [
+      ['Materiales', sheet.materials || []],
+      ['Mano de obra', sheet.labor || []],
+      ['Conceptos', sheet.concepts || []]
+    ].map(([label, rows]) => ({
+      label,
+      rows: rows.filter((row) => Number(row.qty) > 0).map((row) => ({
+        description: row.desc || 'Concepto',
+        qty: Number(row.qty) || 0,
+        unit: row.unit || 'pza',
+        amount: (Number(row.qty) || 0) * (Number(row.price) || 0)
+      }))
+    })).filter((group) => group.rows.length)
+  }));
+  const valuationGrandTotal = Number(valuationData?.grandTotal ?? valuationData?.totalToPay) || 0;
   const projectDetails = estimationData.projectDetails || {};
   const estimationSheets = Array.isArray(estimationData.sheets) ? estimationData.sheets : [];
   const countFiles = (value) => Array.isArray(value) ? value.length : value ? String(value).split(',').filter(Boolean).length : 0;
@@ -189,10 +222,11 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
     ['Medidas de tocador', prospect.closet_vanity_measurements],
     ['Medidas de puertas sólidas', prospect.door_solid_measurements],
     ['Medidas de puertas tambor', prospect.door_tambor_measurements],
-    ['Detalles de restauración', prospect.restoration_details],
+    ['Restauraciones capturadas', restorations.length ? restorations.map(([type, measurements]) => `${type}: ${measurements}`).join('\n') : null],
     ['Medidas de restauración', prospect.restoration_measurements],
     ['Otras medidas', prospect.other_measurements],
-    ['Información de valoración', prospect.valuation_data]
+    ['Notas originales', prospect.valuation_data && !valuationIsStructured && valuationSheets.length === 0 ? prospect.valuation_data : null],
+    ['Detalles de restauración', prospect.restoration_details && !restorationIsStructured && restorations.length === 0 ? prospect.restoration_details : null]
   ];
 
   const generatePassword = async () => {
@@ -215,7 +249,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
   };
 
   return (
-    <div className="card" style={{ marginBottom:'2rem' }}>
+    <div style={{ marginBottom:'2rem', padding:'1.1rem', background:'#f4f6f8', border:'1px solid #e8ebef', borderRadius:'18px', color:'#202938' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem', flexWrap:'wrap', gap:'0.5rem' }}>
         <h3 style={{ color:'var(--accent)', margin:0, fontSize:'1.15rem' }}>{prospect.name}</h3>
         <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
@@ -231,16 +265,16 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
       </div>
 
       {/* ── Contraseña del contrato ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'0.75rem', padding:'0.6rem 1rem', backgroundColor:'#f0fdf4', border:'1.5px solid #86efac', borderRadius:'8px', flexWrap:'wrap' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'0.85rem', padding:'0.9rem 1rem', backgroundColor:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flex:1, flexWrap:'wrap' }}>
           <div>
-            <p style={{ fontSize:'0.62rem', color:'#16a34a', margin:'0 0 0.15rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>🔑 ID del Contrato</p>
-            <p style={{ fontWeight:'800', fontSize:'1rem', color:'#1e293b', margin:0, letterSpacing:'0.04em' }}>{prospect.public_id}</p>
+            <p style={{ fontSize:'0.65rem', color:'#8993a1', margin:'0 0 0.2rem', textTransform:'uppercase', fontWeight:'700', letterSpacing:'0.06em' }}>ID del contrato</p>
+            <p style={{ fontWeight:700, fontSize:'0.96rem', color:'#202938', margin:0, letterSpacing:'0.04em' }}>{prospect.public_id}</p>
           </div>
           <div style={{ width:'1px', height:'32px', background:'#bbf7d0' }} />
           <div>
-            <p style={{ fontSize:'0.62rem', color:'#16a34a', margin:'0 0 0.15rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>🔒 Contraseña de Acceso</p>
-            <p style={{ fontWeight:'800', fontSize:'1.1rem', color: prospect.contract_password ? '#1e293b' : '#94a3b8', margin:0, letterSpacing:'0.1em', fontFamily:'monospace' }}>
+            <p style={{ fontSize:'0.65rem', color:'#8993a1', margin:'0 0 0.2rem', textTransform:'uppercase', fontWeight:'700', letterSpacing:'0.06em' }}>Contraseña de acceso</p>
+            <p style={{ fontWeight:700, fontSize:'1rem', color: prospect.contract_password ? '#202938' : '#94a3b8', margin:0, letterSpacing:'0.1em', fontFamily:'monospace' }}>
               {prospect.contract_password || '— Sin contraseña —'}
             </p>
           </div>
@@ -251,14 +285,62 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         </button>
       </div>
 
-      {stageSection('Captura y valoración inicial', 'Etapa Prospectos · Información original', prospectItems, '#2563eb')}
+      {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}
+      {valuationSummary.length > 0 && (
+        <details style={{ marginTop:'0.7rem', background:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', overflow:'hidden' }}>
+          <summary style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'1rem 1.1rem', cursor:'pointer', listStyle:'none' }}>
+            <span aria-hidden="true" style={{ width:'4px', alignSelf:'stretch', minHeight:'34px', borderRadius:'10px', background:'#c28a48' }} />
+            <span style={{ minWidth:0, flex:1 }}>
+              <span style={{ display:'block', color:'#202938', fontWeight:700, fontSize:'0.95rem' }}>Valoración inicial</span>
+              <span style={{ display:'block', marginTop:'0.22rem', color:'#8993a1', fontSize:'0.76rem' }}>Desglose capturado en Prospectos</span>
+            </span>
+            <span style={{ flex:'none', padding:'0.28rem 0.55rem', borderRadius:'20px', background:'#f3f5f7', color:'#687384', fontSize:'0.7rem', fontWeight:700 }}>
+              {valuationSummary.length} {valuationSummary.length === 1 ? 'proyecto' : 'proyectos'}
+            </span>
+            <span aria-hidden="true" style={{ color:'#7a8492', fontSize:'1rem' }}>⌄</span>
+          </summary>
+          <div style={{ padding:'0.2rem 1.1rem 1.1rem', borderTop:'1px solid #f0f2f5' }}>
+            {valuationSummary.map((sheet, index) => {
+              const sheetTotal = sheet.groups.flatMap(group => group.rows).reduce((total, row) => total + row.amount, 0);
+              return (
+                <section key={`${sheet.type}-${index}`} style={{ marginTop:'0.8rem', padding:'0.9rem', border:'1px solid #edf0f3', borderRadius:'12px' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.75rem', flexWrap:'wrap', marginBottom:'0.6rem' }}>
+                    <h5 style={{ margin:0, color:'#202938', fontSize:'0.9rem' }}>{sheet.type}</h5>
+                    <span style={{ color:'#526071', fontSize:'0.82rem', fontWeight:700 }}>{formatCurrency(sheetTotal)}</span>
+                  </div>
+                  {sheet.groups.map((group) => (
+                    <div key={group.label} style={{ marginTop:'0.65rem' }}>
+                      <h6 style={{ margin:'0 0 0.4rem', color:'#8993a1', fontSize:'0.67rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>{group.label}</h6>
+                      <div style={{ display:'grid', gap:'0.35rem' }}>
+                        {group.rows.map((row, rowIndex) => (
+                          <div key={`${row.description}-${rowIndex}`} style={{ display:'grid', gridTemplateColumns:'minmax(0, 1fr) auto auto', alignItems:'center', gap:'0.8rem', padding:'0.55rem 0.65rem', background:'#f8f9fb', borderRadius:'8px', fontSize:'0.8rem' }}>
+                            <span style={{ color:'#354052', overflowWrap:'anywhere' }}>{row.description}</span>
+                            <span style={{ color:'#7d8794', whiteSpace:'nowrap' }}>{row.qty} {row.unit}</span>
+                            <span style={{ color:'#354052', fontWeight:600, whiteSpace:'nowrap' }}>{formatCurrency(row.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              );
+            })}
+            {valuationGrandTotal > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', gap:'1rem', marginTop:'0.8rem', padding:'0.75rem 0.2rem 0', borderTop:'1px solid #e6e9ee', color:'#202938', fontSize:'0.86rem', fontWeight:700 }}>
+                <span>Total de valoración</span>
+                <span>{formatCurrency(valuationGrandTotal)}</span>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
       {prospect.papelera_reason && (
         <div style={{ marginTop:'0.6rem', padding:'0.75rem 1rem', backgroundColor:'#fef2f2', border:'1px solid #fca5a5', borderRadius:'8px' }}>
           <p style={{ fontSize:'0.7rem', color:'#dc2626', margin:'0 0 0.3rem', textTransform:'uppercase', fontWeight:'800', letterSpacing:'0.06em' }}>❌ Motivo de Rechazo</p>
           <p style={{ fontSize:'0.88rem', color:'#7f1d1d', margin:0, lineHeight:'1.5' }}>{prospect.papelera_reason}</p>
         </div>
       )}
-      {stageSection('Cotización', 'Etapa Estimación · Cotizador', [
+      {stageSection('Cotización', 'Información del cotizador', [
         ['Saludo', prospect.quote_saludo],
         ['Título', prospect.quote_title],
         ['Descripción / observaciones', prospect.quote_description],
@@ -267,8 +349,8 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         ['Tiempo de entrega cotizado', prospect.quote_delivery_time],
         ['Vigencia de cotización', prospect.quote_validez],
         ['Precio de valoración inicial', prospect.estimated_price]
-      ], '#0891b2')}
-      {stageSection('Estimación del proyecto', 'Etapa Estimación · Datos guardados', [
+      ], '#168b8b')}
+      {stageSection('Estimación', 'Proyectos, importes y ajustes guardados', [
         ['Plazo rectificado', projectDetails.project_timeline],
         ['Días de producción rectificados', projectDetails.production_days],
         ['Inicio rectificado', projectDetails.start_date],
@@ -283,8 +365,8 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         ['Observaciones de estimación', estimationData.obsText],
         ['Hojas / proyectos cotizados', estimationSheets.length || null],
         ...estimationSheetItems
-      ], '#7c3aed')}
-      {stageSection('Datos del contrato', 'Etapa Cliente / Contrato', [
+      ], '#7762b3')}
+      {stageSection('Contrato', 'Acuerdos de la etapa de cliente', [
         ['Fecha de contrato', prospect.contract_date ? fmtDate(prospect.contract_date) : null],
         ['Estado actual', prospect.status],
         ['Render incluido', prospect.render_applies],
@@ -292,7 +374,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
         ['Total con render', prospect.render_total_price],
         ['Entrega del render', prospect.render_delivery_time],
         ['Observaciones del render', prospect.render_comments]
-      ], '#16a34a')}
+      ], '#478365')}
       {photosCount > 0 && (
         <button type="button" onClick={() => setShowPhotos(value => !value)}
           aria-expanded={showPhotos}
