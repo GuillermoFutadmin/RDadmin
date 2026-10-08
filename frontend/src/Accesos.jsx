@@ -29,7 +29,7 @@ export default function Accesos() {
     { id: 'Colaboradores', label: '👷‍♂️ Colaboradores' },
     { id: 'Asistencia', label: '⏱️ Asistencia' },
     { id: 'Nomina', label: '💰 Nómina y Tarifas' },
-    { id: 'Pedidos', label: '📦 Pedidos' },
+    { id: 'Pedidos', label: '🏭 Producción' },
     { id: 'Accesos', label: '🔐 Accesos' },
   ];
 

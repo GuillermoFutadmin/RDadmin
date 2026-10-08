@@ -107,6 +107,7 @@ function App() {
     if (!user || !user.permissions) return false;
     return user.permissions.some(p => p.toLowerCase() === module.toLowerCase());
   };
+  const hasProductionAccess = hasAccess('Pedidos') || hasAccess('Produccion');
 
 
   const handleProspectosClick = () => {
@@ -394,14 +395,14 @@ function App() {
               </li>
             )}
 
-            {/* Pedidos */}
-            {hasAccess('Pedidos') && (
+            {/* Producción */}
+            {hasProductionAccess && (
               <li
-                className={activeTab === 'Pedidos' ? 'active' : ''}
-                onClick={() => { setActiveTab('Pedidos'); setProspectsOpen(false); }}
+                className={activeTab === 'Produccion' ? 'active' : ''}
+                onClick={() => { setActiveTab('Produccion'); setProspectsOpen(false); }}
                 style={{ display: 'flex', alignItems: 'center' }}
               >
-                <IconPackage /> Pedidos
+                <IconPackage /> Producción
               </li>
             )}
 
@@ -476,10 +477,10 @@ function App() {
 
         {activeTab === 'Dashboard'     && hasAccess('Dashboard')     && <Dashboard />}
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
-        {activeTab === 'Pedidos'       && hasAccess('Pedidos')       && <Pedidos />}
+        {activeTab === 'Produccion'   && hasProductionAccess         && <Pedidos />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
-        {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos startView="list" />}
-        {activeTab === 'Estimacion'    && hasAccess('Contratos')        && <Contratos startView="estimacion_list" />}
+        {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos startView="list" onProductionStarted={() => setActiveTab('Produccion')} />}
+        {activeTab === 'Estimacion'    && hasAccess('Contratos')        && <Contratos startView="estimacion_list" onProductionStarted={() => setActiveTab('Produccion')} />}
         {activeTab === 'Colaboradores' && hasAccess('Colaboradores') && <Colaboradores />}
         {activeTab === 'Asistencia'    && hasAccess('Asistencia')    && <Asistencia view="registro" />}
         {activeTab === 'Nomina'        && hasAccess('Nomina')        && <Asistencia view="corte" />}

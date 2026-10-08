@@ -82,6 +82,7 @@ class Prospect(Base):
     papelera_reason = Column(String, nullable=True)  # motivo de rechazo
     contract_date = Column(DateTime, nullable=True)
     estimation_data = Column(String, nullable=True)  # JSON from Estimación
+    production_data = Column(String, nullable=True)  # JSON for production stages and evidence
     render_applies = Column(Boolean, nullable=True)   # True=SI, False=NO
     render_price = Column(Float, nullable=True)       # Precio del render
     render_total_price = Column(Float, nullable=True) # Estimación + Render

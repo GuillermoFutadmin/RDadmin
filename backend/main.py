@@ -31,6 +31,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN papelera_reason VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;")
     safe_alter("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN production_data VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_total_price REAL;")
@@ -181,6 +182,7 @@ class ProspectCreate(BaseModel):
     papelera_reason: Optional[str] = None
     contract_date: Optional[datetime] = None
     estimation_data: Optional[str] = None
+    production_data: Optional[str] = None
     quote_saludo: Optional[str] = None
     quote_title: Optional[str] = None
     quote_description: Optional[str] = None
@@ -352,6 +354,42 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
     with open(save_path, "wb") as buffer:
         buffer.write(contents)
     return f"/uploads/{unique_name}"
+
+
+@app.post("/api/prospects/{prospect_id}/production-evidence/{stage_index}")
+async def upload_production_evidence(
+    prospect_id: int,
+    stage_index: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if stage_index < 0 or stage_index > 5:
+        raise HTTPException(status_code=400, detail="Invalid production stage")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image evidence is allowed")
+
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    if not prospect.production_data:
+        raise HTTPException(status_code=409, detail="Production has not been started")
+
+    import json
+    try:
+        production = json.loads(prospect.production_data)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=409, detail="Production data is invalid") from exc
+
+    stages = production.get("stages")
+    if not isinstance(stages, list) or len(stages) != 6:
+        raise HTTPException(status_code=409, detail="Production stages are invalid")
+
+    image_url = await upload_to_storage(file, f"production_{prospect_id}_{stage_index}")
+    photos = stages[stage_index].setdefault("photos", [])
+    photos.append({"url": image_url, "uploaded_at": datetime.utcnow().isoformat() + "Z"})
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    db.commit()
+    return {"image_path": image_url, "production_data": prospect.production_data}
 
 
 @app.post("/api/prospects/{prospect_id}/upload-image")

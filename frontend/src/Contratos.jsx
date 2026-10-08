@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ContratoPDFView } from './ContratoPDF';
 import { CotizacionView } from './Cotizacion';
-import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
+import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle, IconPackage } from './icons';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -60,7 +60,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh }) {
+function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh, onStartProduction }) {
   const [localProspect, setLocalProspect] = React.useState(_prospectProp);
   const [showPhotos, setShowPhotos] = React.useState(false);
 
@@ -263,6 +263,9 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
           </button>
           <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconFileText style={{ width:'14px', height:'14px', marginRight:0 }} /> Descargar Cotización
+          </button>
+          <button onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
+            🏭 {prospect.production_data ? 'Ver Producción' : 'Enviar a Producción'}
           </button>
           <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>
         </div>
@@ -559,7 +562,7 @@ function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onRetur
 }
 
 // ─── Main Contratos component ────────────────────────────────────────────────
-export default function Contratos({ startView = 'list' }) {
+export default function Contratos({ startView = 'list', onProductionStarted = () => {} }) {
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');         // 'list' | 'detail' | 'estimacion'
@@ -609,6 +612,45 @@ export default function Contratos({ startView = 'list' }) {
     setSelected(null);
   };
 
+  const handleStartProduction = async (p) => {
+    let productionData = p.production_data;
+    if (!productionData) {
+      const now = new Date().toISOString();
+      productionData = JSON.stringify({
+        current_stage: 0,
+        started_at: now,
+        stages: [
+          'Generando información',
+          'Preparación de materiales',
+          'Producción iniciada',
+          'Avance 1',
+          'Avance 2 / revisión',
+          'Entrega del proyecto'
+        ].map((name, index) => ({
+          name,
+          entered_at: index === 0 ? now : null,
+          note: '',
+          photos: []
+        }))
+      });
+    }
+    try {
+      const response = await fetch(`${API}/api/prospects/${p.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ production_data: productionData, status: 'PRODUCCION' })
+      });
+      if (!response.ok) throw new Error(`No se pudo enviar a Producción (${response.status})`);
+      const updated = await response.json();
+      setContratos(current => current.map(item => item.id === updated.id ? updated : item));
+      setSelected(updated);
+      onProductionStarted();
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || 'No se pudo iniciar Producción.');
+    }
+  };
+
   // ── Views ──
   if (view === 'contrato_pdf' && selected) {
     return (
@@ -643,6 +685,7 @@ export default function Contratos({ startView = 'list' }) {
           onEstimacion={() => setView('estimacion')}
           onDownloadCotizacion={() => setView('cotizacion_view')}
           onReturnToProspect={() => handleReturnToProspect(selected)}
+          onStartProduction={handleStartProduction}
           onRefresh={async () => {
             // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
             const res = await fetch(`${API}/api/prospects`);
@@ -709,7 +752,7 @@ export default function Contratos({ startView = 'list' }) {
   const txt = filterText.toLowerCase().trim();
 
   const getStatus = (c) => {
-    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO'];
+    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO', 'PRODUCCION', 'ENTREGADO'];
     if (c.status && validStates.includes(c.status)) return c.status;
     return 'APROBADO';
   };
@@ -728,11 +771,15 @@ export default function Contratos({ startView = 'list' }) {
     const isRender     = s === 'RENDER SI/NO';
     const isEstimacion = s === 'ESTIMACIÓN';
     const isContrato   = s === 'CONTRATO';
+    const isProduction = s === 'PRODUCCION';
+    const isDelivered  = s === 'ENTREGADO';
     let label = s || 'APROBADO';
     let bg = '#dcfce7'; let color = '#166534'; let dot = '#22c55e';
     if (isRender)     { bg = '#fef3c7'; color = '#92400e'; dot = '#f59e0b'; }
     else if (isEstimacion) { bg = '#e0e7ff'; color = '#3730a3'; dot = '#4f46e5'; }
     else if (isContrato)   { bg = '#fce7f3'; color = '#9d174d'; dot = '#ec4899'; }
+    else if (isProduction) { label = 'PRODUCCIÓN'; bg = '#dbeafe'; color = '#1d4ed8'; dot = '#2563eb'; }
+    else if (isDelivered)  { label = 'ENTREGADO'; bg = '#dcfce7'; color = '#166534'; dot = '#16a34a'; }
     return (
       <span style={{ background:bg, color, padding:'0.2rem 0.65rem', borderRadius:'12px', fontSize:'0.8rem', fontWeight:'700', display:'inline-flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap' }}>
         <span style={{ width:'7px', height:'7px', borderRadius:'50%', background:dot, display:'inline-block' }} />
@@ -952,13 +999,15 @@ export default function Contratos({ startView = 'list' }) {
 
       
       {/* ── ETAPAS PIPELINE ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
           { key: '', label: 'Todos', count: contratos.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: IconUsers },
           { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconCheckCircle },
           { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconPalette },
           { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPenTool },
           { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: IconFileText },
+          { key: 'PRODUCCION', label: 'Producción', count: contratos.filter(c => getStatus(c) === 'PRODUCCION').length, color: '#1d4ed8', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPackage },
+          { key: 'ENTREGADO', label: 'Entregado', count: contratos.filter(c => getStatus(c) === 'ENTREGADO').length, color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconCheckCircle },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
           const StageIcon = icon;
@@ -1065,6 +1114,15 @@ export default function Contratos({ startView = 'list' }) {
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', right:0, background:'white', zIndex:1, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+                      {(getStatus(c) === 'CONTRATO' || c.production_data) && (
+                        <button onClick={() => handleStartProduction(c)} style={{
+                          padding:'0.2rem 0.4rem', background:'#1d4ed8', color:'white',
+                          border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'700',
+                          fontSize:'0.7rem', whiteSpace:'nowrap'
+                        }}>
+                          🏭 {c.production_data ? 'Producción' : 'Enviar a Producción'}
+                        </button>
+                      )}
                       {/* Render button - shows on APROBADO, changes color when filled */}
                       { (getStatus(c) === 'APROBADO' || getStatus(c) === 'RENDER SI/NO') && (
                         <button onClick={() => {
