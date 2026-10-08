@@ -433,69 +433,77 @@ function Pedidos() {
   const downloadProjectPdf = async () => {
     if (!selected) return;
     const element = document.getElementById('production-project-pdf');
-    if (!element || typeof window.html2pdf !== 'function') {
-      setMessage('No está disponible el generador de PDF. Actualiza la página e inténtalo de nuevo.');
+    if (!element) {
+      setMessage('No se encontró el contenido del machote para imprimir.');
       return;
     }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setMessage('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.');
+      return;
+    }
+
     setExportingProjectPdf(true);
     setMessage('');
-    const exportElement = element.cloneNode(true);
-    exportElement.removeAttribute('id');
-    Object.assign(exportElement.style, {
-      position: 'fixed',
-      left: '0',
-      top: '0',
-      zIndex: '2147483647',
-      width: '794px',
-      minHeight: '1123px',
-      height: 'auto',
-      overflow: 'visible',
-      display: 'block',
-      visibility: 'visible',
-      opacity: '1',
-      background: '#fff'
-    });
-    document.body.appendChild(exportElement);
     try {
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      await Promise.all(Array.from(exportElement.querySelectorAll('img')).map(image => {
-        if (image.complete) {
-          return image.naturalWidth > 0
-            ? Promise.resolve()
-            : Promise.reject(new Error('No se pudo cargar una de las fotos para el PDF.'));
+      const title = `Proyecto_${selected.public_id || selected.id}_${clientSurname}`
+        .replace(/[<>&"]/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[character]);
+      const content = element.cloneNode(true);
+      content.removeAttribute('id');
+      content.querySelectorAll('img').forEach(image => {
+        image.removeAttribute('style');
+        image.style.cssText = 'display:block;max-width:100%;max-height:250mm;object-fit:contain;margin:5mm auto;page-break-inside:avoid;break-inside:avoid';
+      });
+      printWindow.document.open();
+      printWindow.document.write(`<!doctype html>
+        <html lang="es">
+          <head>
+            <meta charset="utf-8">
+            <title>${title}</title>
+            <style>
+              @page { size: A4 portrait; margin: 12mm; }
+              * { box-sizing: border-box; }
+              html, body { margin: 0; padding: 0; background: #fff; }
+              body { color: #1e293b; font: 12px/1.5 Arial, sans-serif; }
+              #machote { width: 100%; color: #1e293b; overflow-wrap: anywhere; }
+              h1, h2, h3 { break-after: avoid-page; page-break-after: avoid; }
+              p, figure, article, section { orphans: 2; widows: 2; }
+              img { max-width: 100%; }
+              a { color: #1d4f91; overflow-wrap: anywhere; }
+              @media screen {
+                body { max-width: 210mm; margin: 0 auto; padding: 12mm; }
+              }
+            </style>
+          </head>
+          <body><main id="machote">${content.innerHTML}</main></body>
+        </html>`);
+      printWindow.document.close();
+      await new Promise(resolve => {
+        const pendingImages = Array.from(printWindow.document.images).filter(image => !image.complete);
+        if (!pendingImages.length) {
+          resolve();
+          return;
         }
-        return new Promise((resolve, reject) => {
-          image.addEventListener('load', resolve, { once: true });
-          image.addEventListener('error', () => reject(new Error('No se pudo cargar una de las fotos para el PDF.')), { once: true });
+        let remaining = pendingImages.length;
+        const imageFinished = () => {
+          remaining -= 1;
+          if (remaining === 0) resolve();
+        };
+        pendingImages.forEach(image => {
+          image.addEventListener('load', imageFinished, { once: true });
+          image.addEventListener('error', imageFinished, { once: true });
         });
-      }));
-      const worker = window.html2pdf().set({
-        margin: [10, 10, 12, 10],
-        filename: `Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`,
-        image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.production-pdf-photo'] }
-      }).from(exportElement).toCanvas();
-      const canvas = await worker.get('canvas');
-      if (!canvas.width || !canvas.height) throw new Error('No se pudo capturar el contenido del machote.');
-      const context = canvas.getContext('2d', { willReadFrequently: true });
-      const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let contentPixels = 0;
-      for (let pixel = 0; pixel < sample.length; pixel += 4) {
-        if (sample[pixel + 3] > 0 && (sample[pixel] < 245 || sample[pixel + 1] < 245 || sample[pixel + 2] < 245)) {
-          contentPixels += 1;
-          if (contentPixels >= 10) break;
-        }
-      }
-      if (!contentPixels) throw new Error('La captura del machote está vacía. No se descargó el PDF; vuelve a intentarlo.');
-      const pdf = await worker.toPdf().get('pdf');
-      pdf.save(`Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`);
-      setMessage('PDF del expediente descargado.');
+        window.setTimeout(resolve, 10000);
+      });
+      await printWindow.document.fonts?.ready;
+      printWindow.focus();
+      printWindow.onafterprint = () => printWindow.close();
+      printWindow.print();
+      setMessage('El machote está listo. En el diálogo de impresión, elige “Guardar como PDF”.');
     } catch (error) {
+      printWindow.close();
       setMessage(error.message || 'No se pudo generar el PDF del expediente.');
     } finally {
-      exportElement.remove();
       setExportingProjectPdf(false);
     }
   };
@@ -599,7 +607,7 @@ function Pedidos() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
-                      {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar machote completo'}
+                      {exportingProjectPdf ? 'Preparando machote...' : '⬇ Imprimir / guardar machote PDF'}
                     </button>
                     {renderPreview && (
                       <a href={imageUrl(renderPreview)} target="_blank" rel="noreferrer"
@@ -956,7 +964,7 @@ function Pedidos() {
             style={{ width: 'min(440px, 100%)', padding: '1.3rem', background: '#fff', borderRadius: 16, boxShadow: '0 20px 50px rgba(15,23,42,0.25)' }}>
             <h2 id="production-pdf-prompt-title" style={{ margin: '0 0 0.5rem', color: '#172b4d', fontSize: '1.1rem' }}>Etapa actualizada</h2>
             <p style={{ margin: '0 0 1.1rem', color: '#526174', lineHeight: 1.5 }}>
-              El proyecto ya está en <strong>{STAGE_NAMES[currentStage]}</strong>. ¿Quieres descargar el machote completo para Compras y Carpintería?
+              El proyecto ya está en <strong>{STAGE_NAMES[currentStage]}</strong>. ¿Quieres abrir el machote para imprimirlo o guardarlo como PDF para Compras y Carpintería?
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
               <button type="button" onClick={() => setShowPdfPrompt(false)}
@@ -965,7 +973,7 @@ function Pedidos() {
               </button>
               <button type="button" disabled={exportingProjectPdf} onClick={() => { setShowPdfPrompt(false); downloadProjectPdf(); }}
                 style={{ padding: '0.65rem 0.9rem', border: 0, borderRadius: 9, background: '#2563eb', color: '#fff', fontWeight: 800, cursor: exportingProjectPdf ? 'wait' : 'pointer' }}>
-                {exportingProjectPdf ? 'Preparando PDF...' : 'Sí, descargar PDF'}
+                {exportingProjectPdf ? 'Preparando machote...' : 'Sí, abrir impresión'}
               </button>
             </div>
           </section>
