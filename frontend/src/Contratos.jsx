@@ -1454,7 +1454,7 @@ const MEASURE_SECTIONS = {
   ],
 };
 
-function getMeasureSections(projectType) {
+export function getMeasureSections(projectType) {
   const normalize = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const pt = normalize(projectType);
   // Detectar todos los tipos seleccionados y combinar sus secciones

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ContratoDetail } from './Contratos';
+import { ContratoDetail, getMeasureSections } from './Contratos';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
@@ -106,17 +106,33 @@ function Pedidos() {
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
   const projectDetails = estimation.projectDetails || {};
+  const estimationMeasures = estimation.measures && typeof estimation.measures === 'object' ? estimation.measures : {};
+  const estimationMeasurePhotos = estimation.photos && typeof estimation.photos === 'object' ? estimation.photos : {};
+  const measurementLabels = new Map(getMeasureSections(selected?.project_type || '').flatMap(group =>
+    group.sections.flatMap(section => section.fields.map(field => [
+      `${section.key}_${field.id}`,
+      { label: field.label, group: group._groupLabel || 'Medidas capturadas', suffix: field.suffix }
+    ]))
+  ));
+  const measureKeys = new Set([...Object.keys(estimationMeasures), ...Object.keys(estimationMeasurePhotos)]);
+  const measurementEntries = [...measureKeys].map(key => {
+    const field = measurementLabels.get(key);
+    const value = estimationMeasures[key];
+    const photo = estimationMeasurePhotos[key];
+    const hasValue = value !== null && value !== undefined && value !== '';
+    const label = field?.label || key.replaceAll('_', ' ');
+    const formattedValue = hasValue
+      ? `${value}${field?.suffix === 'cm' ? ` ${estimation.unit || 'cm'}` : field?.suffix ? ` ${field.suffix}` : ''}`
+      : '';
+    return { key, label, group: field?.group || 'Medidas capturadas', value: formattedValue, photo };
+  }).filter(entry => entry.value || entry.photo);
+  const croquisImages = collectImageUrls(estimation.croquisPhotos, estimation.croquis_data);
   const projectMaterials = estimationSheets.flatMap((sheet, sheetIndex) =>
     (Array.isArray(sheet.materials) ? sheet.materials : []).map(item => ({
       ...item,
       sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`
     }))
   );
-  const measurements = Object.entries({
-    ...(selected || {}),
-    ...(estimation.measures || {})
-  }).filter(([key, value]) => /measurement|medida|measure/i.test(key) && value !== null && value !== undefined && value !== '');
-
   const persist = async (nextProduction, nextStatus) => {
     if (!selected) return;
     setSaving(true);
@@ -260,7 +276,8 @@ function Pedidos() {
     values.forEach(visit);
     return [...urls];
   };
-  const projectImages = selected ? collectImageUrls(
+  const measurementPhotos = measurementEntries.flatMap(entry => collectImageUrls(entry.photo));
+  const otherProjectImages = selected ? collectImageUrls(
     selected.space_image_path,
     selected.reference_image_path,
     selected.design_image_path,
@@ -269,17 +286,10 @@ function Pedidos() {
     selected.quote_image_3,
     selected.quote_image_4,
     selected.render_image_path,
-    estimation.croquisPhotos,
-    estimation.croquis_data,
-    estimation.photos,
     stages.map(stage => stage.photos)
   ) : [];
-  const generalMeasurements = [
-    selected?.measurements && ['Medidas generales del cliente', selected.measurements],
-    ...measurements
-      .filter(([key]) => key !== 'measurements')
-      .map(([key, value]) => [key.replaceAll('_', ' '), String(value)])
-  ].filter(Boolean);
+  const projectImages = [...new Set([...measurementPhotos, ...croquisImages, ...otherProjectImages])];
+  const generalMeasurements = selected?.measurements ? [['Medidas generales del cliente', selected.measurements]] : [];
   const clientSurname = selected?.name?.trim().split(/\s+/).slice(-1)[0] || 'Cliente';
 
   const downloadProjectPdf = async () => {
@@ -471,6 +481,32 @@ function Pedidos() {
                     </div>
                   </div>
                 )}
+                {measurementEntries.length > 0 && (
+                  <section style={{ marginBottom: 14 }}>
+                    <h3 style={{ margin: '0 0 0.65rem', color: '#1d4f91', fontSize: '0.88rem' }}>Medidas y fotos de visita</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
+                      {measurementEntries.map(entry => {
+                        const photos = collectImageUrls(entry.photo);
+                        return (
+                          <article key={entry.key} style={{ minWidth: 0, padding: '0.75rem', background: '#f8fafc', border: '1px solid #dbe5f0', borderRadius: 10 }}>
+                            <div style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 800, marginBottom: 4 }}>{entry.group}</div>
+                            <div style={{ color: '#1e3a5f', fontSize: '0.78rem', fontWeight: 750 }}>{entry.label}</div>
+                            {entry.value && <div style={{ color: '#334155', fontSize: '0.82rem', marginTop: 4, whiteSpace: 'pre-wrap' }}>{entry.value}</div>}
+                            {photos.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                {photos.map((photo, index) => (
+                                  <a key={`${entry.key}-${index}`} href={imageUrl(photo)} target="_blank" rel="noreferrer">
+                                    <img src={imageUrl(photo)} alt={`Foto de ${entry.label}`} style={{ width: 116, height: 86, objectFit: 'cover', borderRadius: 7, border: '1px solid #bfdbfe' }} />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
                 {estimationSheets.map((sheet, index) => (
                   <div key={`${sheet.type}-${index}`} style={{ margin: '0 0 14px', padding: '0.8rem', background: '#f8fafc', borderRadius: 10 }}>
                     <div style={{ fontWeight: 800, color: '#334155', marginBottom: 7 }}>{sheet.type || `Proyecto ${index + 1}`}</div>
@@ -483,11 +519,11 @@ function Pedidos() {
                   </div>
                 ))}
                 {!projectMaterials.length && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>No hay materiales capturados en la estimación.</div>}
-                {(estimation.croquisPhotos || estimation.croquis_data || estimation.photos) && (
+                {croquisImages.length > 0 && (
                   <details style={{ marginTop: 8 }}>
-                    <summary style={{ cursor: 'pointer', color: '#334155', fontSize: '0.82rem', fontWeight: 700 }}>Ver croquis y fotos de estimación</summary>
+                    <summary style={{ cursor: 'pointer', color: '#334155', fontSize: '0.82rem', fontWeight: 700 }}>Croquis del proyecto ({croquisImages.length})</summary>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 8 }}>
-                      {[...(Array.isArray(estimation.croquisPhotos) ? estimation.croquisPhotos : []), estimation.croquis_data, ...Object.values(estimation.photos || {}).flat()].filter(value => typeof value === 'string').map((photo, index) =>
+                      {croquisImages.map((photo, index) =>
                         <a key={index} href={imageUrl(photo)} target="_blank" rel="noreferrer"><img src={imageUrl(photo)} alt={`Referencia de estimación ${index + 1}`} style={{ width: 130, height: 95, objectFit: 'cover', borderRadius: 8, border: '1px solid #dbe3ec' }} /></a>
                       )}
                     </div>
@@ -536,15 +572,39 @@ function Pedidos() {
               {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
                 <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
               )) : <p style={{ margin: '0 0 14px' }}>Sin medidas generales capturadas.</p>}
+              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Medidas capturadas y fotos de visita</h2>
+              {measurementEntries.length ? measurementEntries.map(entry => (
+                <div key={entry.key} style={{ margin: '0 0 10px', padding: 8, border: '1px solid #dbe5f0', borderRadius: 6, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <p style={{ margin: '0 0 5px' }}>
+                    <strong>{entry.group} — {entry.label}:</strong> {entry.value || 'Sin medida anotada'}
+                  </p>
+                  {collectImageUrls(entry.photo).map((photo, index) => (
+                    <img key={`${entry.key}-${index}`} src={imageUrl(photo)} alt={`Foto de ${entry.label}`} style={{ display: 'block', maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', marginTop: 5 }} />
+                  ))}
+                </div>
+              )) : <p>Sin medidas de visita capturadas en Estimación.</p>}
               <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Materiales</h2>
               {projectMaterials.length ? projectMaterials.map((material, index) => (
                 <p key={`${material.sheetName}-${material.id || index}`} style={{ margin: '0 0 4px' }}>
                   {material.sheetName}: {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
                 </p>
               )) : <p>Sin materiales capturados.</p>}
-              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Fotografías, croquis y render</h2>
+              {croquisImages.length > 0 && (
+                <>
+                  <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Croquis del proyecto</h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {croquisImages.map((photo, index) => (
+                      <figure className="production-pdf-photo" key={`croquis-${index}`} style={{ margin: 0, padding: 8, border: '1px solid #cbd5e1', borderRadius: 8, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                        <img src={imageUrl(photo)} alt={`Croquis ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '330px', objectFit: 'contain' }} />
+                        <figcaption style={{ marginTop: 4, color: '#475569', fontSize: '10px' }}>Croquis {index + 1}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </>
+              )}
+              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Fotos del proyecto y avances</h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {projectImages.map((photo, index) => (
+                {otherProjectImages.map((photo, index) => (
                   <figure className="production-pdf-photo" key={`${photo.slice(0, 80)}-${index}`} style={{ margin: 0, padding: 8, border: '1px solid #cbd5e1', borderRadius: 8, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     <img src={imageUrl(photo)} alt={photo === selected.render_image_path ? 'Render del proyecto' : `Foto de proyecto ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '330px', objectFit: 'contain' }} />
                     <figcaption style={{ marginTop: 4, color: '#475569', fontSize: '10px' }}>{photo === selected.render_image_path ? 'Render del proyecto' : `Imagen ${index + 1}`}</figcaption>
