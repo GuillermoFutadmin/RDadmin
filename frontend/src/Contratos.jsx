@@ -60,7 +60,7 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
 }
 
 // ─── Prospect Detail Card (same style as Prospects.jsx) ──────────────────────
-export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh, onStartProduction, productionMode = false }) {
+export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, onReturnToProspect, onDownloadCotizacion, onRefresh, onStartProduction, onReturnToClients, productionMode = false }) {
   const [localProspect, setLocalProspect] = React.useState(_prospectProp);
   const [showPhotos, setShowPhotos] = React.useState(false);
 
@@ -258,6 +258,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
         <h3 style={{ color:'var(--accent)', margin:0, fontSize:'1.15rem' }}>{prospect.name}</h3>
         <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
           <button onClick={onBack} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#eee', border:'none', borderRadius:'6px', cursor:'pointer' }}>Volver</button>
+          {productionMode && <button onClick={onReturnToClients} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#fff7ed', color:'#c2410c', border:'1px solid #fed7aa', borderRadius:'6px', cursor:'pointer', fontWeight:'700' }}>↩ Regresar a Clientes y reabrir contrato</button>}
           {!productionMode && <button onClick={onEstimacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconPenTool style={{ width:'14px', height:'14px', marginRight:0 }} /> Estimación
           </button>}
@@ -585,7 +586,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     try {
       const res = await fetch(`${API}/api/prospects`);
       const data = await res.json();
-      setContratos(data.filter(p => p.is_contract && !p.production_data));
+      setContratos(data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -658,10 +659,11 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
         prospect={selected} 
         onBack={() => { setView('list'); setSelected(null); }} 
         onSaveStatus={async () => {
-          await fetch(`${API}/api/prospects/${selected.id}`, { 
+          const response = await fetch(`${API}/api/prospects/${selected.id}`, {
             method: 'PUT', headers:{'Content-Type':'application/json'}, 
             body: JSON.stringify({ status: 'CONTRATO' }) 
           });
+          if (!response.ok) throw new Error(`No se pudo guardar el contrato (${response.status})`);
           fetchContratos();
         }} 
       />
@@ -690,7 +692,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
             // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
             const res = await fetch(`${API}/api/prospects`);
             const data = await res.json();
-            const freshContratos = data.filter(p => p.is_contract && !p.production_data);
+            const freshContratos = data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status));
             setContratos(freshContratos);
             const freshSelected = freshContratos.find(p => p.id === selected.id);
             if (freshSelected) setSelected(freshSelected);
@@ -752,7 +754,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const txt = filterText.toLowerCase().trim();
 
   const getStatus = (c) => {
-    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO', 'PRODUCCION', 'ENTREGADO'];
+    const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO', 'CONTRATO PENDIENTE', 'PRODUCCION', 'ENTREGADO'];
     if (c.status && validStates.includes(c.status)) return c.status;
     return 'APROBADO';
   };
@@ -761,6 +763,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     if (txt && !((c.name||'').toLowerCase().includes(txt) || (c.public_id||'').toLowerCase().includes(txt) || (c.contact_info||'').toLowerCase().includes(txt) || (c.project_type||'').toLowerCase().includes(txt))) return false;
     if (filterType && c.project_type !== filterType) return false;
     if (filterStatus === 'PRODUCCION') return ['PRODUCCION', 'ENTREGADO'].includes(getStatus(c));
+    if (filterStatus === 'CONTRATO') return ['CONTRATO', 'CONTRATO PENDIENTE'].includes(getStatus(c));
     if (filterStatus && getStatus(c) !== filterStatus) return false;
     return true;
   });
@@ -772,6 +775,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     const isRender     = s === 'RENDER SI/NO';
     const isEstimacion = s === 'ESTIMACIÓN';
     const isContrato   = s === 'CONTRATO';
+    const isContractPending = s === 'CONTRATO PENDIENTE';
     const isProduction = s === 'PRODUCCION';
     const isDelivered  = s === 'ENTREGADO';
     let label = s || 'APROBADO';
@@ -779,6 +783,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     if (isRender)     { bg = '#fef3c7'; color = '#92400e'; dot = '#f59e0b'; }
     else if (isEstimacion) { bg = '#e0e7ff'; color = '#3730a3'; dot = '#4f46e5'; }
     else if (isContrato)   { bg = '#fce7f3'; color = '#9d174d'; dot = '#ec4899'; }
+    else if (isContractPending) { label = 'CONTRATO PENDIENTE'; bg = '#fff7ed'; color = '#c2410c'; dot = '#f97316'; }
     else if (isProduction) { label = 'PRODUCCIÓN'; bg = '#dbeafe'; color = '#1d4ed8'; dot = '#2563eb'; }
     else if (isDelivered)  { label = 'ENTREGADO'; bg = '#dcfce7'; color = '#166534'; dot = '#16a34a'; }
     return (
@@ -1006,7 +1011,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
           { key: 'APROBADO',  label: 'Aprobado',  count: contratos.filter(c => getStatus(c) === 'APROBADO').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconCheckCircle },
           { key: 'RENDER SI/NO', label: 'Render SI/NO', count: contratos.filter(c => getStatus(c) === 'RENDER SI/NO').length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconPalette },
           { key: 'ESTIMACIÓN', label: 'Estimación', count: contratos.filter(c => getStatus(c) === 'ESTIMACIÓN').length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPenTool },
-          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => getStatus(c) === 'CONTRATO').length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: IconFileText },
+          { key: 'CONTRATO', label: 'Contrato', count: contratos.filter(c => ['CONTRATO', 'CONTRATO PENDIENTE'].includes(getStatus(c))).length,  color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', icon: IconFileText },
           { key: 'PRODUCCION', label: 'Producción', count: contratos.filter(c => ['PRODUCCION', 'ENTREGADO'].includes(getStatus(c))).length, color: '#1d4ed8', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconPackage },
         ].map(({ key, label, count, color, bg, icon }) => {
           const isActive = filterStatus === key;
@@ -1114,7 +1119,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                   <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', right:0, background:'white', zIndex:1, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
-                      {(getStatus(c) === 'CONTRATO' || c.production_data) && (
+                      {getStatus(c) === 'CONTRATO' && (
                         <button onClick={() => handleStartProduction(c)} style={{
                           padding:'0.2rem 0.4rem', background:'#1d4ed8', color:'white',
                           border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'700',
@@ -1164,7 +1169,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                       </button>
                       
                       {/* Contrato button - disabled until estimation_data is filled */}
-                      { (getStatus(c) === 'ESTIMACIÓN' || getStatus(c) === 'CONTRATO') && (
+                      { (getStatus(c) === 'ESTIMACIÓN' || getStatus(c) === 'CONTRATO' || getStatus(c) === 'CONTRATO PENDIENTE') && (
                         <button
                           disabled={!c.estimation_data}
                           onClick={async () => {
@@ -1172,7 +1177,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                             setSelected(c);
                             setView('contrato_pdf');
                           }}
-                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : (getStatus(c) === 'CONTRATO' ? 'Ver / Imprimir Contrato' : 'Avanzar a Contrato')}
+                          title={!c.estimation_data ? 'Debes realizar y guardar la Estimación primero para avanzar a contrato.' : (getStatus(c) === 'CONTRATO' ? 'Ver / Imprimir Contrato' : 'Generar contrato')}
                           style={{ 
                             padding:'0.2rem 0.4rem',
                             background: !c.estimation_data ? '#f1f5f9' : '#10b981',
@@ -1185,7 +1190,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                           }}
                           onMouseEnter={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#059669'}
                           onMouseLeave={e => !c.estimation_data ? null : e.currentTarget.style.backgroundColor = '#10b981'}>
-                          <><IconFileText style={{ width:'12px', height:'12px', marginRight:0 }} /> Contrato</>
+                          <><IconFileText style={{ width:'12px', height:'12px', marginRight:0 }} /> {getStatus(c) === 'CONTRATO PENDIENTE' ? 'Generar contrato' : 'Contrato'}</>
                         </button>
                       )}
                     </div>

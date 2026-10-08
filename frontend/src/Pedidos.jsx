@@ -50,7 +50,9 @@ function Pedidos() {
       const response = await fetch(`${API}/api/prospects`);
       if (!response.ok) throw new Error(`No se pudo cargar Producción (${response.status})`);
       const data = await response.json();
-      const productionProjects = data.filter(project => project.is_contract && project.production_data);
+      const productionProjects = data.filter(project =>
+        project.is_contract && project.production_data && ['PRODUCCION', 'ENTREGADO'].includes(project.status)
+      );
       setProjects(productionProjects);
       setSelectedId(current => productionProjects.some(project => project.id === current)
         ? current
@@ -182,6 +184,31 @@ function Pedidos() {
     }
   };
 
+  const returnToClients = async () => {
+    if (!selected) return;
+    if (!window.confirm(`¿Regresar a ${selected.name} a Clientes para volver a generar el contrato? Se conservarán las etapas y fotos de producción.`)) return;
+    setSaving(true);
+    setMessage('');
+    try {
+      const response = await fetch(`${API}/api/prospects/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CONTRATO PENDIENTE' })
+      });
+      if (!response.ok) throw new Error(`No se pudo regresar el proyecto a Clientes (${response.status})`);
+      const returnedId = selected.id;
+      const remaining = projects.filter(project => project.id !== returnedId);
+      setProjects(remaining);
+      setSelectedId(remaining[0]?.id ?? null);
+      setShowTechnicalSheet(false);
+      setMessage('El proyecto regresó a Clientes en Contrato pendiente. Su historial de producción se conservó.');
+    } catch (error) {
+      setMessage(error.message || 'No se pudo regresar el proyecto a Clientes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
   const money = (value) => Number.isFinite(Number(value))
     ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value))
@@ -195,6 +222,7 @@ function Pedidos() {
           productionMode
           onBack={() => setShowTechnicalSheet(false)}
           onRefresh={refresh}
+          onReturnToClients={returnToClients}
         />
       </div>
     );
@@ -243,6 +271,9 @@ function Pedidos() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
+                  </button>
+                  <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
+                    ↩ Regresar a Clientes
                   </button>
                   <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
                 </div>

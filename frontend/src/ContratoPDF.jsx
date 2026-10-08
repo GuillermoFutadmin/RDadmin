@@ -299,8 +299,6 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const handleGeneratePDF = async () => {
     setSaving(true);
     try {
-      await onSaveStatus();
-
       const element = document.getElementById('contrato-doc-export');
       const filename = `Contrato_${prospect.public_id || prospect.id}_${prospect.name || 'Cliente'}.pdf`;
       const folio = prospect.public_id || prospect.id;
@@ -318,7 +316,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       // Ensure the element is visible for html2canvas
       element.style.display = 'block';
 
-      window.html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
+      await window.html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
         const totalPages = pdf.internal.getNumberOfPages();
         const pageW = pdf.internal.pageSize.getWidth();
         
@@ -360,11 +358,14 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         }
       }).save().then(() => {
         element.style.display = 'none';
-        setSaving(false);
       });
+      await onSaveStatus();
+      setSaving(false);
 
     } catch (e) {
       console.error(e);
+      const element = document.getElementById('contrato-doc-export');
+      if (element) element.style.display = 'none';
       alert('Error generando el contrato: ' + e.message);
       setSaving(false);
     }
