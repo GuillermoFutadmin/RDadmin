@@ -439,19 +439,26 @@ function Pedidos() {
     }
     setExportingProjectPdf(true);
     setMessage('');
-    const originalStyle = element.getAttribute('style');
+    const exportElement = element.cloneNode(true);
+    exportElement.removeAttribute('id');
+    Object.assign(exportElement.style, {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      zIndex: '-1',
+      width: '794px',
+      minHeight: '1123px',
+      height: 'auto',
+      overflow: 'visible',
+      display: 'block',
+      visibility: 'visible',
+      opacity: '1',
+      background: '#fff'
+    });
+    document.body.appendChild(exportElement);
     try {
-      Object.assign(element.style, {
-        position: 'fixed',
-        left: '0',
-        top: '0',
-        zIndex: '2147483647',
-        width: '794px',
-        minHeight: '100vh',
-        overflow: 'visible'
-      });
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      await Promise.all(Array.from(element.querySelectorAll('img')).map(image => {
+      await Promise.all(Array.from(exportElement.querySelectorAll('img')).map(image => {
         if (image.complete) {
           return image.naturalWidth > 0
             ? Promise.resolve()
@@ -462,25 +469,33 @@ function Pedidos() {
           image.addEventListener('error', () => reject(new Error('No se pudo cargar una de las fotos para el PDF.')), { once: true });
         });
       }));
-      const pdf = await window.html2pdf().set({
+      const worker = window.html2pdf().set({
         margin: [10, 10, 12, 10],
         filename: `Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`,
         image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: {
-          scale: 1.5,
-          useCORS: true,
-          allowTaint: false
-        },
+        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false, backgroundColor: '#ffffff' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'], avoid: ['.production-pdf-photo'] }
-      }).from(element).toPdf().get('pdf');
+      }).from(exportElement).toCanvas();
+      const canvas = await worker.get('canvas');
+      if (!canvas.width || !canvas.height) throw new Error('No se pudo capturar el contenido del machote.');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let hasContent = false;
+      for (let pixel = 0; pixel < sample.length; pixel += 4 * 97) {
+        if (sample[pixel + 3] > 0 && (sample[pixel] < 245 || sample[pixel + 1] < 245 || sample[pixel + 2] < 245)) {
+          hasContent = true;
+          break;
+        }
+      }
+      if (!hasContent) throw new Error('El machote se capturó en blanco. No se descargó el PDF; vuelve a intentarlo.');
+      const pdf = await worker.toPdf().get('pdf');
       pdf.save(`Proyecto_${selected.public_id || selected.id}_${clientSurname}.pdf`);
       setMessage('PDF del expediente descargado.');
     } catch (error) {
       setMessage(error.message || 'No se pudo generar el PDF del expediente.');
     } finally {
-      if (originalStyle === null) element.removeAttribute('style');
-      else element.setAttribute('style', originalStyle);
+      exportElement.remove();
       setExportingProjectPdf(false);
     }
   };
