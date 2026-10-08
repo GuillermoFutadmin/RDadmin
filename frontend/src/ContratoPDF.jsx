@@ -15,6 +15,103 @@ const getDateStr = () => {
   return `${d.getDate()} de ${months[d.getMonth()]} del ${d.getFullYear()}`;
 };
 
+function DeliveryCalendar({ days, startDate, onDaysChange, editable = false }) {
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const totalDays = Number.parseInt(days, 10);
+  const validRange = startDate && Number.isInteger(totalDays) && totalDays > 0 && totalDays <= 200;
+  const endDate = validRange ? new Date(startDate) : null;
+  if (endDate) endDate.setDate(endDate.getDate() + totalDays);
+
+  const formatDate = date => date.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+  const toDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const months = [];
+  if (validRange) {
+    const month = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const lastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    while (month <= lastMonth) {
+      months.push(new Date(month));
+      month.setMonth(month.getMonth() + 1);
+    }
+  }
+
+  return (
+    <div style={{ marginTop:'0.65rem', padding:'0.8rem', background:'#f8fafc', borderRadius:'8px', border:'1px solid #e2e8f0', pageBreakInside:'avoid', breakInside:'avoid' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.55rem', marginBottom:'0.65rem', flexWrap:'wrap' }}>
+        <strong style={{ fontSize:'0.72rem', color:'#475569', textTransform:'uppercase', letterSpacing:'0.05em' }}>Tiempo de entrega:</strong>
+        {editable ? (
+          <span className="no-print" style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'2px 7px', border:'1px dashed #cbd5e1', borderRadius:'4px', background:'white', fontSize:'0.82rem', fontWeight:'600' }}>
+            <input type="number" min="1" max="200" value={days}
+              onChange={event => onDaysChange(event.target.value)}
+              style={{ width:'42px', padding:0, border:0, outline:'none', fontSize:'inherit', fontWeight:'inherit' }} />
+            días hábiles
+          </span>
+        ) : (
+          <span style={{ fontSize:'0.82rem', fontWeight:'700', color:'#1e293b' }}>{days} días hábiles</span>
+        )}
+        <span style={{ fontSize:'0.72rem', color:'#94a3b8' }}>
+          — {validRange ? `${formatDate(startDate)} al ${formatDate(endDate)}` : 'Define fecha de inicio y días de entrega'}
+        </span>
+      </div>
+      {validRange && (
+        <div style={{ display:'flex', gap:'0.8rem', flexWrap:'wrap', alignItems:'flex-start' }}>
+          {months.map((monthStart, monthIndex) => {
+            const year = monthStart.getFullYear();
+            const month = monthStart.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstWeekday = (monthStart.getDay() + 6) % 7;
+            return (
+              <div key={`${year}-${monthIndex}`} style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                <div style={{ fontSize:'0.68rem', fontWeight:'700', color:'#334155', marginBottom:'4px' }}>
+                  {monthNames[month]} {year}
+                </div>
+                <div style={{ background:'white', border:'1px solid #cbd5e1', borderRadius:'6px', padding:'4px', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 16px)', gap:'1px', marginBottom:'2px' }}>
+                    {['L','M','X','J','V','S','D'].map((weekday, index) => (
+                      <div key={`${weekday}-${index}`} style={{ width:'16px', height:'12px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'7px', fontWeight:'700', color:'#94a3b8' }}>{weekday}</div>
+                    ))}
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 16px)', gap:'1px' }}>
+                    {Array.from({ length:firstWeekday }, (_, index) => <div key={`empty-${index}`} style={{ width:'16px', height:'16px' }} />)}
+                    {Array.from({ length:daysInMonth }, (_, index) => {
+                      const date = new Date(year, month, index + 1);
+                      const key = toDateKey(date);
+                      const isStart = key === toDateKey(startDate);
+                      const isEnd = key === toDateKey(endDate);
+                      const isInRange = date >= startDate && date <= endDate;
+                      return (
+                        <div key={key} style={{
+                          width:'16px', height:'16px', borderRadius:'2px',
+                          background:isStart || isEnd ? '#334155' : isInRange ? '#e2e8f0' : 'transparent',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:'7.5px', color:isStart || isEnd ? 'white' : '#475569',
+                          fontWeight:isStart || isEnd ? '700' : '400'
+                        }}>{index + 1}</div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ paddingLeft:'0.8rem', borderLeft:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:'0.35rem', alignSelf:'center', fontSize:'0.76rem' }}>
+            <div><span style={{ color:'#64748b', fontWeight:'600' }}>Inicio:</span> {formatDate(startDate)}</div>
+            <div><span style={{ color:'#64748b', fontWeight:'600' }}>Entrega:</span> {formatDate(endDate)}</div>
+            <div><span style={{ color:'#64748b', fontWeight:'600' }}>Semanas:</span> {(totalDays / 7).toFixed(1)}</div>
+            <div style={{ marginTop:'0.25rem', display:'flex', gap:'0.55rem', flexWrap:'wrap', fontSize:'0.68rem', color:'#64748b' }}>
+              <span><span style={{ display:'inline-block', width:'9px', height:'9px', background:'#334155', marginRight:'3px' }} />Inicio/Fin</span>
+              <span><span style={{ display:'inline-block', width:'9px', height:'9px', background:'#e2e8f0', marginRight:'3px' }} />Producción</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   let estData = {};
   if (prospect.estimation_data) {
@@ -58,30 +155,6 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
   const startDate = parseDate(projectDetails.start_date || prospect.start_date);
-  const savedDeliveryDate = parseDate(projectDetails.delivery_date || prospect.delivery_date);
-  const calculateDeliveryDate = () => {
-    const days = Number(diasEntrega);
-    if (!startDate || !Number.isInteger(days) || days <= 0) return null;
-
-    const date = new Date(startDate);
-    let businessDays = 0;
-    while (businessDays < days) {
-      date.setDate(date.getDate() + 1);
-      if (date.getDay() !== 0 && date.getDay() !== 6) businessDays++;
-    }
-    return date;
-  };
-  const deliveryDate = savedDeliveryDate && Number(diasEntrega) === Number(initialDeliveryDays)
-    ? savedDeliveryDate
-    : calculateDeliveryDate();
-  const formatDate = date => date?.toLocaleDateString('es-MX', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  }) || '';
-  const dateRange = startDate && deliveryDate
-    ? `${formatDate(startDate)} al ${formatDate(deliveryDate)}`
-    : '';
   
   const [repSig, setRepSig] = useState(prospect.contract_signature_rep || null);
   const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
@@ -282,15 +355,14 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         {/* Totals */}
         <div style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '14px' }}>
-          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong><br/>
-          Para el inicio del proyecto se requiere un anticipo del{' '}
-          <input value={anticipoPct} onChange={e => setAnticipoPct(e.target.value)}
-            style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />
-          % ({formatCurrency(anticipoAmount)}), el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.<br/>
-          <strong>Tiempo de entrega:</strong>{' '}
-          <input value={diasEntrega} onChange={e => setDiasEntrega(e.target.value)}
-            style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />{' '}
-          días hábiles.{dateRange && <> <strong>Periodo:</strong> {dateRange}.</>}
+          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
+          <DeliveryCalendar days={diasEntrega} startDate={startDate} onDaysChange={setDiasEntrega} editable />
+          <div style={{ marginTop:'0.65rem' }}>
+            Para el inicio del proyecto se requiere un anticipo del{' '}
+            <input value={anticipoPct} onChange={e => setAnticipoPct(e.target.value)}
+              style={{ width: '44px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 2px' }} />
+            % ({formatCurrency(anticipoAmount)}), el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
+          </div>
         </div>
 
         <div style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '28px' }}>
@@ -354,9 +426,11 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         </div>
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px', pageBreakInside: 'avoid' }}>
-          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong><br/>
-          Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}% ({formatCurrency(anticipoAmount)})</strong>, el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.<br/>
-          <strong>Tiempo de entrega:</strong> {diasEntrega} días hábiles.{dateRange && <> <strong> Periodo:</strong> {dateRange}.</>}
+          <strong>Total: {formatCurrency(estimatedTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>
+          <DeliveryCalendar days={diasEntrega} startDate={startDate} />
+          <div style={{ marginTop:'0.65rem' }}>
+            Para el inicio del proyecto se requiere un anticipo del <strong>{anticipoPct}% ({formatCurrency(anticipoAmount)})</strong>, el otro {100 - Number(anticipoPct)}% ({formatCurrency(restanteAmount)}) restante se paga el día de la entrega/instalación.
+          </div>
         </div>
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', pageBreakInside: 'avoid' }}>
