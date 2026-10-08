@@ -99,6 +99,7 @@ function Pedidos() {
   const [showTechnicalSheet, setShowTechnicalSheet] = useState(false);
   const [stageFilter, setStageFilter] = useState(null);
   const [exportingProjectPdf, setExportingProjectPdf] = useState(false);
+  const [showPdfPrompt, setShowPdfPrompt] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -211,7 +212,10 @@ function Pedidos() {
     const now = new Date().toISOString();
     if (currentStage >= STAGE_NAMES.length - 1) {
       const delivered = await persist({ ...production, delivered_at: now }, 'ENTREGADO');
-      if (delivered) setMessage('Proyecto marcado como entregado.');
+      if (delivered) {
+        setMessage('Proyecto marcado como entregado.');
+        setShowPdfPrompt(true);
+      }
       return;
     }
     const nextIndex = Math.min(currentStage + 1, STAGE_NAMES.length - 1);
@@ -228,6 +232,7 @@ function Pedidos() {
     if (updated) {
       setActiveStage(nextIndex);
       setNote(nextStages[nextIndex]?.note || '');
+      setShowPdfPrompt(true);
     }
   };
 
@@ -290,8 +295,7 @@ function Pedidos() {
   };
 
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
-  const measurementPhotos = measurementEntries.flatMap(entry => collectImageUrls(entry.photo));
-  const otherProjectImages = selected ? collectImageUrls(
+  const projectReferenceImages = selected ? collectImageUrls(
     selected.space_image_path,
     selected.reference_image_path,
     selected.design_image_path,
@@ -299,15 +303,39 @@ function Pedidos() {
     selected.quote_image_2,
     selected.quote_image_3,
     selected.quote_image_4,
-    selected.render_image_path,
-    stages.map(stage => stage.photos)
+    selected.render_image_path
   ) : [];
-  const projectImages = [...new Set([...measurementPhotos, ...croquisImages, ...otherProjectImages])];
-  const generalMeasurements = selected?.measurements ? [['Medidas generales del cliente', selected.measurements]] : [];
+  const stageEvidence = stages.map((stage, index) => ({
+    name: STAGE_NAMES[index],
+    enteredAt: stage.entered_at,
+    note: stage.note,
+    photos: collectImageUrls(stage.photos)
+  }));
+  const generalMeasurements = selected
+    ? Object.entries(selected)
+      .filter(([key, value]) => /measurement/i.test(key) && value !== null && value !== undefined && value !== '' && typeof value !== 'object')
+      .map(([key, value]) => [key === 'measurements' ? 'Medidas generales del cliente' : key.replaceAll('_', ' '), String(value)])
+    : [];
   const clientSurname = selected?.name?.trim().split(/\s+/).slice(-1)[0] || 'Cliente';
+  const projectSpecifications = Object.entries(projectDetails)
+    .filter(([key, value]) => !/price|precio|total|margin|anticipo|cost|importe/i.test(key)
+      && value !== null && value !== undefined && value !== ''
+      && (typeof value !== 'object' || Array.isArray(value)))
+    .map(([key, value]) => [key.replaceAll('_', ' '), Array.isArray(value) ? value.join(', ') : String(value)]);
+  const handoffDetails = [
+    ['Tipo de proyecto', selected?.project_type],
+    ['Domicilio del proyecto', selected?.location],
+    ['Tiempo de entrega', selected?.quote_delivery_time || selected?.project_timeline || selected?.delivery_date],
+    ['Días de producción', selected?.production_days || projectDetails.production_days],
+    ['Material / acabado', [selected?.material_type, selected?.material_type_2, selected?.furniture_color].filter(Boolean).join(' · ')],
+    ['Render', selected?.render_applies === true ? 'Sí' : selected?.render_applies === false ? 'No aplica' : null],
+    ['Observaciones de diseño', selected?.design_details],
+    ['Notas de estimación', estimation.obsText],
+    ...projectSpecifications,
+  ].filter(([, value]) => value !== null && value !== undefined && value !== '');
 
   const downloadProjectPdf = async () => {
-    if (!selected || !projectImages.length) return;
+    if (!selected) return;
     const element = document.getElementById('production-project-pdf');
     if (!element || typeof window.html2pdf !== 'function') {
       setMessage('No está disponible el generador de PDF. Actualiza la página e inténtalo de nuevo.');
@@ -437,8 +465,8 @@ function Pedidos() {
                   <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="button" disabled={exportingProjectPdf || !projectImages.length} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: projectImages.length ? '#eff6ff' : '#f1f5f9', color: projectImages.length ? '#1d4f91' : '#94a3b8', fontWeight: 800, cursor: projectImages.length && !exportingProjectPdf ? 'pointer' : 'not-allowed' }}>
-                      {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar fotos en PDF'}
+                    <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
+                      {exportingProjectPdf ? 'Preparando PDF...' : '⬇ Descargar machote completo'}
                     </button>
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
@@ -580,8 +608,12 @@ function Pedidos() {
               )}
             </div>
             <div id="production-project-pdf" style={{ position: 'fixed', left: '-10000px', top: 0, width: '794px', padding: '28px', background: '#fff', color: '#1e293b', fontFamily: 'Arial, sans-serif', fontSize: '12px', lineHeight: 1.5 }}>
-              <h1 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '22px' }}>Expediente de producción</h1>
+              <h1 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '22px' }}>Machote de trabajo — Producción</h1>
               <p style={{ margin: '0 0 16px', color: '#475569' }}>ID: {selected.public_id || selected.id} · Cliente: {clientSurname}</p>
+              <h2 style={{ margin: '0 0 8px', fontSize: '15px' }}>Datos para las áreas</h2>
+              {handoffDetails.length ? handoffDetails.map(([label, value], index) => (
+                <p key={`handoff-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
+              )) : <p>Sin datos generales adicionales.</p>}
               <h2 style={{ margin: '0 0 8px', fontSize: '15px' }}>Medidas generales del cliente</h2>
               {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
                 <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
@@ -603,6 +635,12 @@ function Pedidos() {
                   {material.sheetName}: {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
                 </p>
               )) : <p>Sin materiales capturados.</p>}
+              {selected.render_pdf_path && (
+                <p style={{ margin: '0 0 10px' }}>
+                  <strong>PDF de render:</strong>{' '}
+                  <a href={imageUrl(selected.render_pdf_path)}>{imageUrl(selected.render_pdf_path)}</a>
+                </p>
+              )}
               {croquisImages.length > 0 && (
                 <>
                   <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Croquis del proyecto</h2>
@@ -616,15 +654,30 @@ function Pedidos() {
                   </div>
                 </>
               )}
-              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Fotos del proyecto y avances</h2>
+              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Fotos del proyecto</h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {otherProjectImages.map((photo, index) => (
+                {projectReferenceImages.map((photo, index) => (
                   <figure className="production-pdf-photo" key={`${photo.slice(0, 80)}-${index}`} style={{ margin: 0, padding: 8, border: '1px solid #cbd5e1', borderRadius: 8, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     <img src={imageUrl(photo)} alt={photo === selected.render_image_path ? 'Render del proyecto' : `Foto de proyecto ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '330px', objectFit: 'contain' }} />
                     <figcaption style={{ marginTop: 4, color: '#475569', fontSize: '10px' }}>{photo === selected.render_image_path ? 'Render del proyecto' : `Imagen ${index + 1}`}</figcaption>
                   </figure>
                 ))}
               </div>
+              {stageEvidence.some(stage => stage.note || stage.photos.length) && (
+                <>
+                  <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Avances de producción</h2>
+                  {stageEvidence.map((stage, index) => (stage.note || stage.photos.length > 0) && (
+                    <section key={`stage-${index}`} style={{ margin: '0 0 12px', padding: 8, border: '1px solid #cbd5e1', borderRadius: 8, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                      <h3 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '13px' }}>{stage.name}</h3>
+                      <p style={{ margin: '0 0 5px', color: '#64748b' }}>Ingreso: {formatDate(stage.enteredAt)}</p>
+                      {stage.note && <p style={{ margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{stage.note}</p>}
+                      {stage.photos.map((photo, photoIndex) => (
+                        <img key={`stage-${index}-photo-${photoIndex}`} src={imageUrl(photo)} alt={`Evidencia ${photoIndex + 1} - ${stage.name}`} style={{ display: 'block', maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', margin: '6px 0' }} />
+                      ))}
+                    </section>
+                  ))}
+                </>
+              )}
             </div>
           </section>
         ) : !loading ? (
@@ -639,6 +692,30 @@ function Pedidos() {
           </div>
         ) : null}
       </div>
+
+      {showPdfPrompt && selected && (
+        <div role="presentation" onClick={() => setShowPdfPrompt(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.55)' }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="production-pdf-prompt-title"
+            onClick={event => event.stopPropagation()}
+            style={{ width: 'min(440px, 100%)', padding: '1.3rem', background: '#fff', borderRadius: 16, boxShadow: '0 20px 50px rgba(15,23,42,0.25)' }}>
+            <h2 id="production-pdf-prompt-title" style={{ margin: '0 0 0.5rem', color: '#172b4d', fontSize: '1.1rem' }}>Etapa actualizada</h2>
+            <p style={{ margin: '0 0 1.1rem', color: '#526174', lineHeight: 1.5 }}>
+              El proyecto ya está en <strong>{STAGE_NAMES[currentStage]}</strong>. ¿Quieres descargar el machote completo para Compras y Carpintería?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+              <button type="button" onClick={() => setShowPdfPrompt(false)}
+                style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>
+                Continuar sin descargar
+              </button>
+              <button type="button" disabled={exportingProjectPdf} onClick={() => { setShowPdfPrompt(false); downloadProjectPdf(); }}
+                style={{ padding: '0.65rem 0.9rem', border: 0, borderRadius: 9, background: '#2563eb', color: '#fff', fontWeight: 800, cursor: exportingProjectPdf ? 'wait' : 'pointer' }}>
+                {exportingProjectPdf ? 'Preparando PDF...' : 'Sí, descargar PDF'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
