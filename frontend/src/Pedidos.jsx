@@ -438,7 +438,18 @@ function Pedidos() {
     }
     setExportingProjectPdf(true);
     setMessage('');
+    const originalStyle = element.getAttribute('style');
     try {
+      Object.assign(element.style, {
+        position: 'fixed',
+        left: '0',
+        top: '0',
+        zIndex: '2147483647',
+        width: '794px',
+        minHeight: '100vh',
+        overflow: 'visible'
+      });
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       await Promise.all(Array.from(element.querySelectorAll('img')).map(image => {
         if (image.complete) {
           return image.naturalWidth > 0
@@ -457,18 +468,7 @@ function Pedidos() {
         html2canvas: {
           scale: 1.5,
           useCORS: true,
-          allowTaint: false,
-          onclone: clonedDocument => {
-            const clonedElement = clonedDocument.getElementById('production-project-pdf');
-            if (clonedElement) {
-              Object.assign(clonedElement.style, {
-                position: 'fixed',
-                left: '0',
-                top: '0',
-                zIndex: '2147483647'
-              });
-            }
-          }
+          allowTaint: false
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'], avoid: ['.production-pdf-photo'] }
@@ -478,6 +478,8 @@ function Pedidos() {
     } catch (error) {
       setMessage(error.message || 'No se pudo generar el PDF del expediente.');
     } finally {
+      if (originalStyle === null) element.removeAttribute('style');
+      else element.setAttribute('style', originalStyle);
       setExportingProjectPdf(false);
     }
   };
