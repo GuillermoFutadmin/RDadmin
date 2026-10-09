@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ContratoDetail, getMeasureSections } from './Contratos';
-import ProjectTracking from './ProjectTracking';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
@@ -98,7 +97,6 @@ function Pedidos() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showTechnicalSheet, setShowTechnicalSheet] = useState(false);
-  const [stageFilter, setStageFilter] = useState(null);
   const [exportingProjectPdf, setExportingProjectPdf] = useState(false);
   const [showPdfPrompt, setShowPdfPrompt] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
@@ -140,13 +138,9 @@ function Pedidos() {
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    return projects.filter(project => {
-      const matchesQuery = !query || [project.name, project.public_id, project.project_type, project.contact_info]
-        .some(value => String(value || '').toLocaleLowerCase().includes(query));
-      const matchesStage = stageFilter === null || normalizeProduction(project.production_data).current_stage === stageFilter;
-      return matchesQuery && matchesStage;
-    });
-  }, [projects, search, stageFilter]);
+    return projects.filter(project => !query || [project.name, project.public_id, project.project_type, project.contact_info]
+      .some(value => String(value || '').toLocaleLowerCase().includes(query)));
+  }, [projects, search]);
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -381,16 +375,6 @@ function Pedidos() {
     }
   };
 
-  const selectStage = (stageIndex) => {
-    setStageFilter(stageIndex);
-    const matching = stageIndex === null
-      ? projects
-      : projects.filter(project => normalizeProduction(project.production_data).current_stage === stageIndex);
-    if (!matching.some(project => project.id === selectedId)) {
-      setSelectedId(matching[0]?.id ?? null);
-    }
-  };
-
   const photoPath = (photo) => typeof photo === 'string' ? photo : photo?.url;
   const projectReferenceImages = selected ? collectImageUrls(
     selected.space_image_path,
@@ -558,49 +542,64 @@ function Pedidos() {
 
       {message && <div role="status" style={{ marginBottom: 12, padding: '0.7rem 0.9rem', background: message.includes('no pudo') || message.includes('No se pudo') ? '#fef2f2' : '#eff6ff', color: message.includes('no pudo') || message.includes('No se pudo') ? '#b91c1c' : '#1d4f91', borderRadius: 10 }}>{message}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem', marginBottom: '1.2rem' }}>
-        {[
-          { index: null, label: 'Todos', count: projects.length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' },
-          ...STAGE_NAMES.map((label, index) => ({
-            index,
-            label,
-            count: projects.filter(project => normalizeProduction(project.production_data).current_stage === index).length,
-            color: index === 0 ? '#1d4ed8' : '#2563a8',
-            bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-          }))
-        ].map(({ index, label, count, color, bg }) => {
-          const active = stageFilter === index;
-          return (
-            <button key={label} type="button" onClick={() => selectStage(index)}
-              style={{ minWidth: 0, padding: '0.8rem 0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: active ? bg : '#fff', border: `1px solid ${active ? color : '#e2e8f0'}`, borderRadius: 12, boxShadow: active ? `0 3px 10px ${color}20` : '0 1px 3px rgba(15,23,42,0.05)', cursor: 'pointer', textAlign: 'left' }}>
-              <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, color: active ? color : '#64748b', fontSize: '0.78rem', fontWeight: active ? 800 : 700 }}>
-                <span style={{ width: 30, height: 30, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: active ? '#fff' : '#f8fafc', borderRadius: 9, color }}>{index === null ? '☷' : index === 0 ? '📦' : index + 1}</span>
-                <span>{label}</span>
-              </span>
-              <span style={{ color: '#1e293b', fontSize: '1.1rem', fontWeight: 800 }}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 300px) minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
-        <aside style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid #edf1f5', fontWeight: 800, color: '#334155' }}>
-            Proyectos <span style={{ color: '#64748b', fontWeight: 600 }}>({filteredProjects.length})</span>
+      <section style={{ marginBottom: 16, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 16, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Semáforo real de producción</h2>
+            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Cada cliente aparece en la etapa actual de su rastreo.</div>
           </div>
-          {loading ? <p style={{ padding: '1rem', color: '#64748b' }}>Cargando...</p> : filteredProjects.length ? filteredProjects.map(project => (
-            <button key={project.id} type="button" onClick={() => setSelectedId(project.id)}
-              style={{ display: 'block', width: '100%', padding: '0.9rem 1rem', textAlign: 'left', border: 0, borderBottom: '1px solid #f1f5f9', background: project.id === selectedId ? '#eff6ff' : '#fff', cursor: 'pointer' }}>
-              <span style={{ display: 'block', color: '#1e293b', fontWeight: 750 }}>{project.name || 'Cliente sin nombre'}</span>
-              <span style={{ display: 'block', marginTop: 4, color: '#64748b', fontSize: '0.78rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
-              <span style={{ display: 'inline-block', marginTop: 8, color: '#1d4f91', fontWeight: 700, fontSize: '0.73rem' }}>{STAGE_NAMES[normalizeProduction(project.production_data).current_stage || 0]}</span>
-            </button>
-          )) : <p style={{ padding: '1rem', margin: 0, color: '#64748b', lineHeight: 1.5 }}>{projects.length ? 'No hay proyectos que coincidan con la búsqueda.' : 'Aún no hay proyectos en producción. Desde Contratos, usa “Enviar a Producción” para iniciar el seguimiento.'}</p>}
-        </aside>
+          <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
+        </div>
+        {loading ? (
+          <p style={{ margin: 0, padding: '1rem', color: '#64748b' }}>Cargando proyectos...</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(190px, 1fr))', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+            {STAGE_NAMES.map((name, index) => {
+              const stageProjects = filteredProjects.filter(project => {
+                const current = normalizeProduction(project.production_data).current_stage;
+                const stageIndex = Number.isInteger(current) ? Math.max(0, Math.min(current, STAGE_NAMES.length - 1)) : 0;
+                return stageIndex === index;
+              });
+              const isCurrentStage = selected && (() => {
+                const current = normalizeProduction(selected.production_data).current_stage;
+                const stageIndex = Number.isInteger(current) ? Math.max(0, Math.min(current, STAGE_NAMES.length - 1)) : 0;
+                return stageIndex === index;
+              })();
+              return (
+                <section key={name} style={{ minWidth: 0, background: '#f8fafc', border: `1px solid ${isCurrentStage ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden' }}>
+                  <header style={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0.65rem 0.7rem', background: isCurrentStage ? '#eff6ff' : '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, color: isCurrentStage ? '#1d4ed8' : '#475569', fontSize: '0.75rem', fontWeight: 800 }}>
+                      <span style={{ width: 23, height: 23, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: stageProjects.length ? (isCurrentStage ? '#2563eb' : '#16a34a') : '#e2e8f0', color: stageProjects.length ? '#fff' : '#64748b', fontSize: '0.68rem' }}>
+                        {stageProjects.length ? index + 1 : '–'}
+                      </span>
+                      {name}
+                    </span>
+                    <span style={{ minWidth: 23, padding: '0.15rem 0.4rem', borderRadius: 99, background: stageProjects.length ? '#dbeafe' : '#f1f5f9', color: stageProjects.length ? '#1d4ed8' : '#64748b', textAlign: 'center', fontSize: '0.72rem', fontWeight: 800 }}>{stageProjects.length}</span>
+                  </header>
+                  <div style={{ display: 'grid', alignContent: 'start', gap: 6, minHeight: 92, padding: 7 }}>
+                    {stageProjects.map(project => {
+                      const stage = normalizeProduction(project.production_data).stages[index] || {};
+                      const isSelected = project.id === selectedId;
+                      return (
+                        <button key={project.id} type="button" onClick={() => setSelectedId(project.id)}
+                          style={{ width: '100%', padding: '0.65rem', textAlign: 'left', background: isSelected ? '#eff6ff' : '#fff', border: `1px solid ${isSelected ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 9, cursor: 'pointer', boxShadow: isSelected ? '0 0 0 1px #bfdbfe' : 'none' }}>
+                          <span style={{ display: 'block', color: '#1e293b', fontSize: '0.77rem', fontWeight: 800 }}>{project.name || 'Cliente sin nombre'}</span>
+                          <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.66rem', lineHeight: 1.35 }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
+                          {stage.entered_at && <span style={{ display: 'block', marginTop: 5, color: '#94a3b8', fontSize: '0.62rem' }}>{formatDate(stage.entered_at)}</span>}
+                        </button>
+                      );
+                    })}
+                    {!stageProjects.length && <span style={{ padding: '0.5rem 0.3rem', color: '#94a3b8', fontSize: '0.68rem', textAlign: 'center' }}>Sin proyectos</span>}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-        {selected ? (
-          <section style={{ minWidth: 0 }}>
-            <ProjectTracking prospect={selected} />
+      {selected ? (
+        <section style={{ minWidth: 0 }}>
             <div style={{ padding: '1.1rem 1.25rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                 <div>
@@ -945,18 +944,13 @@ function Pedidos() {
               )}
             </div>
           </section>
-        ) : !loading ? (
+      ) : !loading ? (
           <div style={{ padding: '2rem', color: '#64748b', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16 }}>
-            {filteredProjects.length
-              ? 'Selecciona un proyecto para revisar su avance.'
-              : projects.length && stageFilter !== null
-                ? `No hay proyectos actualmente en la etapa “${STAGE_NAMES[stageFilter]}”.`
-                : projects.length
-                  ? 'No hay proyectos que coincidan con la búsqueda.'
-                  : 'Los contratos se incorporan desde el módulo Clientes.'}
+            {projects.length
+              ? 'No hay proyectos que coincidan con la búsqueda.'
+              : 'Los contratos se incorporan desde el módulo Clientes.'}
           </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {showPdfPrompt && selected && (
         <div role="presentation" onClick={() => setShowPdfPrompt(false)}
