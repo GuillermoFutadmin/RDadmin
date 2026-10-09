@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ContratoDetail, getMeasureSections } from './Contratos';
+import ProjectTracking from './ProjectTracking';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
@@ -599,6 +600,7 @@ function Pedidos() {
 
         {selected ? (
           <section style={{ minWidth: 0 }}>
+            <ProjectTracking prospect={selected} />
             <div style={{ padding: '1.1rem 1.25rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                 <div>
