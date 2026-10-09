@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconTrendingUp, IconFileText, IconCheckCircle, IconEdit, IconPlusCircle, IconTrash, IconSearch } from './icons';
+import ProjectTracking, { getProjectTrackingProgress } from './ProjectTracking';
 
 
 const API = '';
@@ -2657,6 +2658,7 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
           )}
         </div>
       </div>
+      <ProjectTracking prospect={prospect} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
         {chip('ID', prospect.public_id)}
         {chip('Fecha Captura', prospect.capture_date ? new Date(prospect.capture_date + (prospect.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : null)}
@@ -3305,20 +3307,27 @@ function Prospects() {
                               const isProspecto  = s === 'New' || s === 'Prospecto' || s === '';
                               const isValuacion  = s === 'Valoración' || s === 'Valoracion';
                               const isCotizacion = s === 'Cotización';
+                              const tracking = getProjectTrackingProgress(p);
                               const label = isProspecto ? 'Prospecto' : isValuacion ? 'Valoración' : 'Cotización';
                               const bg    = isProspecto ? '#eff6ff' : isValuacion ? '#fef3c7' : '#dcfce7';
                               const color = isProspecto ? '#1e40af' : isValuacion ? '#92400e' : '#14532d';
                               const dot   = isProspecto ? '#3b82f6' : isValuacion ? '#f59e0b' : '#22c55e';
                               return (
-                                <span style={{
-                                  background: bg, color,
-                                  padding: '0.2rem 0.65rem', borderRadius: '12px',
-                                  fontSize: '0.8rem', fontWeight: '700',
-                                  display: 'inline-flex', alignItems: 'center', gap: '5px'
-                                }}>
-                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, display: 'inline-block', flexShrink: 0 }} />
-                                  {label}
-                                </span>
+                                <div style={{ display: 'grid', gap: 5, minWidth: 112 }}>
+                                  <span style={{
+                                    background: bg, color,
+                                    padding: '0.2rem 0.65rem', borderRadius: '12px',
+                                    fontSize: '0.8rem', fontWeight: '700',
+                                    display: 'inline-flex', alignItems: 'center', gap: '5px', width: 'fit-content'
+                                  }}>
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, display: 'inline-block', flexShrink: 0 }} />
+                                    {label}
+                                  </span>
+                                  <span style={{ color: '#64748b', fontSize: '0.67rem', whiteSpace: 'nowrap' }}>{tracking.stageLabel}</span>
+                                  <span style={{ height: 3, width: 92, overflow: 'hidden', background: '#e2e8f0', borderRadius: 999 }}>
+                                    <span style={{ display: 'block', height: '100%', width: `${tracking.completion}%`, background: '#2563eb', borderRadius: 999 }} />
+                                  </span>
+                                </div>
                               );
                             })()}
                           </td>
@@ -3326,6 +3335,11 @@ function Prospects() {
                             <div style={{ display: 'flex', gap: '0.2rem', flexWrap: 'nowrap', alignItems: 'center' }}>
                               
                               {/* 1. PROSPECTO (Editar) */}
+                              <button onClick={() => { setSelectedProspect(p); setView('detail'); }}
+                                style={{ padding: '0.2rem 0.4rem', backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '700', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
+                                title="Ver hoja de rastreo del proyecto">
+                                📦 Rastreo
+                              </button>
                               <button onClick={() => { setSelectedProspect(p); setView('edit'); }}
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}

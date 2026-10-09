@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ContratoPDFView } from './ContratoPDF';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
+import ProjectTracking from './ProjectTracking';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -275,6 +276,8 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
           {!productionMode && <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>}
         </div>
       </div>
+
+      <ProjectTracking prospect={prospect} />
 
       {/* ── Contraseña del contrato ── */}
       <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'0.85rem', padding:'0.9rem 1rem', backgroundColor:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', flexWrap:'wrap' }}>
