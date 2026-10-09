@@ -118,8 +118,21 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     return desc.join('\n');
   };
 
+  const getQuoteDescription = () => {
+    const designLabel = 'Diseño / fotos del espacio';
+    const designDetails = p.has_design && p.design_details
+      ? p.design_details.replace(/\s*\r?\n\s*/g, ' ').trim()
+      : '';
+    const descriptionLines = (p.quote_description || getDefaultDesc())
+      .split('\n')
+      .filter(line => !line.trim().toLowerCase().startsWith(`${designLabel.toLowerCase()}:`));
+
+    if (designDetails) descriptionLines.push(`${designLabel}: ${designDetails}`);
+    return descriptionLines.join('\n').trim();
+  };
+
   const [quoteTitle, setQuoteTitle] = React.useState(p.quote_title || getDefaultTitle());
-  const [quoteDesc, setQuoteDesc] = React.useState(p.quote_description || getDefaultDesc());
+  const [quoteDesc, setQuoteDesc] = React.useState(getQuoteDescription());
 
   // Precio: primero busca precio manual guardado, si no existe toma el de la valoración
   const getInitialPrice = () => {
