@@ -119,8 +119,8 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   };
 
   const getQuoteDescription = () => {
-    const designLabel = 'Diseño / fotos del espacio';
-    const designDetails = p.has_design && p.design_details
+    const designLabel = 'Descripción del diseño / notas del espacio';
+    const designDetails = typeof p.design_details === 'string'
       ? p.design_details.replace(/\s*\r?\n\s*/g, ' ').trim()
       : '';
     const descriptionLines = (p.quote_description || getDefaultDesc())
