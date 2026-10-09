@@ -355,7 +355,7 @@ const Croquis3D = forwardRef((props, ref) => {
       } else if (measureMode) {
         // Draw live preview line for measure mode
         ctx.save();
-        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 1.8; ctx.setLineDash([6,4]);
+        ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 3.5; ctx.setLineDash([8,5]);
         ctx.beginPath(); ctx.moveTo(startPosRef.current.x, startPosRef.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
@@ -380,11 +380,11 @@ const Croquis3D = forwardRef((props, ref) => {
     const ctx = canvas.getContext('2d');
     ctx.save();
     const col = '#16a34a';
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.setLineDash([]);
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 4; ctx.setLineDash([]);
     // Main line
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     // Arrowheads
-    const ang = Math.atan2(y2-y1, x2-x1), hs = 10;
+    const ang = Math.atan2(y2-y1, x2-x1), hs = 14;
     [[x1,y1,ang+Math.PI],[x2,y2,ang]].forEach(([ax,ay,a]) => {
       ctx.beginPath(); ctx.moveTo(ax,ay);
       ctx.lineTo(ax - hs*Math.cos(a-0.4), ay - hs*Math.sin(a-0.4));
@@ -392,7 +392,7 @@ const Croquis3D = forwardRef((props, ref) => {
       ctx.closePath(); ctx.fill();
     });
     // Tick marks perpendicular at ends
-    const perp = ang + Math.PI/2, tk = 8;
+    const perp = ang + Math.PI/2, tk = 11;
     [x1,y1,x2,y2].forEach((_, i) => {
       if (i % 2 !== 0) return;
       const bx = [x1,x2][i/2], by = [y1,y2][i/2];
@@ -403,9 +403,9 @@ const Croquis3D = forwardRef((props, ref) => {
     });
     // Label
     const mx=(x1+x2)/2, my=(y1+y2)/2;
-    ctx.font = 'bold 13px Inter,Arial,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const tw = ctx.measureText(label).width + 10;
-    ctx.fillStyle='white'; ctx.fillRect(mx-tw/2, my-11, tw, 22);
+    ctx.font = 'bold 20px Inter,Arial,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw = ctx.measureText(label).width + 16;
+    ctx.fillStyle='white'; ctx.fillRect(mx-tw/2, my-16, tw, 32);
     ctx.fillStyle=col; ctx.fillText(label, mx, my);
     ctx.restore();
   };
