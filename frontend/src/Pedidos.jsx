@@ -184,6 +184,21 @@ function Pedidos() {
     return { key, label, group: field?.group || 'Medidas capturadas', value: formattedValue, photo };
   }).filter(entry => entry.value || entry.photo);
   const croquisImages = collectImageUrls(estimation.croquisPhotos, estimation.croquis_data);
+  const measurementPhotos = measurementEntries.flatMap(entry =>
+    collectImageUrls(entry.photo).map((url, index) => ({
+      key: `${entry.key}-${index}`,
+      label: entry.label,
+      value: entry.value,
+      group: entry.group,
+      url
+    }))
+  );
+  const croquisPages = Array.from({ length: Math.ceil(croquisImages.length / 2) }, (_, index) =>
+    croquisImages.slice(index * 2, index * 2 + 2)
+  );
+  const measurementPhotoPages = Array.from({ length: Math.ceil(measurementPhotos.length / 6) }, (_, index) =>
+    measurementPhotos.slice(index * 6, index * 6 + 6)
+  );
   const materialSheets = estimationMaterialSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
     ? estimationMaterialSheets
     : valuationSheets;
@@ -440,8 +455,10 @@ function Pedidos() {
       const content = element.cloneNode(true);
       content.removeAttribute('id');
       content.querySelectorAll('img').forEach(image => {
-        image.removeAttribute('style');
-        image.style.cssText = 'display:block;max-width:100%;max-height:250mm;object-fit:contain;margin:5mm auto;page-break-inside:avoid;break-inside:avoid';
+        if (!image.closest('.production-pdf-layout-image')) {
+          image.removeAttribute('style');
+          image.style.cssText = 'display:block;max-width:100%;max-height:250mm;object-fit:contain;margin:5mm auto;page-break-inside:avoid;break-inside:avoid';
+        }
       });
       printWindow.document.open();
       printWindow.document.write(`<!doctype html>
@@ -459,8 +476,34 @@ function Pedidos() {
               p, figure, article, section { orphans: 2; widows: 2; }
               img { max-width: 100%; }
               a { color: #1d4f91; overflow-wrap: anywhere; }
+              .production-pdf-section { margin-bottom: 8mm; }
+              .production-pdf-section-title { margin: 0 0 5mm; color: #1d4f91; font-size: 16px; }
+              .production-pdf-new-page { break-before: page; page-break-before: always; }
+              .production-pdf-image-page { break-inside: avoid; page-break-inside: avoid; }
+              .production-pdf-image-page h2 { margin: 0 0 5mm; color: #1d4f91; font-size: 16px; }
+              .production-pdf-croquis-grid {
+                display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(2, minmax(0, 1fr));
+                gap: 5mm; height: 245mm;
+              }
+              .production-pdf-measure-grid {
+                display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, minmax(0, 1fr));
+                gap: 3mm; height: 245mm;
+              }
+              .production-pdf-layout-image {
+                display: flex; flex-direction: column; justify-content: center; min-height: 0;
+                margin: 0; padding: 3mm; border: 1px solid #cbd5e1; border-radius: 2mm;
+                overflow: hidden; break-inside: avoid; page-break-inside: avoid;
+              }
+              .production-pdf-layout-image img {
+                display: block; width: 100%; height: 100%; min-height: 0;
+                object-fit: contain; margin: 0;
+              }
+              .production-pdf-layout-image figcaption {
+                flex: none; margin-top: 1mm; color: #475569; font-size: 9px;
+              }
               @media screen {
                 body { max-width: 210mm; margin: 0 auto; padding: 12mm; }
+                .production-pdf-new-page { margin-top: 12mm; }
               }
             </style>
           </head>
@@ -783,32 +826,6 @@ function Pedidos() {
                     </div>
                   </div>
                 )}
-                {measurementEntries.length > 0 && (
-                  <section style={{ marginBottom: 14 }}>
-                    <h3 style={{ margin: '0 0 0.65rem', color: '#1d4f91', fontSize: '0.88rem' }}>Medidas y fotos de visita</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
-                      {measurementEntries.map(entry => {
-                        const photos = collectImageUrls(entry.photo);
-                        return (
-                          <article key={entry.key} style={{ minWidth: 0, padding: '0.75rem', background: '#f8fafc', border: '1px solid #dbe5f0', borderRadius: 10 }}>
-                            <div style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 800, marginBottom: 4 }}>{entry.group}</div>
-                            <div style={{ color: '#1e3a5f', fontSize: '0.78rem', fontWeight: 750 }}>{entry.label}</div>
-                            {entry.value && <div style={{ color: '#334155', fontSize: '0.82rem', marginTop: 4, whiteSpace: 'pre-wrap' }}>{entry.value}</div>}
-                            {photos.length > 0 && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                                {photos.map((photo, index) => (
-                                  <a key={`${entry.key}-${index}`} href={imageUrl(photo)} target="_blank" rel="noreferrer">
-                                    <img src={imageUrl(photo)} alt={`Foto de ${entry.label}`} style={{ width: 116, height: 86, objectFit: 'cover', borderRadius: 7, border: '1px solid #bfdbfe' }} />
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
                 {estimationSheets.map((sheet, index) => (
                   <div key={`${sheet.type}-${index}`} style={{ margin: '0 0 14px', padding: '0.8rem', background: '#f8fafc', borderRadius: 10 }}>
                     <div style={{ fontWeight: 800, color: '#334155', marginBottom: 7 }}>{sheet.type || `Proyecto ${index + 1}`}</div>
@@ -824,12 +841,50 @@ function Pedidos() {
                 {croquisImages.length > 0 && (
                   <details style={{ marginTop: 8 }}>
                     <summary style={{ cursor: 'pointer', color: '#334155', fontSize: '0.82rem', fontWeight: 700 }}>Croquis del proyecto ({croquisImages.length})</summary>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 8 }}>
-                      {croquisImages.map((photo, index) =>
-                        <a key={index} href={imageUrl(photo)} target="_blank" rel="noreferrer"><img src={imageUrl(photo)} alt={`Referencia de estimación ${index + 1}`} style={{ width: 130, height: 95, objectFit: 'cover', borderRadius: 8, border: '1px solid #dbe3ec' }} /></a>
-                      )}
-                    </div>
+                    {croquisPages.map((page, pageIndex) => (
+                      <div key={`preview-croquis-page-${pageIndex}`} style={{ paddingTop: 8 }}>
+                        {croquisPages.length > 1 && <div style={{ marginBottom: 5, color: '#64748b', fontSize: '0.72rem' }}>Hoja {pageIndex + 1} · hasta 2 croquis</div>}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                          {page.map((photo, index) => {
+                            const photoIndex = pageIndex * 2 + index;
+                            return <a key={photoIndex} href={imageUrl(photo)} target="_blank" rel="noreferrer"><img src={imageUrl(photo)} alt={`Croquis ${photoIndex + 1}`} style={{ width: '100%', height: 150, objectFit: 'contain', borderRadius: 8, border: '1px solid #dbe3ec', background: '#f8fafc' }} /></a>;
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </details>
+                )}
+                {measurementEntries.length > 0 && (
+                  <section style={{ marginTop: 14 }}>
+                    <h3 style={{ margin: '0 0 0.65rem', color: '#1d4f91', fontSize: '0.88rem' }}>Medidas y fotos de visita</h3>
+                    {measurementEntries.some(entry => !collectImageUrls(entry.photo).length) && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8, marginBottom: 8 }}>
+                        {measurementEntries.filter(entry => !collectImageUrls(entry.photo).length).map(entry => (
+                          <article key={entry.key} style={{ minWidth: 0, padding: '0.75rem', background: '#f8fafc', border: '1px solid #dbe5f0', borderRadius: 10 }}>
+                            <div style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 800, marginBottom: 4 }}>{entry.group}</div>
+                            <div style={{ color: '#1e3a5f', fontSize: '0.78rem', fontWeight: 750 }}>{entry.label}</div>
+                            {entry.value && <div style={{ color: '#334155', fontSize: '0.82rem', marginTop: 4, whiteSpace: 'pre-wrap' }}>{entry.value}</div>}
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    {measurementPhotoPages.map((page, pageIndex) => (
+                      <div key={`preview-measure-page-${pageIndex}`} style={{ marginTop: 10, padding: 10, border: '1px solid #e2e8f0', borderRadius: 10, background: '#fbfdff' }}>
+                        <div style={{ marginBottom: 7, color: '#64748b', fontSize: '0.72rem', fontWeight: 700 }}>Fotos de medidas · Hoja {pageIndex + 1} (hasta 6)</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: 8 }}>
+                          {page.map(photo => (
+                            <article key={photo.key} style={{ minWidth: 0, padding: 8, background: '#fff', border: '1px solid #dbe5f0', borderRadius: 8 }}>
+                              <div style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 800 }}>{photo.group}</div>
+                              <div style={{ color: '#1e3a5f', fontSize: '0.76rem', fontWeight: 750 }}>{photo.label}{photo.value ? ` · ${photo.value}` : ''}</div>
+                              <a href={imageUrl(photo.url)} target="_blank" rel="noreferrer">
+                                <img src={imageUrl(photo.url)} alt={`Foto de ${photo.label}`} style={{ width: '100%', height: 110, marginTop: 6, objectFit: 'cover', borderRadius: 7, border: '1px solid #bfdbfe' }} />
+                              </a>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </section>
                 )}
               </div>
             </details>
@@ -872,31 +927,63 @@ function Pedidos() {
             <div id="production-project-pdf" style={{ position: 'fixed', left: '-10000px', top: 0, width: '794px', padding: '28px', background: '#fff', color: '#1e293b', fontFamily: 'Arial, sans-serif', fontSize: '12px', lineHeight: 1.5 }}>
               <h1 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '22px' }}>Machote de trabajo — Producción</h1>
               <p style={{ margin: '0 0 16px', color: '#475569' }}>ID: {selected.public_id || selected.id} · Cliente: {clientSurname}</p>
-              <h2 style={{ margin: '0 0 8px', fontSize: '15px' }}>Datos para las áreas</h2>
-              {handoffDetails.length ? handoffDetails.map(([label, value], index) => (
-                <p key={`handoff-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
-              )) : <p>Sin datos generales adicionales.</p>}
-              <h2 style={{ margin: '0 0 8px', fontSize: '15px' }}>Medidas generales del cliente</h2>
-              {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
-                <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
-              )) : <p style={{ margin: '0 0 14px' }}>Sin medidas generales capturadas.</p>}
-              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Medidas capturadas y fotos de visita</h2>
-              {measurementEntries.length ? measurementEntries.map(entry => (
-                <div key={entry.key} style={{ margin: '0 0 10px', padding: 8, border: '1px solid #dbe5f0', borderRadius: 6, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                  <p style={{ margin: '0 0 5px' }}>
-                    <strong>{entry.group} — {entry.label}:</strong> {entry.value || 'Sin medida anotada'}
+              <section className="production-pdf-section">
+                <h2 className="production-pdf-section-title">1. Información general del cliente</h2>
+                {handoffDetails.length ? handoffDetails.map(([label, value], index) => (
+                  <p key={`handoff-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
+                )) : <p>Sin datos generales adicionales.</p>}
+                <h3 style={{ margin: '12px 0 6px', fontSize: '13px' }}>Medidas generales del cliente</h3>
+                {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
+                  <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
+                )) : <p>Sin medidas generales capturadas.</p>}
+                {measurementEntries.some(entry => !collectImageUrls(entry.photo).length) && (
+                  <>
+                    <h3 style={{ margin: '12px 0 6px', fontSize: '13px' }}>Medidas de visita sin fotografía</h3>
+                    {measurementEntries.filter(entry => !collectImageUrls(entry.photo).length).map(entry => (
+                      <p key={entry.key} style={{ margin: '0 0 5px' }}>
+                        <strong>{entry.group} — {entry.label}:</strong> {entry.value || 'Sin medida anotada'}
+                      </p>
+                    ))}
+                  </>
+                )}
+              </section>
+              <section className="production-pdf-section production-pdf-new-page">
+                <h2 className="production-pdf-section-title">2. Materiales</h2>
+                {projectMaterials.length ? projectMaterials.map((material, index) => (
+                  <p key={`${material.sheetName}-${material.id || index}`} style={{ margin: '0 0 4px' }}>
+                    <strong>{material.sheetName}:</strong> {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
                   </p>
-                  {collectImageUrls(entry.photo).map((photo, index) => (
-                    <img key={`${entry.key}-${index}`} src={imageUrl(photo)} alt={`Foto de ${entry.label}`} style={{ display: 'block', maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', marginTop: 5 }} />
-                  ))}
-                </div>
-              )) : <p>Sin medidas de visita capturadas en Estimación.</p>}
-              <h2 style={{ margin: '16px 0 8px', fontSize: '15px' }}>Materiales</h2>
-              {projectMaterials.length ? projectMaterials.map((material, index) => (
-                <p key={`${material.sheetName}-${material.id || index}`} style={{ margin: '0 0 4px' }}>
-                  {material.sheetName}: {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
-                </p>
-              )) : <p>Sin materiales capturados.</p>}
+                )) : <p>Sin materiales capturados.</p>}
+              </section>
+              {croquisPages.map((page, pageIndex) => (
+                <section key={`croquis-page-${pageIndex}`} className="production-pdf-image-page production-pdf-new-page">
+                  <h2>3. Croquis del proyecto{croquisImages.length > 2 ? ` · Hoja ${pageIndex + 1}` : ''}</h2>
+                  <div className="production-pdf-croquis-grid">
+                    {page.map((photo, index) => {
+                      const photoIndex = pageIndex * 2 + index;
+                      return (
+                        <figure className="production-pdf-layout-image" key={`croquis-${photoIndex}`}>
+                          <img src={imageUrl(photo)} alt={`Croquis ${photoIndex + 1}`} />
+                          <figcaption>Croquis {photoIndex + 1}</figcaption>
+                        </figure>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+              {measurementPhotoPages.map((page, pageIndex) => (
+                <section key={`measurement-page-${pageIndex}`} className="production-pdf-image-page production-pdf-new-page">
+                  <h2>4. Medidas y fotos de visita · Hoja {pageIndex + 1}</h2>
+                  <div className="production-pdf-measure-grid">
+                    {page.map(photo => (
+                      <figure className="production-pdf-layout-image" key={photo.key}>
+                        <img src={imageUrl(photo.url)} alt={`Foto de ${photo.label}`} />
+                        <figcaption>{photo.group} — {photo.label}{photo.value ? ` · ${photo.value}` : ''}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </section>
+              ))}
               {selected.render_pdf_path && (
                 <p style={{ margin: '0 0 10px' }}>
                   <strong>PDF de render:</strong>{' '}
