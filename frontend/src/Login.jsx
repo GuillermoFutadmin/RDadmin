@@ -5,6 +5,7 @@ export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   const API = '';
 
@@ -43,33 +44,21 @@ export default function Login({ onLoginSuccess }) {
       background: '#f8fafc',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
-      <div style={{
-        background: 'white',
-        padding: '3rem 2.5rem',
-        borderRadius: '16px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px',
-        textAlign: 'center'
-      }}>
+      {!showLogin ? (
+        <button
+          type="button"
+          className="login-logo-launch"
+          onClick={() => setShowLogin(true)}
+          aria-label="Mostrar opciones de inicio de sesión"
+        >
+          <img src="/logo-rd.png" alt="RD Carpintería" />
+        </button>
+      ) : <div className="login-card">
         {/* Brand Logo/Text */}
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            fontWeight: '900',
-            fontSize: '1.75rem',
-            margin: '0 auto 1rem',
-            boxShadow: '0 4px 12px rgba(186, 75, 36, 0.4)'
-          }}>
-            RD
-          </div>
+        <div className="login-brand">
+          <button type="button" className="login-brand-logo" onClick={() => setShowLogin(false)} aria-label="Volver al logo">
+            <img src="/logo-rd.png" alt="" />
+          </button>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#1e293b' }}>Bienvenido de nuevo</h1>
           <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem' }}>Ingresa tus credenciales para acceder</p>
         </div>
@@ -130,7 +119,7 @@ export default function Login({ onLoginSuccess }) {
         <p style={{ marginTop: '2rem', fontSize: '0.75rem', color: '#94a3b8' }}>
           &copy; {new Date().getFullYear()} RD Carpintería. Todos los derechos reservados.
         </p>
-      </div>
+      </div>}
     </div>
   );
 }

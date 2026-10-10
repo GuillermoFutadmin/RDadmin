@@ -23,6 +23,92 @@ body {
   color: var(--text-main);
 }
 
+.login-logo-launch {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  animation: login-logo-spin 18s linear infinite;
+}
+
+.login-logo-launch img {
+  display: block;
+  width: min(72vw, 280px);
+  height: min(72vw, 280px);
+  object-fit: contain;
+  filter: drop-shadow(0 12px 22px rgba(41, 33, 29, 0.18));
+}
+
+.login-logo-launch:focus-visible,
+.login-brand-logo:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 8px;
+  border-radius: 50%;
+}
+
+.login-card {
+  width: calc(100% - 2rem);
+  max-width: 400px;
+  margin: 1rem;
+  padding: 3rem 2.5rem;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  animation: login-card-appear 350ms ease-out both;
+}
+
+.login-brand {
+  margin-bottom: 2rem;
+}
+
+.login-brand-logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.login-brand-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@keyframes login-logo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes login-card-appear {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-logo-launch,
+  .login-card {
+    animation: none;
+  }
+}
+
 .admin-container {
   display: flex;
   min-height: 100vh;

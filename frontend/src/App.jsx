@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './index.css';
 import Dashboard from './Dashboard';
 import Ventas from './Ventas';
@@ -15,6 +15,10 @@ import {
   IconHardHat, IconClock, IconWallet, IconSettings, 
   IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut
 } from './icons';
+
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const IDLE_WARNING_MS = 5 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'rdadmin_last_activity';
 
 function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -37,7 +41,11 @@ function App() {
   const [pwSaving, setPwSaving] = useState(false);
   const [photoMsg, setPhotoMsg] = useState('');
   const [photoSaving, setPhotoSaving] = useState(false);
+  const [idleWarningVisible, setIdleWarningVisible] = useState(false);
+  const [idleSecondsRemaining, setIdleSecondsRemaining] = useState(IDLE_WARNING_MS / 1000);
   const photoInputRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  const lastActivityPersistRef = useRef(0);
 
   // Animate logo in main area
   useEffect(() => {
@@ -51,22 +59,121 @@ function App() {
     const storedUser = localStorage.getItem('rdadmin_user');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        const storedActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+        const now = Date.now();
+        if (Number.isFinite(storedActivity) && storedActivity > 0 && now - storedActivity >= IDLE_TIMEOUT_MS) {
+          localStorage.removeItem('rdadmin_user');
+          localStorage.removeItem(LAST_ACTIVITY_KEY);
+          return;
+        }
+        const lastActivity = Number.isFinite(storedActivity) && storedActivity > 0 ? storedActivity : now;
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(lastActivity));
+        lastActivityRef.current = lastActivity;
+        lastActivityPersistRef.current = lastActivity;
+        setUser(parsedUser);
       } catch (e) {
         localStorage.removeItem('rdadmin_user');
+        localStorage.removeItem(LAST_ACTIVITY_KEY);
       }
     }
   }, []);
 
   const handleLoginSuccess = (userData) => {
+    const now = Date.now();
     localStorage.setItem('rdadmin_user', JSON.stringify(userData));
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+    lastActivityRef.current = now;
+    lastActivityPersistRef.current = now;
     setUser(userData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('rdadmin_user');
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
     setUser(null);
     setShowLogoPanel(false);
+    setIdleWarningVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const storedActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+    const initialActivity = Number.isFinite(storedActivity) && storedActivity > 0
+      ? storedActivity
+      : Date.now();
+    lastActivityRef.current = Math.max(lastActivityRef.current, initialActivity);
+    lastActivityPersistRef.current = initialActivity;
+
+    let loggedOut = false;
+    const registerActivity = () => {
+      const now = Date.now();
+      lastActivityRef.current = now;
+      if (now - lastActivityPersistRef.current >= 10000) {
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+        lastActivityPersistRef.current = now;
+      }
+      setIdleWarningVisible(false);
+    };
+    const checkIdleTime = () => {
+      if (loggedOut) return;
+      const idleTime = Date.now() - lastActivityRef.current;
+      if (idleTime >= IDLE_TIMEOUT_MS) {
+        loggedOut = true;
+        handleLogout();
+        return;
+      }
+      const remaining = Math.ceil((IDLE_TIMEOUT_MS - idleTime) / 1000);
+      setIdleSecondsRemaining(remaining);
+      setIdleWarningVisible(idleTime >= IDLE_TIMEOUT_MS - IDLE_WARNING_MS);
+    };
+    const handleStorage = event => {
+      if (event.key === LAST_ACTIVITY_KEY && event.newValue) {
+        const timestamp = Number(event.newValue);
+        if (Number.isFinite(timestamp) && timestamp > 0) {
+          lastActivityRef.current = Math.max(lastActivityRef.current, timestamp);
+          lastActivityPersistRef.current = Math.max(lastActivityPersistRef.current, timestamp);
+        }
+      } else if (event.key === 'rdadmin_user') {
+        if (!event.newValue) {
+          setUser(null);
+          setIdleWarningVisible(false);
+        } else {
+          try {
+            setUser(JSON.parse(event.newValue));
+          } catch {
+            handleLogout();
+          }
+        }
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkIdleTime();
+    };
+
+    const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel', 'scroll'];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, registerActivity, { passive: true }));
+    window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const interval = window.setInterval(checkIdleTime, 1000);
+    checkIdleTime();
+
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, registerActivity));
+      window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(interval);
+    };
+  }, [user, handleLogout]);
+
+  const continueSession = () => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastActivityPersistRef.current = now;
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+    setIdleSecondsRemaining(IDLE_WARNING_MS / 1000);
+    setIdleWarningVisible(false);
   };
 
   const handlePhotoChange = async (event) => {
@@ -616,6 +723,62 @@ function App() {
           </div>
         </div>
       </main>
+      {idleWarningVisible && user && (
+        <div
+          role="presentation"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            background: 'rgba(15, 23, 42, 0.58)'
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="idle-warning-title"
+            aria-describedby="idle-warning-description"
+            style={{
+              width: 'min(100%, 420px)', padding: '1.5rem', borderRadius: 16,
+              background: '#fff', boxShadow: '0 24px 64px rgba(15,23,42,0.28)',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            <h2 id="idle-warning-title" style={{ margin: '0 0 0.6rem', color: '#1e293b', fontSize: '1.2rem' }}>
+              La sesión está por cerrarse
+            </h2>
+            <p id="idle-warning-description" style={{ margin: '0 0 1.25rem', color: '#475569', lineHeight: 1.5 }}>
+              Por seguridad, se cerrará por inactividad en{' '}
+              <strong>
+                {`${String(Math.floor(idleSecondsRemaining / 60)).padStart(2, '0')}:${String(idleSecondsRemaining % 60).padStart(2, '0')}`}
+              </strong>.
+              ¿Deseas continuar trabajando?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                style={{
+                  padding: '0.65rem 0.9rem', border: '1px solid #fecaca', borderRadius: 8,
+                  background: '#fff7f7', color: '#b91c1c', fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Cerrar sesión
+              </button>
+              <button
+                type="button"
+                onClick={continueSession}
+                autoFocus
+                style={{
+                  padding: '0.65rem 0.9rem', border: 0, borderRadius: 8,
+                  background: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Seguir trabajando
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
