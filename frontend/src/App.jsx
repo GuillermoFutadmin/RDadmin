@@ -202,11 +202,16 @@ function App() {
           }}
           title="Información de sesión"
         >
-          <img
-            src="/logo-rd.png" alt="RD Carpintería"
-            style={{ width: '176px', height: '176px', objectFit: 'contain',
-              filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.55))' }}
-          />
+          <div className="sidebar-logo-stage">
+            <img className="sidebar-logo-image" src="/logo-rd.png" alt="RD Carpintería" />
+            {user.photo_path ? (
+              <img className="sidebar-user-image" src={user.photo_path} alt={`Foto de ${user.name}`} />
+            ) : (
+              <div className="sidebar-user-image sidebar-user-placeholder" aria-label={`Perfil de ${user.name}`}>
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── PANEL DE SESIÓN ── */}
