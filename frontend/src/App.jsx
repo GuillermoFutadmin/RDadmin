@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
 import Dashboard from './Dashboard';
 import Ventas from './Ventas';
@@ -34,6 +34,9 @@ function App() {
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwMsg, setPwMsg] = useState(null);
   const [pwSaving, setPwSaving] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState('');
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const photoInputRef = useRef(null);
 
   // Animate logo in main area
   useEffect(() => {
@@ -63,6 +66,38 @@ function App() {
     localStorage.removeItem('rdadmin_user');
     setUser(null);
     setShowLogoPanel(false);
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoMsg('Selecciona un archivo de imagen.');
+      return;
+    }
+
+    setPhotoMsg('');
+    setPhotoSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`/api/users/${user.id}/upload-photo`, {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'No se pudo guardar la foto.');
+
+      const updatedUser = { ...user, photo_path: result.photo_path };
+      localStorage.setItem('rdadmin_user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      setPhotoMsg('Foto de perfil actualizada.');
+    } catch (error) {
+      setPhotoMsg(error.message || 'Error al cargar la foto.');
+    } finally {
+      setPhotoSaving(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -179,6 +214,26 @@ function App() {
 
             {!changingPassword ? (
               <>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  style={{ display: 'none' }}
+                />
+                <button type="button" onClick={() => photoInputRef.current?.click()} disabled={photoSaving} style={{
+                  width: '100%', padding: '0.42rem 0.6rem', marginBottom: '0.25rem',
+                  background: 'rgba(255,255,255,0.1)', color: 'white',
+                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+                  cursor: photoSaving ? 'wait' : 'pointer', fontSize: '0.76rem', fontWeight: '600', textAlign: 'left'
+                }}>
+                  {photoSaving ? 'Guardando foto...' : 'Cambiar foto de perfil'}
+                </button>
+                {photoMsg && (
+                  <p role="status" style={{ margin: '0 0 0.45rem', fontSize: '0.7rem', fontWeight: '600', color: photoMsg.includes('actualizada') ? '#86efac' : '#fca5a5' }}>
+                    {photoMsg}
+                  </p>
+                )}
                 <button onClick={() => setChangingPassword(true)} style={{
                   width: '100%', padding: '0.42rem 0.6rem', marginBottom: '0.4rem',
                   background: 'rgba(255,255,255,0.1)', color: 'white',
