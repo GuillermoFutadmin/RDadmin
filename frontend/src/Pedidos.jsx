@@ -71,6 +71,11 @@ const normalizeProduction = (value) => {
   return production;
 };
 
+const productionStageIndex = (project) => {
+  const current = normalizeProduction(project.production_data).current_stage;
+  return Number.isInteger(current) ? Math.max(0, Math.min(current, STAGE_NAMES.length - 1)) : 0;
+};
+
 const formatDate = (value) => value
   ? new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Pendiente';
@@ -113,6 +118,7 @@ function Pedidos() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeStage, setActiveStage] = useState(0);
+  const [overviewStage, setOverviewStage] = useState(0);
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -163,6 +169,9 @@ function Pedidos() {
     return projects.filter(project => !query || [project.name, project.public_id, project.project_type, project.contact_info]
       .some(value => String(value || '').toLocaleLowerCase().includes(query)));
   }, [projects, search]);
+  const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
+    filteredProjects.filter(project => productionStageIndex(project) === index)
+  ), [filteredProjects]);
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -171,6 +180,7 @@ function Pedidos() {
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
+  const overviewProjects = projectsByStage[overviewStage] || [];
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
   const estimationMaterialSheets = estimationSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
@@ -376,6 +386,14 @@ function Pedidos() {
       setNote(nextStages[previousStage]?.note || '');
       setMessage(`Proyecto regresado a ${STAGE_NAMES[previousStage]}. Se conservaron notas, fotos y compras.`);
     }
+  };
+
+  const selectProductionProject = (project) => {
+    const stageIndex = productionStageIndex(project);
+    const projectProduction = normalizeProduction(project.production_data);
+    setSelectedId(project.id);
+    setActiveStage(stageIndex);
+    setNote(projectProduction.stages[stageIndex]?.note || '');
   };
 
   const uploadEvidence = async (file) => {
@@ -641,55 +659,54 @@ function Pedidos() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <div>
             <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Semáforo real de producción</h2>
-            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Cada cliente aparece en la etapa actual de su rastreo.</div>
+            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Selecciona un estado para ver los clientes que se encuentran en esa etapa.</div>
           </div>
           <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
         </div>
         {loading ? (
           <p style={{ margin: 0, padding: '1rem', color: '#64748b' }}>Cargando proyectos...</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(190px, 1fr))', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-            {STAGE_NAMES.map((name, index) => {
-              const stageProjects = filteredProjects.filter(project => {
-                const current = normalizeProduction(project.production_data).current_stage;
-                const stageIndex = Number.isInteger(current) ? Math.max(0, Math.min(current, STAGE_NAMES.length - 1)) : 0;
-                return stageIndex === index;
-              });
-              const isCurrentStage = selected && (() => {
-                const current = normalizeProduction(selected.production_data).current_stage;
-                const stageIndex = Number.isInteger(current) ? Math.max(0, Math.min(current, STAGE_NAMES.length - 1)) : 0;
-                return stageIndex === index;
-              })();
-              return (
-                <section key={name} style={{ minWidth: 0, background: '#f8fafc', border: `1px solid ${isCurrentStage ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden' }}>
-                  <header style={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0.65rem 0.7rem', background: isCurrentStage ? '#eff6ff' : '#fff', borderBottom: '1px solid #e2e8f0' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, color: isCurrentStage ? '#1d4ed8' : '#475569', fontSize: '0.75rem', fontWeight: 800 }}>
-                      <span style={{ width: 23, height: 23, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: stageProjects.length ? (isCurrentStage ? '#2563eb' : '#16a34a') : '#e2e8f0', color: stageProjects.length ? '#fff' : '#64748b', fontSize: '0.68rem' }}>
-                        {stageProjects.length ? index + 1 : '–'}
-                      </span>
-                      {name}
-                    </span>
-                    <span style={{ minWidth: 23, padding: '0.15rem 0.4rem', borderRadius: 99, background: stageProjects.length ? '#dbeafe' : '#f1f5f9', color: stageProjects.length ? '#1d4ed8' : '#64748b', textAlign: 'center', fontSize: '0.72rem', fontWeight: 800 }}>{stageProjects.length}</span>
-                  </header>
-                  <div style={{ display: 'grid', alignContent: 'start', gap: 6, minHeight: 92, padding: 7 }}>
-                    {stageProjects.map(project => {
-                      const stage = normalizeProduction(project.production_data).stages[index] || {};
-                      const isSelected = project.id === selectedId;
-                      return (
-                        <button key={project.id} type="button" onClick={() => setSelectedId(project.id)}
-                          style={{ width: '100%', padding: '0.65rem', textAlign: 'left', background: isSelected ? '#eff6ff' : '#fff', border: `1px solid ${isSelected ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 9, cursor: 'pointer', boxShadow: isSelected ? '0 0 0 1px #bfdbfe' : 'none' }}>
-                          <span style={{ display: 'block', color: '#1e293b', fontSize: '0.77rem', fontWeight: 800 }}>{project.name || 'Cliente sin nombre'}</span>
-                          <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.66rem', lineHeight: 1.35 }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
-                          {stage.entered_at && <span style={{ display: 'block', marginTop: 5, color: '#94a3b8', fontSize: '0.62rem' }}>{formatDate(stage.entered_at)}</span>}
-                        </button>
-                      );
-                    })}
-                    {!stageProjects.length && <span style={{ padding: '0.5rem 0.3rem', color: '#94a3b8', fontSize: '0.68rem', textAlign: 'center' }}>Sin proyectos</span>}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', justifyItems: 'center', gap: 12, padding: '0.4rem 0 1rem' }}>
+              {STAGE_NAMES.map((name, index) => {
+                const count = projectsByStage[index].length;
+                const isActive = overviewStage === index;
+                const circleColor = isActive ? '#2563eb' : count ? '#16a34a' : '#cbd5e1';
+                return (
+                  <button key={name} type="button" aria-pressed={isActive} onClick={() => setOverviewStage(index)}
+                    style={{ width: 142, height: 142, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '0.8rem', border: `3px solid ${circleColor}`, borderRadius: '50%', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155', textAlign: 'center', cursor: 'pointer', boxShadow: isActive ? '0 0 0 4px #dbeafe' : 'none', transition: 'box-shadow 150ms ease, background 150ms ease' }}>
+                    <span style={{ width: 27, height: 27, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: circleColor, color: '#fff', fontSize: '0.75rem', fontWeight: 800 }}>{index + 1}</span>
+                    <span style={{ fontSize: '0.76rem', lineHeight: 1.2, fontWeight: 800 }}>{name}</span>
+                    <span style={{ fontSize: '0.69rem', fontWeight: 700, color: isActive ? '#1d4ed8' : '#64748b' }}>{count} {count === 1 ? 'cliente' : 'clientes'}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <section aria-live="polite" style={{ padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
+                <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>Clientes en {STAGE_NAMES[overviewStage]}</h3>
+                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{overviewProjects.length} {overviewProjects.length === 1 ? 'cliente' : 'clientes'}</span>
+              </div>
+              {overviewProjects.length ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
+                  {overviewProjects.map(project => {
+                    const stage = normalizeProduction(project.production_data).stages[overviewStage] || {};
+                    const isSelected = project.id === selectedId;
+                    return (
+                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                        style={{ width: '100%', padding: '0.75rem', textAlign: 'left', background: isSelected ? '#eff6ff' : '#fff', border: `1px solid ${isSelected ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 9, cursor: 'pointer', boxShadow: isSelected ? '0 0 0 1px #bfdbfe' : 'none' }}>
+                        <span style={{ display: 'block', color: '#1e293b', fontSize: '0.8rem', fontWeight: 800 }}>{project.name || 'Cliente sin nombre'}</span>
+                        <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem', lineHeight: 1.35 }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
+                        {stage.entered_at && <span style={{ display: 'block', marginTop: 5, color: '#94a3b8', fontSize: '0.65rem' }}>{formatDate(stage.entered_at)}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ margin: 0, padding: '0.65rem 0.3rem', color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>No hay clientes en este estado.</p>
+              )}
+            </section>
+          </>
         )}
       </section>
 
