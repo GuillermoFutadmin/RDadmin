@@ -232,6 +232,7 @@ function Pedidos() {
       purchaseKey: `${sheetIndex}:${item.id ?? ''}:${itemIndex}`
     }))
   );
+  const projectMaterialRows = chunkItems(projectMaterials, 3);
   const purchaseRecords = production.materialPurchases && typeof production.materialPurchases === 'object'
     ? production.materialPurchases
     : {};
@@ -1030,11 +1031,27 @@ function Pedidos() {
               </section>
               <section className="production-pdf-section production-pdf-new-page">
                 <h2 className="production-pdf-section-title">2. Materiales</h2>
-                {projectMaterials.length ? projectMaterials.map((material, index) => (
-                  <p key={`${material.sheetName}-${material.id || index}`} style={{ margin: '0 0 4px' }}>
-                    <strong>{material.sheetName}:</strong> {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
-                  </p>
-                )) : <p>Sin materiales capturados.</p>}
+                {projectMaterials.length ? (
+                  <table className="production-pdf-measurement-table">
+                    <tbody>
+                      {projectMaterialRows.map((row, rowIndex) => (
+                        <tr key={`pdf-materials-${rowIndex}`}>
+                          {Array.from({ length: 3 }, (_, columnIndex) => {
+                            const material = row[columnIndex];
+                            return (
+                              <td key={material?.purchaseKey || `empty-${columnIndex}`}>
+                                {material && <>
+                                  <strong>{material.sheetName}</strong><br />
+                                  {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
+                                </>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : <p>Sin materiales capturados.</p>}
               </section>
               {croquisPages.map((page, pageIndex) => (
                 <section key={`croquis-page-${pageIndex}`} className="production-pdf-image-page production-pdf-new-page">
