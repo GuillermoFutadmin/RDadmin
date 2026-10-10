@@ -316,13 +316,17 @@ function Pedidos() {
   const returnToPreviousStage = async () => {
     if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
     const previousStage = currentStage - 1;
+    const nextStages = stages.map((stage, index) =>
+      index === activeStage ? { ...stage, note } : stage
+    );
     const updated = await persist({
       ...production,
-      current_stage: previousStage
+      current_stage: previousStage,
+      stages: nextStages
     }, 'PRODUCCION');
     if (updated) {
       setActiveStage(previousStage);
-      setNote(stages[previousStage]?.note || '');
+      setNote(nextStages[previousStage]?.note || '');
       setMessage(`Proyecto regresado a ${STAGE_NAMES[previousStage]}. Se conservaron notas, fotos y compras.`);
     }
   };
@@ -619,8 +623,8 @@ function Pedidos() {
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
-                  <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
-                    ↩ Regresar a Clientes
+                  <button type="button" disabled={saving || currentStage <= 0 || selected.status === 'ENTREGADO'} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || currentStage <= 0 || selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer', opacity: currentStage <= 0 || selected.status === 'ENTREGADO' ? 0.55 : 1 }}>
+                    {currentStage > 0 && selected.status !== 'ENTREGADO' ? `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
                   </button>
                   <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
                 </div>
@@ -851,12 +855,6 @@ function Pedidos() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {currentStage > 0 && selected.status !== 'ENTREGADO' && (
-                    <button type="button" disabled={saving} onClick={returnToPreviousStage}
-                      style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
-                      ← Regresar a {STAGE_NAMES[currentStage - 1]}
-                    </button>
-                  )}
                   <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
                       {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : currentStage === 0 ? 'Pasar a Preparación de materiales →' : 'Guardar y avanzar →'}
                   </button>
