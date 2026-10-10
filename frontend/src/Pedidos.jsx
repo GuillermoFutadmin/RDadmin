@@ -11,11 +11,33 @@ const STAGE_NAMES = [
   'Entrega del proyecto'
 ];
 
+const SPANISH_LABELS = {
+  production_days: 'Días de producción',
+  start_date: 'Fecha de inicio',
+  delivery_date: 'Fecha de entrega',
+  kitchen_measurements: 'Medidas de cocina',
+  closet_measurements: 'Medidas de clóset',
+  kitchen_island_measurements: 'Medidas de isla de cocina',
+  closet_island_measurements: 'Medidas de isla de clóset',
+  render: 'Render',
+  measurements: 'Medidas generales del cliente'
+};
+
 const parseJson = (value, fallback = {}) => {
   if (!value) return fallback;
   if (typeof value === 'object') return value;
   try { return JSON.parse(value); } catch { return fallback; }
 };
+
+const spanishFieldLabel = (key) => {
+  const normalized = String(key).replace(/([a-z])([A-Z])/g, '$1_$2').replaceAll('-', '_').toLowerCase();
+  return SPANISH_LABELS[normalized] || normalized.replaceAll('_', ' ');
+};
+
+const chunkItems = (items, size) => Array.from(
+  { length: Math.ceil(items.length / size) },
+  (_, index) => items.slice(index * size, index * size + size)
+);
 
 const normalizeProduction = (value) => {
   const production = parseJson(value);
@@ -177,7 +199,7 @@ function Pedidos() {
     const value = estimationMeasures[key];
     const photo = estimationMeasurePhotos[key];
     const hasValue = value !== null && value !== undefined && value !== '';
-    const label = field?.label || key.replaceAll('_', ' ');
+    const label = field?.label || spanishFieldLabel(key);
     const formattedValue = hasValue
       ? `${value}${field?.suffix === 'cm' ? ` ${estimation.unit || 'cm'}` : field?.suffix ? ` ${field.suffix}` : ''}`
       : '';
@@ -199,6 +221,7 @@ function Pedidos() {
   const measurementPhotoPages = Array.from({ length: Math.ceil(measurementPhotos.length / 6) }, (_, index) =>
     measurementPhotos.slice(index * 6, index * 6 + 6)
   );
+  const measurementTableRows = chunkItems(measurementEntries, 3);
   const materialSheets = estimationMaterialSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
     ? estimationMaterialSheets
     : valuationSheets;
@@ -414,14 +437,15 @@ function Pedidos() {
   const generalMeasurements = selected
     ? Object.entries(selected)
       .filter(([key, value]) => /measurement/i.test(key) && value !== null && value !== undefined && value !== '' && typeof value !== 'object')
-      .map(([key, value]) => [key === 'measurements' ? 'Medidas generales del cliente' : key.replaceAll('_', ' '), String(value)])
+      .map(([key, value]) => [spanishFieldLabel(key), String(value)])
     : [];
+  const generalMeasurementRows = chunkItems(generalMeasurements, 3);
   const clientSurname = selected?.name?.trim().split(/\s+/).slice(-1)[0] || 'Cliente';
   const projectSpecifications = Object.entries(projectDetails)
     .filter(([key, value]) => !/price|precio|total|margin|anticipo|cost|importe/i.test(key)
       && value !== null && value !== undefined && value !== ''
       && (typeof value !== 'object' || Array.isArray(value)))
-    .map(([key, value]) => [key.replaceAll('_', ' '), Array.isArray(value) ? value.join(', ') : String(value)]);
+    .map(([key, value]) => [spanishFieldLabel(key), Array.isArray(value) ? value.join(', ') : String(value)]);
   const handoffDetails = [
     ['Tipo de proyecto', selected?.project_type],
     ['Domicilio del proyecto', selected?.location],
@@ -478,6 +502,15 @@ function Pedidos() {
               a { color: #1d4f91; overflow-wrap: anywhere; }
               .production-pdf-section { margin-bottom: 8mm; }
               .production-pdf-section-title { margin: 0 0 5mm; color: #1d4f91; font-size: 16px; }
+              .production-pdf-measurement-table {
+                width: 100%; margin: 0 0 4mm; border-collapse: collapse; table-layout: fixed;
+                font-size: 10px;
+              }
+              .production-pdf-measurement-table td {
+                width: 33.333%; padding: 2.5mm; border: 1px solid #94a3b8;
+                vertical-align: top; overflow-wrap: anywhere;
+              }
+              .production-pdf-measurement-table strong { color: #1e3a5f; }
               .production-pdf-new-page { break-before: page; page-break-before: always; }
               .production-pdf-image-page { break-inside: avoid; page-break-inside: avoid; }
               .production-pdf-image-page h2 { margin: 0 0 5mm; color: #1d4f91; font-size: 16px; }
@@ -701,9 +734,22 @@ function Pedidos() {
             {generalMeasurements.length > 0 && (
               <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
                 <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
-                  {generalMeasurements.map(([label, value], index) => <InfoCard key={`${label}-${index}`} label={label}>{value}</InfoCard>)}
-                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', background: '#fff' }}>
+                  <tbody>
+                    {generalMeasurementRows.map((row, rowIndex) => (
+                      <tr key={`general-measurements-${rowIndex}`}>
+                        {Array.from({ length: 3 }, (_, columnIndex) => {
+                          const item = row[columnIndex];
+                          return (
+                            <td key={item?.[0] || `empty-${columnIndex}`} style={{ width: '33.333%', padding: '0.55rem', border: '1px solid #cbd5e1', verticalAlign: 'top', overflowWrap: 'anywhere' }}>
+                              {item && <><strong style={{ display: 'block', color: '#334155', fontSize: '0.72rem' }}>{item[0]}</strong><span style={{ color: '#475569', fontSize: '0.8rem' }}>{item[1]}</span></>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </section>
             )}
 
@@ -822,7 +868,7 @@ function Pedidos() {
                   <div style={{ marginBottom: 12 }}>
                     <h3 style={{ fontSize: '0.82rem', color: '#334155' }}>Especificaciones del proyecto</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 8 }}>
-                      {Object.entries(projectDetails).filter(([key, value]) => !/price|precio|total|margin|anticipo|cost/i.test(key) && typeof value !== 'object' && value !== '').map(([key, value]) => <InfoCard key={key} label={key.replaceAll('_', ' ')}>{String(value)}</InfoCard>)}
+                      {Object.entries(projectDetails).filter(([key, value]) => !/price|precio|total|margin|anticipo|cost/i.test(key) && typeof value !== 'object' && value !== '').map(([key, value]) => <InfoCard key={key} label={spanishFieldLabel(key)}>{String(value)}</InfoCard>)}
                     </div>
                   </div>
                 )}
@@ -857,16 +903,26 @@ function Pedidos() {
                 {measurementEntries.length > 0 && (
                   <section style={{ marginTop: 14 }}>
                     <h3 style={{ margin: '0 0 0.65rem', color: '#1d4f91', fontSize: '0.88rem' }}>Medidas y fotos de visita</h3>
-                    {measurementEntries.some(entry => !collectImageUrls(entry.photo).length) && (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8, marginBottom: 8 }}>
-                        {measurementEntries.filter(entry => !collectImageUrls(entry.photo).length).map(entry => (
-                          <article key={entry.key} style={{ minWidth: 0, padding: '0.75rem', background: '#f8fafc', border: '1px solid #dbe5f0', borderRadius: 10 }}>
-                            <div style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 800, marginBottom: 4 }}>{entry.group}</div>
-                            <div style={{ color: '#1e3a5f', fontSize: '0.78rem', fontWeight: 750 }}>{entry.label}</div>
-                            {entry.value && <div style={{ color: '#334155', fontSize: '0.82rem', marginTop: 4, whiteSpace: 'pre-wrap' }}>{entry.value}</div>}
-                          </article>
-                        ))}
-                      </div>
+                    {measurementTableRows.length > 0 && (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', background: '#fff' }}>
+                        <tbody>
+                          {measurementTableRows.map((row, rowIndex) => (
+                            <tr key={`visit-measurements-${rowIndex}`}>
+                              {Array.from({ length: 3 }, (_, columnIndex) => {
+                                const entry = row[columnIndex];
+                                return (
+                                  <td key={entry?.key || `empty-${columnIndex}`} style={{ width: '33.333%', padding: '0.55rem', border: '1px solid #cbd5e1', verticalAlign: 'top', overflowWrap: 'anywhere' }}>
+                                    {entry && <>
+                                      <strong style={{ display: 'block', color: '#334155', fontSize: '0.72rem' }}>{entry.group} — {entry.label}</strong>
+                                      <span style={{ color: '#475569', fontSize: '0.8rem' }}>{entry.value || (collectImageUrls(entry.photo).length ? 'Foto adjunta' : 'Sin medida anotada')}</span>
+                                    </>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     )}
                     {measurementPhotoPages.map((page, pageIndex) => (
                       <div key={`preview-measure-page-${pageIndex}`} style={{ marginTop: 10, padding: 10, border: '1px solid #e2e8f0', borderRadius: 10, background: '#fbfdff' }}>
@@ -933,17 +989,42 @@ function Pedidos() {
                   <p key={`handoff-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
                 )) : <p>Sin datos generales adicionales.</p>}
                 <h3 style={{ margin: '12px 0 6px', fontSize: '13px' }}>Medidas generales del cliente</h3>
-                {generalMeasurements.length ? generalMeasurements.map(([label, value], index) => (
-                  <p key={`${label}-${index}`} style={{ margin: '0 0 6px' }}><strong>{label}:</strong> {value}</p>
-                )) : <p>Sin medidas generales capturadas.</p>}
-                {measurementEntries.some(entry => !collectImageUrls(entry.photo).length) && (
+                {generalMeasurements.length ? (
+                  <table className="production-pdf-measurement-table">
+                    <tbody>
+                      {generalMeasurementRows.map((row, rowIndex) => (
+                        <tr key={`pdf-general-measurements-${rowIndex}`}>
+                          {Array.from({ length: 3 }, (_, columnIndex) => {
+                            const item = row[columnIndex];
+                            return <td key={item?.[0] || `empty-${columnIndex}`}>{item && <><strong>{item[0]}</strong><br />{item[1]}</>}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : <p>Sin medidas generales capturadas.</p>}
+                {measurementEntries.length > 0 && (
                   <>
-                    <h3 style={{ margin: '12px 0 6px', fontSize: '13px' }}>Medidas de visita sin fotografía</h3>
-                    {measurementEntries.filter(entry => !collectImageUrls(entry.photo).length).map(entry => (
-                      <p key={entry.key} style={{ margin: '0 0 5px' }}>
-                        <strong>{entry.group} — {entry.label}:</strong> {entry.value || 'Sin medida anotada'}
-                      </p>
-                    ))}
+                    <h3 style={{ margin: '12px 0 6px', fontSize: '13px' }}>Medidas de visita</h3>
+                    <table className="production-pdf-measurement-table">
+                      <tbody>
+                        {measurementTableRows.map((row, rowIndex) => (
+                          <tr key={`pdf-visit-measurements-${rowIndex}`}>
+                            {Array.from({ length: 3 }, (_, columnIndex) => {
+                              const entry = row[columnIndex];
+                              return (
+                                <td key={entry?.key || `empty-${columnIndex}`}>
+                                  {entry && <>
+                                    <strong>{entry.group} — {entry.label}</strong><br />
+                                    {entry.value || (collectImageUrls(entry.photo).length ? 'Foto adjunta' : 'Sin medida anotada')}
+                                  </>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </>
                 )}
               </section>
