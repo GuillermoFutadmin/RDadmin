@@ -24,6 +24,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoFrame, setLogoFrame] = useState(1);
+  const [logoAnimation, setLogoAnimation] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Logo panel / cambiar contraseña
@@ -159,6 +160,14 @@ function App() {
     setSidebarOpen(false);
   };
 
+  const toggleLogoPanel = () => {
+    const opening = !showLogoPanel;
+    setShowLogoPanel(opening);
+    setLogoAnimation(opening ? 'logo-turn-open' : 'logo-turn-close');
+    setChangingPassword(false);
+    setPwMsg(null);
+  };
+
   return (
     <div className="admin-container">
       {/* ── Mobile sidebar overlay ── */}
@@ -174,7 +183,18 @@ function App() {
       <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
         {/* ── LOGO CLICKABLE – arriba del sidebar ── */}
         <div
-          onClick={() => { setShowLogoPanel(v => !v); setChangingPassword(false); setPwMsg(null); }}
+          className={`sidebar-logo-toggle ${logoAnimation}`}
+          role="button"
+          tabIndex={0}
+          aria-label={showLogoPanel ? 'Cerrar opciones de usuario' : 'Abrir opciones de usuario'}
+          aria-expanded={showLogoPanel}
+          onClick={toggleLogoPanel}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggleLogoPanel();
+            }
+          }}
           style={{
             display: 'flex', justifyContent: 'center', alignItems: 'center',
             padding: '0.75rem 0.5rem 0.6rem', cursor: 'pointer',
@@ -185,9 +205,7 @@ function App() {
           <img
             src="/logo-rd.png" alt="RD Carpintería"
             style={{ width: '176px', height: '176px', objectFit: 'contain',
-              filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.55))', transition: 'transform 0.2s ease' }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.55))' }}
           />
         </div>
 
@@ -198,15 +216,15 @@ function App() {
             margin: '0 0.5rem 0.75rem', padding: '0.85rem 0.9rem',
             border: '1px solid rgba(255,255,255,0.1)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <div className="sidebar-profile-summary" style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.75rem' }}>
               {user.photo_path ? (
-                <img src={user.photo_path} alt={user.name} style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+                <img src={user.photo_path} alt={`Foto de ${user.name}`} style={{ width: '58px', height: '58px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(255,255,255,0.22)', boxShadow: '0 3px 12px rgba(0,0,0,0.28)' }} />
               ) : (
-                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg,#ba4b24,#7c2d12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0 }}>
+                <div style={{ width: '58px', height: '58px', borderRadius: '50%', background: 'linear-gradient(135deg,#ba4b24,#7c2d12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.35rem', flexShrink: 0, border: '2px solid rgba(255,255,255,0.22)', boxShadow: '0 3px 12px rgba(0,0,0,0.28)' }}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ color: 'white', fontWeight: '700', fontSize: '0.85rem', lineHeight: 1.2 }}>{user.name}</div>
                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.68rem' }}>@{user.username} · {user.role}</div>
               </div>
