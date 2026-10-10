@@ -232,7 +232,15 @@ function Pedidos() {
       purchaseKey: `${sheetIndex}:${item.id ?? ''}:${itemIndex}`
     }))
   );
-  const projectMaterialRows = chunkItems(projectMaterials, 3);
+  const projectMaterialGroups = projectMaterials.reduce((groups, material) => {
+    let group = groups.find(item => item.name === material.sheetName);
+    if (!group) {
+      group = { name: material.sheetName, materials: [] };
+      groups.push(group);
+    }
+    group.materials.push(material);
+    return groups;
+  }, []);
   const purchaseRecords = production.materialPurchases && typeof production.materialPurchases === 'object'
     ? production.materialPurchases
     : {};
@@ -512,6 +520,12 @@ function Pedidos() {
                 vertical-align: top; overflow-wrap: anywhere;
               }
               .production-pdf-measurement-table strong { color: #1e3a5f; }
+              .production-pdf-material-group { margin: 0 0 5mm; break-inside: avoid; page-break-inside: avoid; }
+              .production-pdf-material-group h3 {
+                margin: 0; padding: 2mm 2.5mm; border: 1px solid #64748b; border-bottom: 0;
+                background: #eaf2ff; color: #1e3a5f; font-size: 12px;
+              }
+              .production-pdf-material-group .production-pdf-measurement-table { margin: 0; }
               .production-pdf-new-page { break-before: page; page-break-before: always; }
               .production-pdf-image-page { break-inside: avoid; page-break-inside: avoid; }
               .production-pdf-image-page h2 { margin: 0 0 5mm; color: #1d4f91; font-size: 16px; }
@@ -1032,25 +1046,27 @@ function Pedidos() {
               <section className="production-pdf-section production-pdf-new-page">
                 <h2 className="production-pdf-section-title">2. Materiales</h2>
                 {projectMaterials.length ? (
-                  <table className="production-pdf-measurement-table">
-                    <tbody>
-                      {projectMaterialRows.map((row, rowIndex) => (
-                        <tr key={`pdf-materials-${rowIndex}`}>
-                          {Array.from({ length: 3 }, (_, columnIndex) => {
-                            const material = row[columnIndex];
-                            return (
-                              <td key={material?.purchaseKey || `empty-${columnIndex}`}>
-                                {material && <>
-                                  <strong>{material.sheetName}</strong><br />
-                                  {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
-                                </>}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  projectMaterialGroups.map(group => (
+                    <div key={group.name} className="production-pdf-material-group">
+                      <h3>{group.name}</h3>
+                      <table className="production-pdf-measurement-table">
+                        <tbody>
+                          {chunkItems(group.materials, 3).map((row, rowIndex) => (
+                            <tr key={`${group.name}-materials-${rowIndex}`}>
+                              {Array.from({ length: 3 }, (_, columnIndex) => {
+                                const material = row[columnIndex];
+                                return (
+                                  <td key={material?.purchaseKey || `empty-${columnIndex}`}>
+                                    {material && <>{material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}</>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))
                 ) : <p>Sin materiales capturados.</p>}
               </section>
               {croquisPages.map((page, pageIndex) => (
