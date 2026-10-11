@@ -113,6 +113,24 @@ const addBusinessDays = (start, days) => {
   return date;
 };
 
+const getDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthCalendarDays = (month) => {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date;
+  });
+};
+
 const getProductionSchedule = (project, now) => {
   const production = normalizeProduction(project.production_data);
   const startedAt = production.started_at || production.stages[0]?.entered_at;
@@ -181,6 +199,11 @@ function Pedidos() {
   const [activeStage, setActiveStage] = useState(0);
   const [overviewStage, setOverviewStage] = useState(null);
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1, 12);
+  });
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState(() => getDateKey(new Date()));
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -244,6 +267,87 @@ function Pedidos() {
     filteredProjects.filter(project => productionStageIndex(project) === index)
   ), [filteredProjects]);
   const projectsWithoutSchedule = filteredProjects.filter(project => !projectSchedules.get(project.id));
+  const calendarProjects = overviewStage === null
+    ? filteredProjects
+    : overviewStage === -1
+      ? projectsWithoutSchedule
+      : projectsByStage[overviewStage] || [];
+  const calendarDays = useMemo(() => getMonthCalendarDays(calendarMonth), [calendarMonth]);
+  const projectColors = useMemo(() => {
+    const sortedProjects = [...projects].sort((left, right) => left.id - right.id);
+    return new Map(sortedProjects.map((project, index) => [
+      project.id,
+      `hsl(${Math.round((index * 137.508) % 360)} 68% 42%)`
+    ]));
+  }, [projects]);
+  const calendarEvents = useMemo(() => {
+    const events = new Map();
+    const addEvent = (date, event) => {
+      const key = getDateKey(date);
+      if (!events.has(key)) events.set(key, []);
+      events.get(key).push(event);
+    };
+    calendarProjects.forEach(project => {
+      const schedule = projectSchedules.get(project.id);
+      if (!schedule) return;
+      const production = normalizeProduction(project.production_data);
+      const actualStage = productionStageIndex(project);
+      const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
+      for (let stageIndex = 0; stageIndex < STAGE_NAMES.length; stageIndex += 1) {
+        const date = stageIndex === 0
+          ? schedule.startDate
+          : addBusinessDays(schedule.startDate, Math.ceil((schedule.plannedDays * stageIndex) / STAGE_NAMES.length));
+        if (deliveredAt && date > deliveredAt) continue;
+        addEvent(date, {
+          id: `${project.id}-stage-${stageIndex}`,
+          project,
+          label: stageIndex === actualStage && project.status !== 'ENTREGADO'
+            ? `● ${STAGE_NAMES[stageIndex]}`
+            : STAGE_NAMES[stageIndex],
+          isMilestone: stageIndex === actualStage && project.status !== 'ENTREGADO'
+        });
+      }
+      addEvent(deliveredAt || schedule.deadline, {
+        id: `${project.id}-deadline`,
+        project,
+        label: deliveredAt ? 'Entrega registrada' : 'Entrega programada',
+        isDeadline: true,
+        isLate: !deliveredAt && schedule.daysRemaining < 0
+      });
+    });
+    return events;
+  }, [calendarProjects, projectSchedules, scheduleNow]);
+  const selectedCalendarDate = calendarDate(selectedCalendarDay);
+  const selectedDayProjects = selectedCalendarDate
+    ? calendarProjects.filter(project => {
+      const schedule = projectSchedules.get(project.id);
+      if (!schedule) return false;
+      const production = normalizeProduction(project.production_data);
+      const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
+      const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
+      return selectedCalendarDate >= schedule.startDate && selectedCalendarDate <= endDate;
+    }).sort((left, right) => {
+      const leftSchedule = projectSchedules.get(left.id);
+      const rightSchedule = projectSchedules.get(right.id);
+      return Number(rightSchedule.daysRemaining < 0) - Number(leftSchedule.daysRemaining < 0)
+        || leftSchedule.deadline - rightSchedule.deadline;
+    })
+    : [];
+  const lateProjectsCount = calendarProjects.filter(project => {
+    const schedule = projectSchedules.get(project.id);
+    if (!schedule) return false;
+    return project.status === 'ENTREGADO'
+      ? schedule.daysRemaining < 0
+      : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage;
+  }).length;
+  const onTimeProjectsCount = calendarProjects.filter(project => {
+    const schedule = projectSchedules.get(project.id);
+    return schedule && !(
+      project.status === 'ENTREGADO'
+        ? schedule.daysRemaining < 0
+        : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage
+    );
+  }).length;
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -252,8 +356,6 @@ function Pedidos() {
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
-  const overviewProjects = projectsByStage[overviewStage] || [];
-  const displayedOverviewProjects = overviewStage === -1 ? projectsWithoutSchedule : overviewProjects;
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
   const estimationMaterialSheets = estimationSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
@@ -762,87 +864,155 @@ function Pedidos() {
                 Sin cronograma ({projectsWithoutSchedule.length})
               </button>
             </div>
-            {overviewStage === null ? (
-              <p style={{ margin: 0, padding: '0.8rem', color: '#64748b', fontSize: '0.82rem', textAlign: 'center', background: '#f8fafc', borderRadius: 10 }}>
-                Selecciona una etapa para consultar los proyectos y sus tiempos. La información del cliente se muestra al elegir un proyecto.
-              </p>
-            ) : (
-              <section aria-live="polite" style={{ padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
-                  <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>
-                    {overviewStage === -1 ? 'Proyectos sin cronograma' : `Proyectos registrados en ${STAGE_NAMES[overviewStage]}`}
-                  </h3>
-                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{displayedOverviewProjects.length} proyectos</span>
+            <section aria-label="Calendario de producción" style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
+                <div>
+                  <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>Calendario de producción</h3>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+                    {overviewStage === null ? 'Todos los proyectos' : overviewStage === -1 ? 'Proyectos sin cronograma' : `Etapa: ${STAGE_NAMES[overviewStage]}`}
+                    {' · '}Colores únicos por proyecto; las marcas indican inicio, etapas y entrega.
+                  </span>
                 </div>
-                {displayedOverviewProjects.length ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', background: '#fff', fontSize: '0.75rem' }}>
-                      <thead>
-                        <tr style={{ color: '#475569', background: '#eef2f7', textAlign: 'left' }}>
-                          {['Cliente / proyecto', 'Inicio en Producción', 'Tiempo transcurrido', 'Avance esperado por tiempo', 'Avance registrado', 'Entrega programada', 'Tiempo restante'].map(label => (
-                            <th key={label} style={{ padding: '0.65rem 0.55rem', borderBottom: '1px solid #cbd5e1', whiteSpace: 'nowrap' }}>{label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayedOverviewProjects.map(project => {
-                          const schedule = projectSchedules.get(project.id);
-                          const actualStage = productionStageIndex(project);
-                          const isSelected = project.id === selectedId;
-                          const onSchedule = project.status === 'ENTREGADO' || actualStage === schedule?.expectedStage;
-                          const behindSchedule = project.status !== 'ENTREGADO' && actualStage < schedule?.expectedStage;
-                          const paceLabel = project.status === 'ENTREGADO'
-                            ? 'Entregado'
-                            : onSchedule ? 'En tiempo' : behindSchedule ? 'Atrasado en avance' : 'Adelantado';
-                          const paceColor = project.status === 'ENTREGADO' || onSchedule ? '#166534' : behindSchedule ? '#b91c1c' : '#1d4ed8';
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ padding: '0.3rem 0.55rem', borderRadius: 20, background: '#fef2f2', color: '#b91c1c', fontSize: '0.7rem', fontWeight: 800 }}>{lateProjectsCount} atrasados</span>
+                  <span style={{ padding: '0.3rem 0.55rem', borderRadius: 20, background: '#f0fdf4', color: '#166534', fontSize: '0.7rem', fontWeight: 800 }}>{onTimeProjectsCount} en tiempo</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button type="button" aria-label="Mes anterior" onClick={() => setCalendarMonth(current => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))}
+                    style={{ width: 30, height: 30, border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', cursor: 'pointer' }}>‹</button>
+                  <button type="button" onClick={() => {
+                    const today = new Date();
+                    setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1, 12));
+                    setSelectedCalendarDay(getDateKey(today));
+                  }} style={{ padding: '0.4rem 0.6rem', border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', fontSize: '0.72rem', fontWeight: 750, cursor: 'pointer' }}>Hoy</button>
+                  <button type="button" aria-label="Mes siguiente" onClick={() => setCalendarMonth(current => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))}
+                    style={{ width: 30, height: 30, border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', cursor: 'pointer' }}>›</button>
+                </div>
+                <strong style={{ color: '#1e3a5f', fontSize: '0.85rem', textTransform: 'capitalize' }}>
+                  {calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                </strong>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{calendarProjects.length} proyectos</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0', background: '#fff' }}>
+                {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
+                  <div key={day} style={{ padding: '0.38rem 0.25rem', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: '#eef2f7', color: '#64748b', textAlign: 'center', fontSize: '0.66rem', fontWeight: 800 }}>{day}</div>
+                ))}
+                {calendarDays.map(day => {
+                  const dayKey = getDateKey(day);
+                  const inMonth = day.getMonth() === calendarMonth.getMonth();
+                  const isToday = dayKey === getDateKey(scheduleNow);
+                  const isSelected = dayKey === selectedCalendarDay;
+                  const events = calendarEvents.get(dayKey) || [];
+                  const activeProjects = calendarProjects.filter(project => {
+                    const schedule = projectSchedules.get(project.id);
+                    if (!schedule) return false;
+                    const production = normalizeProduction(project.production_data);
+                    const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
+                    const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
+                    return day >= schedule.startDate && day <= endDate;
+                  });
+                  const visibleEvents = events.slice(0, 2);
+                  return (
+                    <button key={dayKey} type="button" aria-pressed={isSelected} onClick={() => setSelectedCalendarDay(dayKey)}
+                      style={{ minWidth: 0, minHeight: 91, padding: '0.28rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
+                      <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: inMonth ? '#334155' : '#b6c0ce', fontSize: '0.68rem', fontWeight: isToday ? 850 : 650 }}>
+                        <span>{day.getDate()}</span>
+                        {isToday && <span style={{ color: '#2563eb', fontSize: '0.58rem' }}>HOY</span>}
+                      </span>
+                      {!!activeProjects.length && (
+                        <span aria-label={`${activeProjects.length} proyectos activos`} style={{ display: 'flex', gap: 2, marginTop: 3, overflow: 'hidden' }}>
+                          {activeProjects.slice(0, 8).map(project => <span key={project.id} style={{ width: 6, height: 6, flex: '0 0 6px', borderRadius: '50%', background: projectColors.get(project.id) }} />)}
+                          {activeProjects.length > 8 && <span style={{ color: '#64748b', fontSize: '0.52rem' }}>+{activeProjects.length - 8}</span>}
+                        </span>
+                      )}
+                      <span style={{ display: 'grid', gap: 2, marginTop: 3 }}>
+                        {visibleEvents.map(event => {
+                          const color = projectColors.get(event.project.id);
                           return (
-                            <tr key={project.id} style={{ background: isSelected ? '#eff6ff' : '#fff' }}>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
-                                <button type="button" onClick={() => selectProductionProject(project)}
-                                  style={{ display: 'block', padding: 0, border: 0, background: 'transparent', color: '#1d4ed8', textAlign: 'left', fontWeight: 800, cursor: 'pointer' }}>
-                                  {project.name || 'Cliente sin nombre'}
-                                </button>
-                                <span style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                                {schedule ? schedule.startDate.toLocaleDateString('es-MX') : 'Falta fecha de inicio'}
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                                {schedule ? `${schedule.elapsedDays} / ${schedule.plannedDays} días hábiles` : `Plazo: ${project.production_days || 'no capturado'}`}
-                                {schedule && <div style={{ marginTop: 5, width: 120, height: 6, overflow: 'hidden', background: '#e2e8f0', borderRadius: 99 }}>
-                                  <div style={{ width: `${schedule.timeProgress}%`, height: '100%', background: schedule.daysRemaining < 0 ? '#dc2626' : '#2563eb' }} />
-                                </div>}
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
-                                {schedule ? <span>{STAGE_NAMES[schedule.expectedStage]}<small style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{schedule.timeProgress}% del plazo</small></span> : 'No calculable'}
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
-                                <span>{project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage]}</span>
-                                {schedule && <small style={{ display: 'block', marginTop: 3, color: paceColor, fontWeight: 750 }}>{paceLabel}</small>}
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                                {schedule ? schedule.deadline.toLocaleDateString('es-MX') : '—'}
-                              </td>
-                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', color: schedule?.daysRemaining < 0 ? '#b91c1c' : '#334155', fontWeight: 700 }}>
-                                {schedule
-                                  ? project.status === 'ENTREGADO'
-                                    ? schedule.daysRemaining < 0 ? `Entregado ${Math.abs(schedule.daysRemaining)} días antes` : schedule.daysRemaining === 0 ? 'Entregado en fecha' : `Entregado ${schedule.daysRemaining} días después`
-                                    : schedule.daysRemaining < 0 ? `Vencido ${Math.abs(schedule.daysRemaining)} días` : schedule.daysRemaining === 0 ? 'Vence hoy' : `${schedule.daysRemaining} días hábiles`
-                                  : '—'}
-                              </td>
-                            </tr>
+                            <span key={event.id} title={`${event.project.name || 'Cliente'} · ${event.label}`}
+                              style={{ display: 'block', overflow: 'hidden', padding: '2px 3px', borderLeft: `3px solid ${color}`, borderRadius: 3, background: event.isLate ? '#fef2f2' : '#f1f5f9', color: event.isLate ? '#b91c1c' : '#334155', fontSize: '0.55rem', lineHeight: 1.25, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <strong>{event.project.name || 'Proyecto'}</strong> · {event.label}
+                            </span>
                           );
                         })}
-                      </tbody>
-                    </table>
+                        {events.length > visibleEvents.length && <span style={{ color: '#64748b', fontSize: '0.54rem' }}>+{events.length - visibleEvents.length} hitos</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div aria-live="polite" style={{ marginTop: 9, padding: '0.65rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 9 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                  <strong style={{ color: '#1e3a5f', fontSize: '0.76rem' }}>
+                    {selectedCalendarDate?.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </strong>
+                  <span style={{ color: '#64748b', fontSize: '0.68rem' }}>
+                    {selectedDayProjects.length} proyectos en su periodo de producción
+                  </span>
+                </div>
+                {overviewStage === -1 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {projectsWithoutSchedule.length ? projectsWithoutSchedule.map(project => (
+                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                        style={{ padding: '0.35rem 0.5rem', border: '1px solid #fed7aa', borderRadius: 7, background: '#fff7ed', color: '#9a3412', fontSize: '0.68rem', fontWeight: 750, cursor: 'pointer' }}>
+                        {project.name || 'Cliente'} · Falta fecha o plazo
+                      </button>
+                    )) : <span style={{ color: '#64748b', fontSize: '0.7rem' }}>Todos los proyectos tienen fecha y plazo capturados.</span>}
+                  </div>
+                ) : selectedDayProjects.length ? (
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    {selectedDayProjects.map(project => {
+                      const schedule = projectSchedules.get(project.id);
+                      const actualStage = productionStageIndex(project);
+                      const isLate = project.status === 'ENTREGADO'
+                        ? schedule.daysRemaining < 0
+                        : schedule.daysRemaining < 0 || actualStage < schedule.expectedStage;
+                      const statusLabel = project.status === 'ENTREGADO'
+                        ? schedule.daysRemaining < 0 ? `Entregado ${Math.abs(schedule.daysRemaining)} días después` : 'Entregado'
+                        : schedule.daysRemaining < 0
+                          ? `Vencido ${Math.abs(schedule.daysRemaining)} días hábiles`
+                          : actualStage < schedule.expectedStage ? `Atrasado: debería ir en ${STAGE_NAMES[schedule.expectedStage]}`
+                            : actualStage > schedule.expectedStage ? 'Adelantado al cronograma' : 'En tiempo';
+                      return (
+                        <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                          style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1.4fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(110px, 0.8fr)', alignItems: 'center', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                          <span style={{ minWidth: 0 }}>
+                            <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
+                            <small style={{ color: '#64748b', fontSize: '0.62rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</small>
+                          </span>
+                          <span style={{ color: '#475569', fontSize: '0.65rem' }}>Etapa: {project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage]}</span>
+                          <span style={{ color: isLate ? '#b91c1c' : '#475569', fontSize: '0.65rem', fontWeight: isLate ? 800 : 600 }}>{statusLabel}</span>
+                          <span style={{ color: '#64748b', fontSize: '0.63rem' }}>Entrega: {schedule.deadline.toLocaleDateString('es-MX')}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p style={{ margin: 0, padding: '0.65rem 0.3rem', color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
-                    {overviewStage === -1 ? 'Todos los proyectos tienen fecha y plazo para calcular su cronograma.' : 'No hay proyectos en esta etapa esperada por tiempo.'}
-                  </p>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+                    {overviewStage === -1 ? 'No hay proyectos sin cronograma.' : 'No hay proyectos en producción para este día.'}
+                  </span>
                 )}
-              </section>
-            )}
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginTop: 8 }}>
+                {calendarProjects.map(project => {
+                  const schedule = projectSchedules.get(project.id);
+                  const late = schedule && (schedule.daysRemaining < 0
+                    || (project.status !== 'ENTREGADO' && productionStageIndex(project) < schedule.expectedStage));
+                  return (
+                    <span key={project.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: late ? '#b91c1c' : '#475569', fontSize: '0.62rem' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: projectColors.get(project.id) }} />
+                      {project.name || 'Cliente'}{late ? ' · atrasado' : ''}
+                    </span>
+                  );
+                })}
+              </div>
+            </section>
           </>
         )}
       </section>
