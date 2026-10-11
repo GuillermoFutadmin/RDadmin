@@ -131,6 +131,29 @@ const getMonthCalendarDays = (month) => {
   });
 };
 
+const getWeekCalendarDays = (date) => {
+  const start = new Date(date);
+  start.setHours(12, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return day;
+  });
+};
+
+const shiftCalendarDate = (date, amount, view) => {
+  if (view !== 'month') {
+    const shifted = new Date(date);
+    shifted.setDate(shifted.getDate() + amount * (view === 'week' ? 7 : 1));
+    return shifted;
+  }
+  const targetMonth = new Date(date.getFullYear(), date.getMonth() + amount, 1, 12);
+  const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
+  targetMonth.setDate(Math.min(date.getDate(), lastDay));
+  return targetMonth;
+};
+
 const getProductionSchedule = (project, now) => {
   const production = normalizeProduction(project.production_data);
   const startedAt = production.started_at || production.stages[0]?.entered_at;
@@ -203,6 +226,7 @@ function Pedidos() {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1, 12);
   });
+  const [calendarView, setCalendarView] = useState('month');
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(() => getDateKey(new Date()));
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
@@ -272,7 +296,12 @@ function Pedidos() {
     : overviewStage === -1
       ? projectsWithoutSchedule
       : projectsByStage[overviewStage] || [];
-  const calendarDays = useMemo(() => getMonthCalendarDays(calendarMonth), [calendarMonth]);
+  const selectedCalendarDate = calendarDate(selectedCalendarDay);
+  const calendarDays = useMemo(() => {
+    if (calendarView === 'day') return selectedCalendarDate ? [selectedCalendarDate] : [];
+    if (calendarView === 'week') return selectedCalendarDate ? getWeekCalendarDays(selectedCalendarDate) : [];
+    return getMonthCalendarDays(calendarMonth);
+  }, [calendarView, calendarMonth, selectedCalendarDate]);
   const projectColors = useMemo(() => {
     const sortedProjects = [...projects].sort((left, right) => left.id - right.id);
     return new Map(sortedProjects.map((project, index) => [
@@ -317,7 +346,6 @@ function Pedidos() {
     });
     return events;
   }, [calendarProjects, projectSchedules, scheduleNow]);
-  const selectedCalendarDate = calendarDate(selectedCalendarDay);
   const selectedDayProjects = selectedCalendarDate
     ? calendarProjects.filter(project => {
       const schedule = projectSchedules.get(project.id);
@@ -879,31 +907,57 @@ function Pedidos() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button type="button" aria-label="Mes anterior" onClick={() => setCalendarMonth(current => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))}
+                  <button type="button" aria-label="Periodo anterior" onClick={() => {
+                    const currentDate = selectedCalendarDate || scheduleNow;
+                    const nextDate = shiftCalendarDate(currentDate, -1, calendarView);
+                    setSelectedCalendarDay(getDateKey(nextDate));
+                    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1, 12));
+                  }}
                     style={{ width: 30, height: 30, border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', cursor: 'pointer' }}>‹</button>
                   <button type="button" onClick={() => {
                     const today = new Date();
                     setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1, 12));
                     setSelectedCalendarDay(getDateKey(today));
                   }} style={{ padding: '0.4rem 0.6rem', border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', fontSize: '0.72rem', fontWeight: 750, cursor: 'pointer' }}>Hoy</button>
-                  <button type="button" aria-label="Mes siguiente" onClick={() => setCalendarMonth(current => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))}
+                  <button type="button" aria-label="Periodo siguiente" onClick={() => {
+                    const currentDate = selectedCalendarDate || scheduleNow;
+                    const nextDate = shiftCalendarDate(currentDate, 1, calendarView);
+                    setSelectedCalendarDay(getDateKey(nextDate));
+                    setCalendarMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1, 12));
+                  }}
                     style={{ width: 30, height: 30, border: '1px solid #dbe3ec', borderRadius: 8, background: '#fff', color: '#334155', cursor: 'pointer' }}>›</button>
                 </div>
                 <strong style={{ color: '#1e3a5f', fontSize: '0.85rem', textTransform: 'capitalize' }}>
-                  {calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                  {calendarView === 'month'
+                    ? calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+                    : calendarView === 'week'
+                      ? `${calendarDays[0]?.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} – ${calendarDays[6]?.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      : selectedCalendarDate?.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </strong>
+                <div role="group" aria-label="Vista del calendario" style={{ display: 'flex', padding: 3, gap: 2, background: '#eaf0f7', borderRadius: 9 }}>
+                  {[['month', 'Mes'], ['week', 'Semana'], ['day', 'Día']].map(([view, label]) => (
+                    <button key={view} type="button" aria-pressed={calendarView === view} onClick={() => setCalendarView(view)}
+                      style={{ padding: '0.38rem 0.62rem', border: 0, borderRadius: 7, background: calendarView === view ? '#fff' : 'transparent', color: calendarView === view ? '#1d4f91' : '#64748b', fontSize: '0.7rem', fontWeight: 800, boxShadow: calendarView === view ? '0 1px 3px rgba(15,23,42,0.12)' : 'none', cursor: 'pointer' }}>{label}</button>
+                  ))}
+                </div>
                 <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{calendarProjects.length} proyectos</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0', background: '#fff' }}>
-                {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
-                  <div key={day} style={{ padding: '0.38rem 0.25rem', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: '#eef2f7', color: '#64748b', textAlign: 'center', fontSize: '0.66rem', fontWeight: 800 }}>{day}</div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${calendarView === 'day' ? 1 : 7}, minmax(0, 1fr))`, borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0', background: '#fff' }}>
                 {calendarDays.map(day => {
                   const dayKey = getDateKey(day);
-                  const inMonth = day.getMonth() === calendarMonth.getMonth();
+                  const dayName = day.toLocaleDateString('es-MX', { weekday: calendarView === 'day' ? 'long' : 'short' });
+                  return (
+                    <div key={`weekday-${dayKey}`} style={{ padding: '0.38rem 0.25rem', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: '#eef2f7', color: '#64748b', textAlign: 'center', fontSize: '0.66rem', fontWeight: 800, textTransform: 'capitalize' }}>
+                      {calendarView === 'day' ? dayName : `${dayName} ${day.getDate()}`}
+                    </div>
+                  );
+                })}
+                {calendarDays.map(day => {
+                  const dayKey = getDateKey(day);
+                  const inMonth = calendarView !== 'month' || day.getMonth() === calendarMonth.getMonth();
                   const isToday = dayKey === getDateKey(scheduleNow);
                   const isSelected = dayKey === selectedCalendarDay;
                   const events = calendarEvents.get(dayKey) || [];
@@ -915,12 +969,15 @@ function Pedidos() {
                     const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
                     return day >= schedule.startDate && day <= endDate;
                   });
-                  const visibleEvents = events.slice(0, 2);
+                  const visibleEvents = events.slice(0, calendarView === 'month' ? 2 : calendarView === 'week' ? 6 : 12);
                   return (
-                    <button key={dayKey} type="button" aria-pressed={isSelected} onClick={() => setSelectedCalendarDay(dayKey)}
-                      style={{ minWidth: 0, minHeight: 91, padding: '0.28rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
+                    <button key={`date-${dayKey}`} type="button" aria-pressed={isSelected} onClick={() => {
+                      setSelectedCalendarDay(dayKey);
+                      setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1, 12));
+                    }}
+                      style={{ minWidth: 0, minHeight: calendarView === 'month' ? 91 : calendarView === 'week' ? 190 : 280, padding: calendarView === 'day' ? '0.8rem' : '0.35rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
                       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: inMonth ? '#334155' : '#b6c0ce', fontSize: '0.68rem', fontWeight: isToday ? 850 : 650 }}>
-                        <span>{day.getDate()}</span>
+                        <span>{calendarView === 'day' ? day.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' }) : day.getDate()}</span>
                         {isToday && <span style={{ color: '#2563eb', fontSize: '0.58rem' }}>HOY</span>}
                       </span>
                       {!!activeProjects.length && (
@@ -934,7 +991,7 @@ function Pedidos() {
                           const color = projectColors.get(event.project.id);
                           return (
                             <span key={event.id} title={`${event.project.name || 'Cliente'} · ${event.label}`}
-                              style={{ display: 'block', overflow: 'hidden', padding: '2px 3px', borderLeft: `3px solid ${color}`, borderRadius: 3, background: event.isLate ? '#fef2f2' : '#f1f5f9', color: event.isLate ? '#b91c1c' : '#334155', fontSize: '0.55rem', lineHeight: 1.25, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '2px 3px' : '4px 6px', borderLeft: `3px solid ${color}`, borderRadius: 3, background: event.isLate ? '#fef2f2' : '#f1f5f9', color: event.isLate ? '#b91c1c' : '#334155', fontSize: calendarView === 'month' ? '0.55rem' : '0.68rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <strong>{event.project.name || 'Proyecto'}</strong> · {event.label}
                             </span>
                           );
