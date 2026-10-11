@@ -192,6 +192,7 @@ function Pedidos() {
   const [suppliers, setSuppliers] = useState([]);
   const [supplierError, setSupplierError] = useState('');
   const [purchaseDrafts, setPurchaseDrafts] = useState({});
+  const [expandedMaterialKey, setExpandedMaterialKey] = useState(null);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierForMaterial, setSupplierForMaterial] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
@@ -940,77 +941,92 @@ function Pedidos() {
                 {!projectMaterials.length ? (
                   <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 9, color: '#64748b', fontSize: '0.83rem' }}>La estimación no tiene materiales capturados todavía.</div>
                 ) : (
-                  <div style={{ display: 'grid', gap: 9 }}>
+                  <div style={{ display: 'grid', gap: 5 }}>
                     {projectMaterials.map(material => {
                       const record = purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey] || {};
                       const supplier = suppliers.find(item => String(item.id) === String(record.supplier_id));
+                      const expanded = expandedMaterialKey === material.purchaseKey;
                       return (
-                        <article key={material.purchaseKey} style={{ padding: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap', marginBottom: 9 }}>
-                            <div>
-                              <div style={{ color: '#64748b', fontSize: '0.69rem', fontWeight: 800 }}>{material.sheetName}</div>
-                              <div style={{ color: '#1e3a5f', fontSize: '0.86rem', fontWeight: 750 }}>
+                        <article key={material.purchaseKey} style={{ overflow: 'hidden', background: '#fff', border: `1px solid ${expanded ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8 }}>
+                          <button type="button" aria-expanded={expanded}
+                            onClick={() => setExpandedMaterialKey(current => current === material.purchaseKey ? null : material.purchaseKey)}
+                            style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0.48rem 0.65rem', border: 0, background: expanded ? '#eff6ff' : '#f8fafc', textAlign: 'left', cursor: 'pointer' }}>
+                            <span style={{ minWidth: 0 }}>
+                              <span style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 750 }}>{material.sheetName} · </span>
+                              <span style={{ color: '#1e3a5f', fontSize: '0.78rem', fontWeight: 750 }}>
                                 {material.desc || 'Material'}{Number(material.qty) > 0 ? ` · ${material.qty} ${material.unit || 'pza'}` : ''}
-                              </div>
-                            </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 7, color: record.acquired ? '#15803d' : '#475569', fontSize: '0.78rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
-                              <input type="checkbox" checked={Boolean(record.acquired)} disabled={saving}
-                                onChange={event => {
-                                  const nextRecord = { ...record, acquired: event.target.checked };
-                                  setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
-                                  saveMaterialPurchase(material.purchaseKey, nextRecord);
-                                }} />
-                              Ya se adquirió
-                            </label>
-                          </div>
+                              </span>
+                              <span style={{ display: 'block', marginTop: 2, color: record.acquired ? '#15803d' : '#64748b', fontSize: '0.67rem' }}>
+                                {record.acquired ? 'Adquirido' : record.supplier_id || record.store_price || record.purchase_place ? 'Captura iniciada' : 'Pendiente de captura'}
+                                {supplier ? ` · ${supplier.name}` : ''}
+                                {record.store_price ? ` · $${record.store_price}` : ''}
+                              </span>
+                            </span>
+                            <span aria-hidden="true" style={{ flexShrink: 0, color: '#64748b', fontSize: '0.85rem' }}>{expanded ? '−' : '+'}</span>
+                          </button>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 8 }}>
-                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
-                              Precio pagado en tienda
-                              <input type="number" min="0" step="0.01" value={record.store_price ?? ''}
-                                onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, store_price: event.target.value } }))}
-                                onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
-                                placeholder="$ 0.00" style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                            </label>
-                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
-                              Proveedor
-                              <select value={record.supplier_id || ''}
-                                onChange={event => {
-                                  const selectedSupplier = suppliers.find(item => String(item.id) === event.target.value);
-                                  const nextRecord = {
-                                    ...record,
-                                    supplier_id: event.target.value,
-                                    purchase_place: record.purchase_place || selectedSupplier?.location || ''
-                                  };
-                                  setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
-                                  saveMaterialPurchase(material.purchaseKey, nextRecord);
-                                }}
-                                style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}>
-                                <option value="">Seleccionar proveedor...</option>
-                                {suppliers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                              </select>
-                            </label>
-                            <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
-                              Tienda / sucursal donde se compró
-                              <input value={record.purchase_place || ''}
-                                onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, purchase_place: event.target.value } }))}
-                                onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
-                                placeholder="Nombre de tienda o sucursal" style={{ boxSizing: 'border-box', width: '100%', padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                            </label>
-                          </div>
-                          {supplier && (supplier.contact_name || supplier.phone) && (
-                            <div style={{ marginTop: 7, color: '#64748b', fontSize: '0.75rem' }}>
-                              Contacto: {supplier.contact_name || '—'}{supplier.phone && <> · <a href={`tel:${supplier.phone}`} style={{ color: '#2563eb' }}>{supplier.phone}</a></>}
+                          {expanded && (
+                            <div style={{ padding: '0.65rem', borderTop: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: record.acquired ? '#15803d' : '#475569', fontSize: '0.74rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
+                                  <input type="checkbox" checked={Boolean(record.acquired)} disabled={saving}
+                                    onChange={event => {
+                                      const nextRecord = { ...record, acquired: event.target.checked };
+                                      setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
+                                      saveMaterialPurchase(material.purchaseKey, nextRecord);
+                                    }} />
+                                  Ya se adquirió
+                                </label>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 8 }}>
+                                <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                                  Precio pagado en tienda
+                                  <input type="number" min="0" step="0.01" value={record.store_price ?? ''}
+                                    onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, store_price: event.target.value } }))}
+                                    onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
+                                    placeholder="$ 0.00" style={{ boxSizing: 'border-box', width: '100%', padding: '0.5rem 0.6rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                                </label>
+                                <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                                  Proveedor
+                                  <select value={record.supplier_id || ''}
+                                    onChange={event => {
+                                      const selectedSupplier = suppliers.find(item => String(item.id) === event.target.value);
+                                      const nextRecord = {
+                                        ...record,
+                                        supplier_id: event.target.value,
+                                        purchase_place: record.purchase_place || selectedSupplier?.location || ''
+                                      };
+                                      setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: nextRecord }));
+                                      saveMaterialPurchase(material.purchaseKey, nextRecord);
+                                    }}
+                                    style={{ boxSizing: 'border-box', width: '100%', padding: '0.5rem 0.6rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}>
+                                    <option value="">Seleccionar proveedor...</option>
+                                    {suppliers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                                  </select>
+                                </label>
+                                <label style={{ display: 'grid', gap: 4, color: '#475569', fontSize: '0.72rem', fontWeight: 700 }}>
+                                  Tienda / sucursal donde se compró
+                                  <input value={record.purchase_place || ''}
+                                    onChange={event => setPurchaseDrafts(current => ({ ...current, [material.purchaseKey]: { ...record, purchase_place: event.target.value } }))}
+                                    onBlur={() => saveMaterialPurchase(material.purchaseKey, purchaseDrafts[material.purchaseKey] || record)}
+                                    placeholder="Nombre de tienda o sucursal" style={{ boxSizing: 'border-box', width: '100%', padding: '0.5rem 0.6rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                                </label>
+                              </div>
+                              {supplier && (supplier.contact_name || supplier.phone) && (
+                                <div style={{ marginTop: 7, color: '#64748b', fontSize: '0.74rem' }}>
+                                  Contacto: {supplier.contact_name || '—'}{supplier.phone && <> · <a href={`tel:${supplier.phone}`} style={{ color: '#2563eb' }}>{supplier.phone}</a></>}
+                                </div>
+                              )}
+                              <button type="button" onClick={() => {
+                                setSupplierForMaterial(material.purchaseKey);
+                                setSupplierForm({ name: '', contact_name: '', phone: '', location: '' });
+                                setShowSupplierForm(true);
+                              }}
+                                style={{ marginTop: 8, padding: '0.38rem 0.55rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.72rem', fontWeight: 750, cursor: 'pointer' }}>
+                                + Agregar contacto de proveedor
+                              </button>
                             </div>
                           )}
-                          <button type="button" onClick={() => {
-                            setSupplierForMaterial(material.purchaseKey);
-                            setSupplierForm({ name: '', contact_name: '', phone: '', location: '' });
-                            setShowSupplierForm(true);
-                          }}
-                            style={{ marginTop: 8, padding: '0.42rem 0.6rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.75rem', fontWeight: 750, cursor: 'pointer' }}>
-                            + Agregar contacto de proveedor
-                          </button>
                         </article>
                       );
                     })}
