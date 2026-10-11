@@ -80,6 +80,67 @@ const formatDate = (value) => value
   ? new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Pendiente';
 
+const calendarDate = (value) => {
+  if (!value) return null;
+  const datePart = typeof value === 'string' ? value.slice(0, 10) : '';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
+    ? new Date(`${datePart}T12:00:00`)
+    : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const countBusinessDays = (start, end) => {
+  const current = new Date(start);
+  current.setHours(12, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(12, 0, 0, 0);
+  let days = 0;
+  while (current < last) {
+    current.setDate(current.getDate() + 1);
+    if (current.getDay() !== 0 && current.getDay() !== 6) days += 1;
+  }
+  return days;
+};
+
+const addBusinessDays = (start, days) => {
+  const date = new Date(start);
+  date.setHours(12, 0, 0, 0);
+  let added = 0;
+  while (added < days) {
+    date.setDate(date.getDate() + 1);
+    if (date.getDay() !== 0 && date.getDay() !== 6) added += 1;
+  }
+  return date;
+};
+
+const getProductionSchedule = (project, now) => {
+  const production = normalizeProduction(project.production_data);
+  const startedAt = production.started_at || production.stages[0]?.entered_at;
+  const startDate = calendarDate(startedAt);
+  const plannedDays = Number.parseInt(project.production_days, 10);
+  if (!startDate || !Number.isFinite(plannedDays) || plannedDays <= 0) return null;
+
+  const deliveredAt = project.status === 'ENTREGADO' ? production.delivered_at : null;
+  const endDate = calendarDate(deliveredAt) || now;
+  const elapsedDays = countBusinessDays(startDate, endDate);
+  const deadline = addBusinessDays(startDate, plannedDays);
+  const expectedStage = project.status === 'ENTREGADO'
+    ? STAGE_NAMES.length - 1
+    : Math.min(Math.floor((elapsedDays * STAGE_NAMES.length) / plannedDays), STAGE_NAMES.length - 1);
+
+  return {
+    startDate,
+    plannedDays,
+    elapsedDays,
+    deadline,
+    expectedStage,
+    timeProgress: Math.min(100, Math.round((elapsedDays / plannedDays) * 100)),
+    daysRemaining: endDate <= deadline
+      ? countBusinessDays(endDate, deadline)
+      : -countBusinessDays(deadline, endDate)
+  };
+};
+
 const imageUrl = (url) => url?.startsWith('http') || url?.startsWith('data:') ? url : `${API}${url || ''}`;
 
 const collectImageUrls = (...values) => {
@@ -118,7 +179,8 @@ function Pedidos() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeStage, setActiveStage] = useState(0);
-  const [overviewStage, setOverviewStage] = useState(0);
+  const [overviewStage, setOverviewStage] = useState(null);
+  const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -146,7 +208,7 @@ function Pedidos() {
       setProjects(productionProjects);
       setSelectedId(current => productionProjects.some(project => project.id === current)
         ? current
-        : productionProjects[0]?.id ?? null);
+        : null);
     } catch (error) {
       setMessage(error.message || 'Error al cargar los proyectos.');
     } finally {
@@ -155,6 +217,10 @@ function Pedidos() {
   };
 
   useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    const interval = window.setInterval(() => setScheduleNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
   useEffect(() => {
     fetch(`${API}/api/suppliers`)
       .then(async response => {
@@ -169,9 +235,14 @@ function Pedidos() {
     return projects.filter(project => !query || [project.name, project.public_id, project.project_type, project.contact_info]
       .some(value => String(value || '').toLocaleLowerCase().includes(query)));
   }, [projects, search]);
+  const projectSchedules = useMemo(() => new Map(filteredProjects.map(project => [
+    project.id,
+    getProductionSchedule(project, scheduleNow)
+  ])), [filteredProjects, scheduleNow]);
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
-    filteredProjects.filter(project => productionStageIndex(project) === index)
-  ), [filteredProjects]);
+    filteredProjects.filter(project => projectSchedules.get(project.id)?.expectedStage === index)
+  ), [filteredProjects, projectSchedules]);
+  const projectsWithoutSchedule = filteredProjects.filter(project => !projectSchedules.get(project.id));
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -181,6 +252,7 @@ function Pedidos() {
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
   const overviewProjects = projectsByStage[overviewStage] || [];
+  const displayedOverviewProjects = overviewStage === -1 ? projectsWithoutSchedule : overviewProjects;
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
   const estimationMaterialSheets = estimationSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
@@ -658,8 +730,8 @@ function Pedidos() {
       <section style={{ marginBottom: 16, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 16, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <div>
-            <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Semáforo real de producción</h2>
-            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Selecciona un estado para ver los clientes que se encuentran en esa etapa.</div>
+            <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Flujo y control de tiempos</h2>
+            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>El avance esperado se calcula con los días hábiles de Prospectos, desde que el proyecto entra a Producción. El plazo se divide entre seis etapas.</div>
           </div>
           <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
         </div>
@@ -673,39 +745,103 @@ function Pedidos() {
                 const isActive = overviewStage === index;
                 const circleColor = isActive ? '#2563eb' : count ? '#16a34a' : '#cbd5e1';
                 return (
-                  <button key={name} type="button" aria-pressed={isActive} onClick={() => setOverviewStage(index)}
+                  <button key={name} type="button" aria-pressed={isActive} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
                     style={{ width: 142, height: 142, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '0.8rem', border: `3px solid ${circleColor}`, borderRadius: '50%', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155', textAlign: 'center', cursor: 'pointer', boxShadow: isActive ? '0 0 0 4px #dbeafe' : 'none', transition: 'box-shadow 150ms ease, background 150ms ease' }}>
                     <span style={{ width: 27, height: 27, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: circleColor, color: '#fff', fontSize: '0.75rem', fontWeight: 800 }}>{index + 1}</span>
                     <span style={{ fontSize: '0.76rem', lineHeight: 1.2, fontWeight: 800 }}>{name}</span>
-                    <span style={{ fontSize: '0.69rem', fontWeight: 700, color: isActive ? '#1d4ed8' : '#64748b' }}>{count} {count === 1 ? 'cliente' : 'clientes'}</span>
+                    <span style={{ fontSize: '0.69rem', fontWeight: 700, color: isActive ? '#1d4ed8' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
                   </button>
                 );
               })}
             </div>
-            <section aria-live="polite" style={{ padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
-                <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>Clientes en {STAGE_NAMES[overviewStage]}</h3>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{overviewProjects.length} {overviewProjects.length === 1 ? 'cliente' : 'clientes'}</span>
-              </div>
-              {overviewProjects.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 8 }}>
-                  {overviewProjects.map(project => {
-                    const stage = normalizeProduction(project.production_data).stages[overviewStage] || {};
-                    const isSelected = project.id === selectedId;
-                    return (
-                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
-                        style={{ width: '100%', padding: '0.75rem', textAlign: 'left', background: isSelected ? '#eff6ff' : '#fff', border: `1px solid ${isSelected ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 9, cursor: 'pointer', boxShadow: isSelected ? '0 0 0 1px #bfdbfe' : 'none' }}>
-                        <span style={{ display: 'block', color: '#1e293b', fontSize: '0.8rem', fontWeight: 800 }}>{project.name || 'Cliente sin nombre'}</span>
-                        <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem', lineHeight: 1.35 }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
-                        {stage.entered_at && <span style={{ display: 'block', marginTop: 5, color: '#94a3b8', fontSize: '0.65rem' }}>{formatDate(stage.entered_at)}</span>}
-                      </button>
-                    );
-                  })}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 1rem' }}>
+              <button type="button" aria-pressed={overviewStage === -1}
+                onClick={() => { setOverviewStage(-1); setSelectedId(null); }}
+                style={{ padding: '0.5rem 0.8rem', border: `1px solid ${overviewStage === -1 ? '#2563eb' : '#cbd5e1'}`, borderRadius: 20, background: overviewStage === -1 ? '#eff6ff' : '#fff', color: overviewStage === -1 ? '#1d4ed8' : '#475569', fontWeight: 750, cursor: 'pointer' }}>
+                Sin cronograma ({projectsWithoutSchedule.length})
+              </button>
+            </div>
+            {overviewStage === null ? (
+              <p style={{ margin: 0, padding: '0.8rem', color: '#64748b', fontSize: '0.82rem', textAlign: 'center', background: '#f8fafc', borderRadius: 10 }}>
+                Selecciona una etapa para consultar los proyectos y sus tiempos. La información del cliente se muestra al elegir un proyecto.
+              </p>
+            ) : (
+              <section aria-live="polite" style={{ padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
+                  <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>
+                    {overviewStage === -1 ? 'Proyectos sin cronograma' : `Etapa esperada por tiempo: ${STAGE_NAMES[overviewStage]}`}
+                  </h3>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{displayedOverviewProjects.length} proyectos</span>
                 </div>
-              ) : (
-                <p style={{ margin: 0, padding: '0.65rem 0.3rem', color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>No hay clientes en este estado.</p>
-              )}
-            </section>
+                {displayedOverviewProjects.length ? (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', background: '#fff', fontSize: '0.75rem' }}>
+                      <thead>
+                        <tr style={{ color: '#475569', background: '#eef2f7', textAlign: 'left' }}>
+                          {['Cliente / proyecto', 'Inicio en Producción', 'Tiempo transcurrido', 'Avance esperado por tiempo', 'Avance registrado', 'Entrega programada', 'Tiempo restante'].map(label => (
+                            <th key={label} style={{ padding: '0.65rem 0.55rem', borderBottom: '1px solid #cbd5e1', whiteSpace: 'nowrap' }}>{label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedOverviewProjects.map(project => {
+                          const schedule = projectSchedules.get(project.id);
+                          const actualStage = productionStageIndex(project);
+                          const isSelected = project.id === selectedId;
+                          const onSchedule = project.status === 'ENTREGADO' || actualStage === schedule?.expectedStage;
+                          const behindSchedule = project.status !== 'ENTREGADO' && actualStage < schedule?.expectedStage;
+                          const paceLabel = project.status === 'ENTREGADO'
+                            ? 'Entregado'
+                            : onSchedule ? 'En tiempo' : behindSchedule ? 'Atrasado en avance' : 'Adelantado';
+                          const paceColor = project.status === 'ENTREGADO' || onSchedule ? '#166534' : behindSchedule ? '#b91c1c' : '#1d4ed8';
+                          return (
+                            <tr key={project.id} style={{ background: isSelected ? '#eff6ff' : '#fff' }}>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
+                                <button type="button" onClick={() => selectProductionProject(project)}
+                                  style={{ display: 'block', padding: 0, border: 0, background: 'transparent', color: '#1d4ed8', textAlign: 'left', fontWeight: 800, cursor: 'pointer' }}>
+                                  {project.name || 'Cliente sin nombre'}
+                                </button>
+                                <span style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                {schedule ? schedule.startDate.toLocaleDateString('es-MX') : 'Falta fecha de inicio'}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                {schedule ? `${schedule.elapsedDays} / ${schedule.plannedDays} días hábiles` : `Plazo: ${project.production_days || 'no capturado'}`}
+                                {schedule && <div style={{ marginTop: 5, width: 120, height: 6, overflow: 'hidden', background: '#e2e8f0', borderRadius: 99 }}>
+                                  <div style={{ width: `${schedule.timeProgress}%`, height: '100%', background: schedule.daysRemaining < 0 ? '#dc2626' : '#2563eb' }} />
+                                </div>}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
+                                {schedule ? <span>{STAGE_NAMES[schedule.expectedStage]}<small style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{schedule.timeProgress}% del plazo</small></span> : 'No calculable'}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0' }}>
+                                <span>{project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage]}</span>
+                                {schedule && <small style={{ display: 'block', marginTop: 3, color: paceColor, fontWeight: 750 }}>{paceLabel}</small>}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                {schedule ? schedule.deadline.toLocaleDateString('es-MX') : '—'}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.55rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', color: schedule?.daysRemaining < 0 ? '#b91c1c' : '#334155', fontWeight: 700 }}>
+                                {schedule
+                                  ? project.status === 'ENTREGADO'
+                                    ? schedule.daysRemaining < 0 ? `Entregado ${Math.abs(schedule.daysRemaining)} días antes` : schedule.daysRemaining === 0 ? 'Entregado en fecha' : `Entregado ${schedule.daysRemaining} días después`
+                                    : schedule.daysRemaining < 0 ? `Vencido ${Math.abs(schedule.daysRemaining)} días` : schedule.daysRemaining === 0 ? 'Vence hoy' : `${schedule.daysRemaining} días hábiles`
+                                  : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, padding: '0.65rem 0.3rem', color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+                    {overviewStage === -1 ? 'Todos los proyectos tienen fecha y plazo para calcular su cronograma.' : 'No hay proyectos en esta etapa esperada por tiempo.'}
+                  </p>
+                )}
+              </section>
+            )}
           </>
         )}
       </section>
@@ -719,6 +855,9 @@ function Pedidos() {
                   <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" onClick={() => setSelectedId(null)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 750, cursor: 'pointer' }}>
+                      Cerrar ficha
+                    </button>
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
                       {exportingProjectPdf ? 'Preparando machote...' : '⬇ Imprimir / guardar machote PDF'}
                     </button>
