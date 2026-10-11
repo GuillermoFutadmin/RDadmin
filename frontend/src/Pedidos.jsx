@@ -240,8 +240,8 @@ function Pedidos() {
     getProductionSchedule(project, scheduleNow)
   ])), [filteredProjects, scheduleNow]);
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
-    filteredProjects.filter(project => projectSchedules.get(project.id)?.expectedStage === index)
-  ), [filteredProjects, projectSchedules]);
+    filteredProjects.filter(project => productionStageIndex(project) === index)
+  ), [filteredProjects]);
   const projectsWithoutSchedule = filteredProjects.filter(project => !projectSchedules.get(project.id));
 
   const selected = projects.find(project => project.id === selectedId) || null;
@@ -731,7 +731,7 @@ function Pedidos() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <div>
             <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Flujo y control de tiempos</h2>
-            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>El avance esperado se calcula con los días hábiles de Prospectos, desde que el proyecto entra a Producción. El plazo se divide entre seis etapas.</div>
+            <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Los círculos muestran la etapa registrada en Producción. La tabla compara ese avance con el esperado según los días hábiles de Prospectos, divididos entre seis etapas.</div>
           </div>
           <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
         </div>
@@ -769,7 +769,7 @@ function Pedidos() {
               <section aria-live="polite" style={{ padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
                   <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.9rem' }}>
-                    {overviewStage === -1 ? 'Proyectos sin cronograma' : `Etapa esperada por tiempo: ${STAGE_NAMES[overviewStage]}`}
+                    {overviewStage === -1 ? 'Proyectos sin cronograma' : `Proyectos registrados en ${STAGE_NAMES[overviewStage]}`}
                   </h3>
                   <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{displayedOverviewProjects.length} proyectos</span>
                 </div>
