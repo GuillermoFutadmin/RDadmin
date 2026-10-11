@@ -1003,7 +1003,11 @@ function Pedidos() {
                               Contacto: {supplier.contact_name || '—'}{supplier.phone && <> · <a href={`tel:${supplier.phone}`} style={{ color: '#2563eb' }}>{supplier.phone}</a></>}
                             </div>
                           )}
-                          <button type="button" onClick={() => { setSupplierForMaterial(material.purchaseKey); setShowSupplierForm(true); }}
+                          <button type="button" onClick={() => {
+                            setSupplierForMaterial(material.purchaseKey);
+                            setSupplierForm({ name: '', contact_name: '', phone: '', location: '' });
+                            setShowSupplierForm(true);
+                          }}
                             style={{ marginTop: 8, padding: '0.42rem 0.6rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.75rem', fontWeight: 750, cursor: 'pointer' }}>
                             + Agregar contacto de proveedor
                           </button>
@@ -1013,19 +1017,6 @@ function Pedidos() {
                   </div>
                 )}
 
-                {showSupplierForm && (
-                  <form onSubmit={addSupplierFromProduction} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 8, marginTop: 12, padding: '0.8rem', background: '#eff6ff', borderRadius: 10 }}>
-                    <strong style={{ gridColumn: '1 / -1', color: '#1d4f91', fontSize: '0.82rem' }}>Nuevo proveedor (también se guardará en la agenda)</strong>
-                    <input required value={supplierForm.name} onChange={event => setSupplierForm(current => ({ ...current, name: event.target.value }))} placeholder="Nombre del proveedor *" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                    <input value={supplierForm.contact_name} onChange={event => setSupplierForm(current => ({ ...current, contact_name: event.target.value }))} placeholder="Nombre de contacto" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                    <input type="tel" value={supplierForm.phone} onChange={event => setSupplierForm(current => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                    <input value={supplierForm.location} onChange={event => setSupplierForm(current => ({ ...current, location: event.target.value }))} placeholder="Tienda o ubicación" style={{ padding: '0.55rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                    <div style={{ display: 'flex', gap: 7 }}>
-                      <button type="submit" disabled={saving} style={{ padding: '0.55rem 0.7rem', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>{saving ? 'Guardando...' : 'Guardar proveedor'}</button>
-                      <button type="button" onClick={() => setShowSupplierForm(false)} style={{ padding: '0.55rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', color: '#475569', fontWeight: 700 }}>Cancelar</button>
-                    </div>
-                  </form>
-                )}
                 <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
                   Puedes iniciar Producción aunque falten materiales; marca las compras pendientes conforme se vayan adquiriendo.
                 </div>
@@ -1306,6 +1297,41 @@ function Pedidos() {
               : 'Los contratos se incorporan desde el módulo Clientes.'}
           </div>
       ) : null}
+
+      {showSupplierForm && (
+        <div role="presentation" onClick={event => {
+          if (event.target === event.currentTarget) setShowSupplierForm(false);
+        }} style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.58)' }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="production-supplier-title"
+            onClick={event => event.stopPropagation()}
+            style={{ width: 'min(520px, 100%)', padding: '1.3rem', background: '#fff', borderRadius: 16, boxShadow: '0 20px 50px rgba(15,23,42,0.25)' }}>
+            <h2 id="production-supplier-title" style={{ margin: '0 0 0.35rem', color: '#172b4d', fontSize: '1.1rem' }}>Agregar proveedor</h2>
+            <p style={{ margin: '0 0 1rem', color: '#64748b', fontSize: '0.82rem', lineHeight: 1.45 }}>Se guardará en la agenda de proveedores y se asignará al material seleccionado.</p>
+            <form onSubmit={addSupplierFromProduction} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 10 }}>
+              <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: '0.75rem', fontWeight: 750 }}>
+                Nombre del proveedor *
+                <input required autoFocus value={supplierForm.name} onChange={event => setSupplierForm(current => ({ ...current, name: event.target.value }))} placeholder="Nombre del proveedor" style={{ boxSizing: 'border-box', width: '100%', padding: '0.65rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+              </label>
+              <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: '0.75rem', fontWeight: 750 }}>
+                Nombre de contacto
+                <input value={supplierForm.contact_name} onChange={event => setSupplierForm(current => ({ ...current, contact_name: event.target.value }))} placeholder="Persona de contacto" style={{ boxSizing: 'border-box', width: '100%', padding: '0.65rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+              </label>
+              <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: '0.75rem', fontWeight: 750 }}>
+                Teléfono
+                <input type="tel" value={supplierForm.phone} onChange={event => setSupplierForm(current => ({ ...current, phone: event.target.value }))} placeholder="Teléfono" style={{ boxSizing: 'border-box', width: '100%', padding: '0.65rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+              </label>
+              <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: '0.75rem', fontWeight: 750 }}>
+                Tienda o ubicación
+                <input value={supplierForm.location} onChange={event => setSupplierForm(current => ({ ...current, location: event.target.value }))} placeholder="Tienda o sucursal" style={{ boxSizing: 'border-box', width: '100%', padding: '0.65rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+              </label>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                <button type="button" disabled={saving} onClick={() => setShowSupplierForm(false)} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>Cancelar</button>
+                <button type="submit" disabled={saving} style={{ padding: '0.65rem 0.9rem', border: 0, borderRadius: 9, background: saving ? '#93c5fd' : '#2563eb', color: '#fff', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>{saving ? 'Guardando...' : 'Guardar proveedor'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       {showPdfPrompt && selected && (
         <div role="presentation" onClick={() => setShowPdfPrompt(false)}
