@@ -11,6 +11,7 @@ const STAGE_NAMES = [
   'Avance 2 / revisión',
   'Entrega del proyecto'
 ];
+const STAGE_EMOJIS = ['📋', '🧰', '🪚', '🪵', '🔍', '🚚'];
 
 const SPANISH_LABELS = {
   production_days: 'Días de producción',
@@ -368,6 +369,13 @@ function Pedidos() {
   }).length;
   const activeProjectsCount = filteredProjects.filter(project => project.status !== 'ENTREGADO').length;
   const deliveredProjectsCount = filteredProjects.length - activeProjectsCount;
+  const stagesWithProjects = projectsByStage.reduce((indexes, stageProjects, index) => {
+    if (stageProjects.length) indexes.push(index);
+    return indexes;
+  }, []);
+  const latestActiveStage = overviewStage === null
+    ? (stagesWithProjects.length ? stagesWithProjects[stagesWithProjects.length - 1] : -1)
+    : overviewStage;
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -883,15 +891,20 @@ function Pedidos() {
                 const count = projectsByStage[index].length;
                 const isActive = overviewStage === index;
                 const circleColor = isActive ? '#2563eb' : count ? '#16a34a' : '#cbd5e1';
+                const isNextStep = latestActiveStage === index - 1;
                 return (
                   <React.Fragment key={name}>
                     <button type="button" aria-pressed={isActive} aria-label={`${name}, ${count} ${count === 1 ? 'proyecto' : 'proyectos'}`} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
-                      style={{ flex: '1 0 142px', width: 142, height: 142, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0.85rem', border: `${isActive ? 4 : 2}px solid ${circleColor}`, borderRadius: '50%', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155', textAlign: 'center', cursor: 'pointer', boxShadow: isActive ? '0 0 0 5px #dbeafe, 0 8px 20px rgba(37,99,235,0.14)' : '0 2px 7px rgba(15,23,42,0.06)', transform: isActive ? 'scale(1.04)' : 'scale(1)', transition: 'transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease' }}>
-                      <span style={{ fontSize: '0.78rem', lineHeight: 1.2, fontWeight: 800 }}>{name}</span>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isActive ? '#1d4ed8' : count ? '#15803d' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
+                      className={`production-stage-button${isActive ? ' is-selected' : ''}${count ? ' has-projects' : ''}`}
+                      style={{ '--stage-color': circleColor, borderColor: circleColor, color: isActive ? '#1d4ed8' : '#334155', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc' }}>
+                      <span className="production-stage-emoji" aria-hidden="true">{STAGE_EMOJIS[index]}</span>
+                      <span className="production-stage-name">{name}</span>
+                      <span className="production-stage-count" style={{ color: isActive ? '#1d4ed8' : count ? '#15803d' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
                     </button>
                     {index < STAGE_NAMES.length - 1 && (
-                      <span aria-hidden="true" style={{ flex: '0 0 auto', color: '#94a3b8', fontSize: '1.25rem', fontWeight: 800 }}>→</span>
+                      <span className={`production-stage-connector${index < latestActiveStage ? ' is-lit' : ''}${isNextStep ? ' is-next' : ''}`} aria-hidden="true" title={isNextStep ? `Siguiente etapa: ${STAGE_NAMES[index + 1]}` : undefined}>
+                        <span>›</span>
+                      </span>
                     )}
                   </React.Fragment>
                 );
