@@ -878,18 +878,22 @@ function Pedidos() {
           <p style={{ margin: 0, padding: '1rem', color: '#64748b' }}>Cargando proyectos...</p>
         ) : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', justifyItems: 'center', gap: 12, padding: '0.4rem 0 1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', padding: '0.6rem 0.5rem 1rem', scrollbarWidth: 'thin' }}>
               {STAGE_NAMES.map((name, index) => {
                 const count = projectsByStage[index].length;
                 const isActive = overviewStage === index;
                 const circleColor = isActive ? '#2563eb' : count ? '#16a34a' : '#cbd5e1';
                 return (
-                  <button key={name} type="button" aria-pressed={isActive} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
-                    style={{ width: 142, height: 142, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '0.8rem', border: `3px solid ${circleColor}`, borderRadius: '50%', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155', textAlign: 'center', cursor: 'pointer', boxShadow: isActive ? '0 0 0 4px #dbeafe' : 'none', transition: 'box-shadow 150ms ease, background 150ms ease' }}>
-                    <span style={{ width: 27, height: 27, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: circleColor, color: '#fff', fontSize: '0.75rem', fontWeight: 800 }}>{index + 1}</span>
-                    <span style={{ fontSize: '0.76rem', lineHeight: 1.2, fontWeight: 800 }}>{name}</span>
-                    <span style={{ fontSize: '0.69rem', fontWeight: 700, color: isActive ? '#1d4ed8' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
-                  </button>
+                  <React.Fragment key={name}>
+                    <button type="button" aria-pressed={isActive} aria-label={`${name}, ${count} ${count === 1 ? 'proyecto' : 'proyectos'}`} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
+                      style={{ flex: '1 0 142px', width: 142, height: 142, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '0.85rem', border: `${isActive ? 4 : 2}px solid ${circleColor}`, borderRadius: '50%', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155', textAlign: 'center', cursor: 'pointer', boxShadow: isActive ? '0 0 0 5px #dbeafe, 0 8px 20px rgba(37,99,235,0.14)' : '0 2px 7px rgba(15,23,42,0.06)', transform: isActive ? 'scale(1.04)' : 'scale(1)', transition: 'transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease' }}>
+                      <span style={{ fontSize: '0.78rem', lineHeight: 1.2, fontWeight: 800 }}>{name}</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isActive ? '#1d4ed8' : count ? '#15803d' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
+                    </button>
+                    {index < STAGE_NAMES.length - 1 && (
+                      <span aria-hidden="true" style={{ flex: '0 0 auto', color: '#94a3b8', fontSize: '1.25rem', fontWeight: 800 }}>→</span>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>
