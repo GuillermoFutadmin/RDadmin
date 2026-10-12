@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StageIcon } from './StageIcon';
 
 const TRACKING_STAGES = [
@@ -112,6 +112,28 @@ const safePhotoUrl = (photo) => {
 
 export default function ProjectTracking({ prospect, compact = false, showEvidence = false, requestDetails = [] }) {
   const [selectedStage, setSelectedStage] = useState(null);
+  const [previewState, setPreviewState] = useState(null);
+
+  useEffect(() => {
+    if (!previewState) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setPreviewState(null);
+      } else if (event.key === 'ArrowLeft' && previewState.photos.length > 1) {
+        setPreviewState(prev => prev ? ({
+          ...prev,
+          index: (prev.index - 1 + prev.photos.length) % prev.photos.length
+        }) : null);
+      } else if (event.key === 'ArrowRight' && previewState.photos.length > 1) {
+        setPreviewState(prev => prev ? ({
+          ...prev,
+          index: (prev.index + 1) % previewState.photos.length
+        }) : null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewState]);
   const progress = getProjectTrackingProgress(prospect);
   const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
   const productionStages = production.stages;
@@ -263,12 +285,97 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                   {stageData.note && <div style={{ marginTop: 10, color: '#475569', fontSize: '0.84rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{stageData.note}</div>}
 
                   {photos.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: photos.length === 1
+                        ? 'minmax(0, 480px)'
+                        : 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+                      gap: 14,
+                      marginTop: 12
+                    }}>
                       {photos.map((url, photoIndex) => (
-                        <a key={`${url}-${photoIndex}`} href={url} target="_blank" rel="noreferrer" aria-label={`Abrir evidencia ${photoIndex + 1} de ${stageName}`}>
-                          <img src={url} alt={`Evidencia ${photoIndex + 1} · ${stageName}`} loading="lazy"
-                            style={{ display: 'block', width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', border: '1px solid #cbd5e1', borderRadius: 9 }} />
-                        </a>
+                        <button
+                          key={`${url}-${photoIndex}`}
+                          type="button"
+                          onClick={() => setPreviewState({ photos, index: photoIndex, stageName })}
+                          aria-label={`Ver evidencia ${photoIndex + 1} de ${stageName} en pantalla completa`}
+                          style={{
+                            position: 'relative',
+                            display: 'block',
+                            width: '100%',
+                            padding: 0,
+                            margin: 0,
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            background: '#0f172a',
+                            cursor: 'pointer',
+                            boxShadow: '0 3px 10px rgba(15, 23, 42, 0.08)',
+                            transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-3px)';
+                            e.currentTarget.style.boxShadow = '0 8px 22px rgba(15, 23, 42, 0.16)';
+                            e.currentTarget.style.borderColor = '#94a3b8';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 3px 10px rgba(15, 23, 42, 0.08)';
+                            e.currentTarget.style.borderColor = '#cbd5e1';
+                          }}
+                        >
+                          <img
+                            src={url}
+                            alt={`Evidencia ${photoIndex + 1} · ${stageName}`}
+                            loading="lazy"
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              aspectRatio: '4 / 3',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 10,
+                            right: 10,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '5px 10px',
+                            background: 'rgba(15, 23, 42, 0.78)',
+                            color: '#ffffff',
+                            borderRadius: 8,
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                            pointerEvents: 'none'
+                          }}>
+                            <span>🔍</span>
+                            <span>Ampliar</span>
+                          </div>
+                          <div style={{
+                            position: 'absolute',
+                            top: 10,
+                            left: 10,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '3px 8px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            color: '#f8fafc',
+                            borderRadius: 6,
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)',
+                            pointerEvents: 'none'
+                          }}>
+                            Foto {photoIndex + 1} {photos.length > 1 ? `de ${photos.length}` : ''}
+                          </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -327,6 +434,242 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             </div>
           )}
         </>
+      )}
+
+      {/* Visualizador de imagen en pantalla completa (Lightbox sin salir de la pantalla) */}
+      {previewState && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Evidencia ampliada de ${previewState.stageName}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPreviewState(null);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Barra superior con título y botón cerrar */}
+          <div style={{
+            width: 'min(100%, 960px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginBottom: 10,
+            color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '1rem', color: '#ffffff' }}>{previewState.stageName}</strong>
+              {previewState.photos.length > 1 && (
+                <span style={{
+                  fontSize: '0.8rem',
+                  padding: '3px 10px',
+                  background: 'rgba(255, 255, 255, 0.16)',
+                  borderRadius: 999,
+                  color: '#e2e8f0',
+                  fontWeight: 600
+                }}>
+                  {previewState.index + 1} de {previewState.photos.length}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPreviewState(null)}
+              aria-label="Cerrar vista de foto"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '0.45rem 1rem',
+                background: 'rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.35)',
+                borderRadius: 8,
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.35)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'; }}
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+
+          {/* Área principal de la foto */}
+          <div style={{
+            position: 'relative',
+            maxWidth: 'min(100%, 960px)',
+            maxHeight: 'min(76vh, 680px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <img
+              src={previewState.photos[previewState.index]}
+              alt={`Evidencia ${previewState.index + 1} de ${previewState.photos.length} · ${previewState.stageName}`}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: 'min(76vh, 680px)',
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                borderRadius: 12,
+                boxShadow: '0 20px 45px rgba(0, 0, 0, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.15)'
+              }}
+            />
+
+            {previewState.photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewState(prev => ({
+                      ...prev,
+                      index: (prev.index - 1 + prev.photos.length) % prev.photos.length
+                    }));
+                  }}
+                  aria-label="Foto anterior"
+                  style={{
+                    position: 'absolute',
+                    left: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.78)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    fontSize: '1.6rem',
+                    lineHeight: '1',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                    transition: 'background 0.15s, transform 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.78)';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  }}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewState(prev => ({
+                      ...prev,
+                      index: (prev.index + 1) % prev.photos.length
+                    }));
+                  }}
+                  aria-label="Siguiente foto"
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.78)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    fontSize: '1.6rem',
+                    lineHeight: '1',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                    transition: 'background 0.15s, transform 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.78)';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  }}
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Carrusel inferior de miniaturas */}
+          {previewState.photos.length > 1 && (
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              marginTop: 14,
+              maxWidth: 'min(100%, 960px)',
+              overflowX: 'auto',
+              padding: '4px 2px'
+            }}>
+              {previewState.photos.map((url, idx) => {
+                const isCurrent = idx === previewState.index;
+                return (
+                  <button
+                    key={`modal-thumb-${url}-${idx}`}
+                    type="button"
+                    onClick={() => setPreviewState(prev => ({ ...prev, index: idx }))}
+                    aria-label={`Ver foto ${idx + 1}`}
+                    aria-current={isCurrent}
+                    style={{
+                      padding: 0,
+                      border: isCurrent ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.25)',
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      background: '#000',
+                      cursor: 'pointer',
+                      opacity: isCurrent ? 1 : 0.6,
+                      transform: isCurrent ? 'scale(1.05)' : 'none',
+                      transition: 'opacity 0.15s, transform 0.15s, border-color 0.15s',
+                      flex: 'none'
+                    }}
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      style={{
+                        display: 'block',
+                        width: 58,
+                        height: 44,
+                        objectFit: 'cover'
+                      }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
     </section>
   );
