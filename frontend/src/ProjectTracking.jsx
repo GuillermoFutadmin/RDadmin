@@ -102,7 +102,7 @@ export function getProjectTrackingProgress(prospect) {
   };
 }
 
-export default function ProjectTracking({ prospect, compact = false }) {
+export default function ProjectTracking({ prospect, compact = false, showEvidence = false }) {
   const progress = getProjectTrackingProgress(prospect);
   const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
   const productionStages = production.stages;
@@ -205,6 +205,23 @@ export default function ProjectTracking({ prospect, compact = false }) {
                       {formatDate(stage.entered_at) && <div style={{ marginTop: 3, fontSize: '0.62rem', color: '#64748b' }}>{formatDate(stage.entered_at)}</div>}
                       {stage.note && <div style={{ marginTop: 4, fontSize: '0.67rem', color: '#475569', whiteSpace: 'pre-wrap' }}>{stage.note}</div>}
                       {!!stage.photos?.length && <div style={{ marginTop: 4, fontSize: '0.63rem', color: '#64748b' }}>📷 {stage.photos.length} evidencia{stage.photos.length === 1 ? '' : 's'}</div>}
+                      {showEvidence && !!stage.photos?.length && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                          {stage.photos.map((photo, photoIndex) => {
+                            const url = typeof photo === 'string' ? photo : photo?.url;
+                            const safeUrl = typeof url === 'string'
+                              && (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//')))
+                              ? url
+                              : null;
+                            return safeUrl ? (
+                              <a key={`${safeUrl}-${photoIndex}`} href={safeUrl} target="_blank" rel="noreferrer" aria-label={`Abrir evidencia ${photoIndex + 1} de ${name}`}>
+                                <img src={safeUrl} alt={`Evidencia ${photoIndex + 1} · ${name}`} loading="lazy"
+                                  style={{ width: 62, height: 62, objectFit: 'cover', border: '1px solid #cbd5e1', borderRadius: 7 }} />
+                              </a>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

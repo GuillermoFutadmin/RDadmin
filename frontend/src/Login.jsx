@@ -8,6 +8,7 @@ export default function Login({ onLoginSuccess }) {
   const [showLogin, setShowLogin] = useState(false);
 
   const API = '';
+  const clientPortalUrl = import.meta.env.VITE_CLIENT_PORTAL_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,8 +40,11 @@ export default function Login({ onLoginSuccess }) {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
+      boxSizing: 'border-box',
+      padding: '1rem',
       background: '#f8fafc',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
@@ -120,6 +124,11 @@ export default function Login({ onLoginSuccess }) {
           &copy; {new Date().getFullYear()} RD Carpintería. Todos los derechos reservados.
         </p>
       </div>}
+      {clientPortalUrl && (
+        <a href={clientPortalUrl} style={{ marginTop: '1rem', color: '#7c2d12', fontSize: '0.86rem', fontWeight: 750, textDecoration: 'none' }}>
+          Acceso para clientes · Consulta tu proyecto
+        </a>
+      )}
     </div>
   );
 }
