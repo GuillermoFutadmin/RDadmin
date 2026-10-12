@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconTrendingUp, IconFileText, IconCheckCircle, IconEdit, IconPlusCircle, IconTrash, IconSearch } from './icons';
+import useAutoRefresh from './useAutoRefresh';
 
 
 const API = '';
@@ -3045,7 +3046,7 @@ function Prospects() {
   const [showPapelera,    setShowPapelera]    = useState(false);
 
   const fetchProspects = () => {
-    fetch(`${API}/api/prospects`)
+    return fetch(`${API}/api/prospects`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
@@ -3055,6 +3056,7 @@ function Prospects() {
   };
 
   useEffect(() => { fetchProspects(); }, []);
+  useAutoRefresh(fetchProspects);
 
   const handleSave = async (formData, imageFiles, editingId) => {
     const payload = formToPayload(formData);

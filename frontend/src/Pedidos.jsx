@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ContratoDetail, getMeasureSections } from './Contratos';
+import useAutoRefresh from './useAutoRefresh';
 
 const API = import.meta.env.VITE_API_URL || '';
 const STAGE_NAMES = [
@@ -244,8 +245,8 @@ function Pedidos() {
   const [supplierForMaterial, setSupplierForMaterial] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
 
-  const refresh = async () => {
-    setLoading(true);
+  const refresh = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const response = await fetch(`${API}/api/prospects`);
       if (!response.ok) throw new Error(`No se pudo cargar Producción (${response.status})`);
@@ -260,11 +261,12 @@ function Pedidos() {
     } catch (error) {
       setMessage(error.message || 'Error al cargar los proyectos.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => { refresh(); }, []);
+  useAutoRefresh(() => refresh({ silent: true }));
   useEffect(() => {
     const interval = window.setInterval(() => setScheduleNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
@@ -447,11 +449,19 @@ function Pedidos() {
   const purchaseRecords = production.materialPurchases && typeof production.materialPurchases === 'object'
     ? production.materialPurchases
     : {};
+  const syncedPurchasesRef = useRef({ projectId: null, records: {} });
+  const purchaseRecordsFingerprint = JSON.stringify(purchaseRecords);
   useEffect(() => {
-    setPurchaseDrafts(production.materialPurchases && typeof production.materialPurchases === 'object'
-      ? production.materialPurchases
-      : {});
-  }, [selectedId]);
+    const previous = syncedPurchasesRef.current;
+    setPurchaseDrafts(current => {
+      if (previous.projectId !== selectedId) return purchaseRecords;
+      const unsavedDrafts = Object.fromEntries(Object.entries(current).filter(([key, value]) =>
+        JSON.stringify(value) !== JSON.stringify(previous.records[key] || {})
+      ));
+      return { ...purchaseRecords, ...unsavedDrafts };
+    });
+    syncedPurchasesRef.current = { projectId: selectedId, records: purchaseRecords };
+  }, [selectedId, purchaseRecordsFingerprint]);
   const persist = async (nextProduction, nextStatus) => {
     if (!selected) return;
     setSaving(true);

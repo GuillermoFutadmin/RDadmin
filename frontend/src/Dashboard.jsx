@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconPlusCircle, IconTrendingUp, IconTrash, IconPackage, IconClock } from './icons';
+import useAutoRefresh from './useAutoRefresh';
 
 const API = '';
 
@@ -95,19 +96,20 @@ function Dashboard() {
   const [productionProjects, setProductionProjects] = useState(null);
   const [hoveredStage, setHoveredStage] = useState(null);
 
-  useEffect(() => {
-    fetch(`${API}/api/prospects`)
-      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-      .then(data => {
-        const all = Array.isArray(data) ? data : [];
-        setProspects(all.filter(p => !p.is_contract));
-        setContratos(all.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
-        setProductionProjects(all.filter(p =>
-          p.is_contract && p.production_data && ['PRODUCCION', 'ENTREGADO'].includes(p.status)
-        ));
-      })
-      .catch(() => { setProspects([]); setContratos([]); setProductionProjects([]); });
-  }, []);
+  const refreshDashboard = async () => {
+    const response = await fetch(`${API}/api/prospects`);
+    if (!response.ok) throw new Error(`No se pudo sincronizar el panel (${response.status})`);
+    const data = await response.json();
+    const all = Array.isArray(data) ? data : [];
+    setProspects(all.filter(p => !p.is_contract));
+    setContratos(all.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
+    setProductionProjects(all.filter(p =>
+      p.is_contract && p.production_data && ['PRODUCCION', 'ENTREGADO'].includes(p.status)
+    ));
+  };
+
+  useEffect(() => { refreshDashboard().catch(error => console.error(error)); }, []);
+  useAutoRefresh(refreshDashboard);
 
   // Prospect state counts
   const prospectStages = PROSPECT_STAGES.map(st => {

@@ -3,6 +3,7 @@ import { ContratoPDFView } from './ContratoPDF';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
 import ProjectTracking from './ProjectTracking';
+import useAutoRefresh from './useAutoRefresh';
 const API = import.meta.env.VITE_API_URL || '';
 
 function formatCurrency(val) {
@@ -588,17 +589,25 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const [renderPdf, setRenderPdf] = useState(null);
   const [uploadingRender, setUploadingRender] = useState(false);
 
-  const fetchContratos = async () => {
-    setLoading(true);
+  const fetchContratos = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`${API}/api/prospects`);
+      if (!res.ok) throw new Error(`No se pudieron actualizar los contratos (${res.status})`);
       const data = await res.json();
       setContratos(data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
+      if (selected) {
+        const updatedSelected = data.find(item => item.id === selected.id);
+        if (updatedSelected) setSelected(updatedSelected);
+      }
     } catch (e) { console.error(e); }
-    setLoading(false);
+    finally {
+      if (!silent) setLoading(false);
+    }
   };
 
   useEffect(() => { fetchContratos(); }, []);
+  useAutoRefresh(() => fetchContratos({ silent: true }));
   useEffect(() => {
     if (startView === 'estimacion_list') {
       setView('estimacion_menu');

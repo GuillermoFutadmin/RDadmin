@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
+import useAutoRefresh from './useAutoRefresh';
 
 const API = '';
 const UNITS = ['pza', 'metro', 'ml', 'kilo', 'litro', 'pie', 'm2', 'par', 'rollo', 'caja', 'día'];
@@ -320,6 +321,7 @@ function Ventas() {
 
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => { fetchTemplates(); fetchProspects(); }, [mode]);
+  useAutoRefresh(fetchProspects);
 
   const fetchTemplates = async () => {
     try {
@@ -339,6 +341,7 @@ function Ventas() {
   const fetchProspects = async () => {
     try {
       const res  = await fetch(`${API}/api/prospects`);
+      if (!res.ok) throw new Error(`No se pudieron actualizar los prospectos (${res.status})`);
       const data = await res.json();
       // Solo mostrar prospectos SIN valoración guardada; los que ya tienen valuation_data quedan ocultos
       setProspects(data.filter(p => p.status !== 'Valoración' && p.status !== 'Valoracion' && p.status !== 'Cotización' && !p.valuation_data));
