@@ -1587,7 +1587,7 @@ function Pedidos() {
               )}
             </div>
           </section>
-      ) : !loading ? (
+      ) : !loading && overviewStage === null && filteredProjects.length === 0 ? (
           <div style={{ padding: '2rem', color: '#64748b', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16 }}>
             {projects.length
               ? 'No hay proyectos que coincidan con la búsqueda.'
