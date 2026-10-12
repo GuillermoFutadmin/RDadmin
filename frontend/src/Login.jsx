@@ -5,6 +5,7 @@ export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLoginOptions, setShowLoginOptions] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [loginMode, setLoginMode] = useState('staff');
 
@@ -54,19 +55,20 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="button"
             className="login-logo-launch"
-            onClick={() => { setLoginMode('staff'); setShowLogin(true); }}
-            aria-label="Acceso del personal de RD"
+            onClick={() => setShowLoginOptions(true)}
+            aria-label="Mostrar opciones de acceso"
+            aria-expanded={showLoginOptions}
           >
             <img src="/logo-rd.png" alt="RD Carpintería" />
           </button>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {showLoginOptions && <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button type="button" onClick={() => { setLoginMode('staff'); setShowLogin(true); }} style={{ padding: '0.75rem 1rem', background: '#fff', color: '#7c2d12', border: '1px solid #cbd5e1', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
               Acceso personal RD
             </button>
             <button type="button" onClick={() => { setLoginMode('client'); setShowLogin(true); }} style={{ padding: '0.75rem 1rem', background: '#7c2d12', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
               Soy cliente
             </button>
-          </div>
+          </div>}
         </div>
       ) : <div className="login-card" style={loginMode === 'client' ? { width: 'min(calc(100% - 2rem), 1040px)', maxWidth: 1040, padding: '1.25rem' } : undefined}>
         {/* Brand Logo/Text */}
