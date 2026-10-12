@@ -146,9 +146,8 @@ const formatDate = (value) => value
 
 const calendarDate = (value) => {
   if (!value) return null;
-  const datePart = typeof value === 'string' ? value.slice(0, 10) : '';
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
-    ? new Date(`${datePart}T12:00:00`)
+  const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T12:00:00`)
     : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
