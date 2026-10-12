@@ -892,6 +892,7 @@ function Pedidos() {
                 Sin cronograma ({projectsWithoutSchedule.length})
               </button>
             </div>
+            {overviewStage === null ? (
             <section aria-label="Calendario de producción" style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
                 <div>
@@ -1041,6 +1042,42 @@ function Pedidos() {
                 )}
               </div>
             </section>
+            ) : (
+              <section aria-label="Clientes por etapa de producción" style={{ padding: '0.9rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#172b4d', fontSize: '0.95rem' }}>
+                      {overviewStage === -1 ? 'Clientes sin cronograma' : `Clientes en ${STAGE_NAMES[overviewStage]}`}
+                    </h3>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem' }}>
+                      {calendarProjects.length} {calendarProjects.length === 1 ? 'cliente' : 'clientes'} en esta vista
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => { setOverviewStage(null); setSelectedId(null); }}
+                    style={{ padding: '0.45rem 0.7rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.74rem', fontWeight: 750, cursor: 'pointer' }}>
+                    Ver calendario de producción
+                  </button>
+                </div>
+                {calendarProjects.length ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 8 }}>
+                    {calendarProjects.map(project => (
+                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                        <span style={{ minWidth: 0 }}>
+                          <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.8rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
+                          <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
+                        </span>
+                        <span aria-hidden="true" style={{ flexShrink: 0, color: '#2563eb', fontSize: '1rem' }}>›</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '1rem', borderRadius: 9, background: '#fff', color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+                    No hay clientes en esta etapa.
+                  </div>
+                )}
+              </section>
+            )}
           </>
         )}
       </section>
