@@ -1129,8 +1129,20 @@ function Pedidos() {
                 {!projectMaterials.length ? (
                   <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 9, color: '#64748b', fontSize: '0.83rem' }}>La estimación no tiene materiales capturados todavía.</div>
                 ) : (
-                  <div style={{ display: 'grid', gap: 5 }}>
-                    {projectMaterials.map(material => {
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 10, alignItems: 'start' }}>
+                    {[false, true].map(acquired => {
+                      const materials = projectMaterials.filter(material =>
+                        Boolean((purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired) === acquired
+                      );
+                      return (
+                        <section key={String(acquired)} style={{ minWidth: 0, padding: '0.65rem', background: acquired ? '#f0fdf4' : '#f8fafc', border: `1px solid ${acquired ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                            <strong style={{ color: acquired ? '#166534' : '#475569', fontSize: '0.8rem' }}>{acquired ? 'Comprado' : 'Por comprar'}</strong>
+                            <span style={{ padding: '0.2rem 0.45rem', borderRadius: 20, background: acquired ? '#dcfce7' : '#e2e8f0', color: acquired ? '#166534' : '#475569', fontSize: '0.68rem', fontWeight: 800 }}>{materials.length}</span>
+                          </div>
+                          {materials.length ? (
+                            <div style={{ display: 'grid', gap: 5 }}>
+                              {materials.map(material => {
                       const record = purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey] || {};
                       const supplier = suppliers.find(item => String(item.id) === String(record.supplier_id));
                       const expanded = expandedMaterialKey === material.purchaseKey;
@@ -1216,6 +1228,15 @@ function Pedidos() {
                             </div>
                           )}
                         </article>
+                      );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ padding: '0.65rem 0.4rem', color: '#64748b', fontSize: '0.74rem' }}>
+                              {acquired ? 'Todavía no hay materiales comprados.' : 'No hay compras pendientes.'}
+                            </div>
+                          )}
+                        </section>
                       );
                     })}
                   </div>
