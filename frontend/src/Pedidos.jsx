@@ -1133,37 +1133,41 @@ function Pedidos() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 9, marginBottom: 14 }}>
-              <InfoCard label="Contacto">{selected.contact_info}</InfoCard>
-              <InfoCard label="Domicilio del proyecto">{selected.location}</InfoCard>
-              <InfoCard label="Entrega estimada">{selected.quote_delivery_time || selected.project_timeline || selected.delivery_date}</InfoCard>
-              <InfoCard label="Material / acabado">{[selected.material_type, selected.material_type_2, selected.furniture_color].filter(Boolean).join(' · ')}</InfoCard>
-              <InfoCard label="Render">{selected.render_applies ? 'Sí' : selected.render_applies === false ? 'No aplica' : null}</InfoCard>
-            </div>
+            {activeStage === 0 && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 9, marginBottom: 14 }}>
+                  <InfoCard label="Contacto">{selected.contact_info}</InfoCard>
+                  <InfoCard label="Domicilio del proyecto">{selected.location}</InfoCard>
+                  <InfoCard label="Entrega estimada">{selected.quote_delivery_time || selected.project_timeline || selected.delivery_date}</InfoCard>
+                  <InfoCard label="Material / acabado">{[selected.material_type, selected.material_type_2, selected.furniture_color].filter(Boolean).join(' · ')}</InfoCard>
+                  <InfoCard label="Render">{selected.render_applies ? 'Sí' : selected.render_applies === false ? 'No aplica' : null}</InfoCard>
+                </div>
 
-            {generalMeasurements.length > 0 && (
-              <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
-                <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', background: '#fff' }}>
-                  <tbody>
-                    {generalMeasurementRows.map((row, rowIndex) => (
-                      <tr key={`general-measurements-${rowIndex}`}>
-                        {Array.from({ length: 3 }, (_, columnIndex) => {
-                          const item = row[columnIndex];
-                          return (
-                            <td key={item?.[0] || `empty-${columnIndex}`} style={{ width: '33.333%', padding: '0.55rem', border: '1px solid #cbd5e1', verticalAlign: 'top', overflowWrap: 'anywhere' }}>
-                              {item && <><strong style={{ display: 'block', color: '#334155', fontSize: '0.72rem' }}>{item[0]}</strong><span style={{ color: '#475569', fontSize: '0.8rem' }}>{item[1]}</span></>}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
+                {generalMeasurements.length > 0 && (
+                  <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+                    <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', background: '#fff' }}>
+                      <tbody>
+                        {generalMeasurementRows.map((row, rowIndex) => (
+                          <tr key={`general-measurements-${rowIndex}`}>
+                            {Array.from({ length: 3 }, (_, columnIndex) => {
+                              const item = row[columnIndex];
+                              return (
+                                <td key={item?.[0] || `empty-${columnIndex}`} style={{ width: '33.333%', padding: '0.55rem', border: '1px solid #cbd5e1', verticalAlign: 'top', overflowWrap: 'anywhere' }}>
+                                  {item && <><strong style={{ display: 'block', color: '#334155', fontSize: '0.72rem' }}>{item[0]}</strong><span style={{ color: '#475569', fontSize: '0.8rem' }}>{item[1]}</span></>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                )}
+              </>
             )}
 
-            {currentStage >= 1 && (
+            {activeStage === 1 && (
               <section style={{ background: '#fff', border: '1px solid #bfdbfe', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
                   <div>
@@ -1298,7 +1302,7 @@ function Pedidos() {
               </section>
             )}
 
-            <details open style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, marginBottom: 14 }}>
+            {activeStage === 0 && <details open style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, marginBottom: 14 }}>
               <summary style={{ padding: '0.9rem 1rem', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>Información de Estimación y materiales</summary>
               <div style={{ padding: '0 1rem 1rem' }}>
                 {Object.keys(projectDetails).length > 0 && (
@@ -1380,9 +1384,9 @@ function Pedidos() {
                   </section>
                 )}
               </div>
-            </details>
+            </details>}
 
-            {selected.render_pdf_path && (
+            {activeStage === 0 && selected.render_pdf_path && (
               <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '0.9rem 1rem', marginBottom: 14 }}>
                 <strong style={{ color: '#334155', fontSize: '0.85rem' }}>PDF de render disponible</strong>
                 <a href={imageUrl(selected.render_pdf_path)} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.75rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>Ver PDF</a>
