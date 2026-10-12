@@ -886,7 +886,7 @@ function Pedidos() {
           <p style={{ margin: 0, padding: '1rem', color: '#64748b' }}>Cargando proyectos...</p>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', padding: '0.6rem 0.5rem 1rem', scrollbarWidth: 'thin' }}>
+            <div className="production-stage-flow">
               {STAGE_NAMES.map((name, index) => {
                 const count = projectsByStage[index].length;
                 const isActive = overviewStage === index;
