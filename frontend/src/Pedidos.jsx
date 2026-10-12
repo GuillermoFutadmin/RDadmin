@@ -887,7 +887,10 @@ function Pedidos() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 1rem' }}>
               <button type="button" aria-pressed={overviewStage === -1}
-                onClick={() => { setOverviewStage(-1); setSelectedId(null); }}
+                onClick={() => {
+                  setOverviewStage(projectsWithoutSchedule.length ? -1 : null);
+                  setSelectedId(null);
+                }}
                 style={{ padding: '0.5rem 0.8rem', border: `1px solid ${overviewStage === -1 ? '#2563eb' : '#cbd5e1'}`, borderRadius: 20, background: overviewStage === -1 ? '#eff6ff' : '#fff', color: overviewStage === -1 ? '#1d4ed8' : '#475569', fontWeight: 750, cursor: 'pointer' }}>
                 Sin cronograma ({projectsWithoutSchedule.length})
               </button>
