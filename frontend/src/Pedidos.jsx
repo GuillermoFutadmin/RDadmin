@@ -311,64 +311,52 @@ function Pedidos() {
   }, [projects]);
   const calendarEvents = useMemo(() => {
     const events = new Map();
-    const addEvent = (date, event) => {
+    const addEvent = (dateValue, event) => {
+      const date = calendarDate(dateValue);
+      if (!date) return;
       const key = getDateKey(date);
       if (!events.has(key)) events.set(key, []);
       events.get(key).push(event);
     };
     calendarProjects.forEach(project => {
-      const schedule = projectSchedules.get(project.id);
-      if (!schedule) return;
       const production = normalizeProduction(project.production_data);
-      const actualStage = productionStageIndex(project);
-      const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
-      for (let stageIndex = 0; stageIndex < STAGE_NAMES.length; stageIndex += 1) {
-        const date = stageIndex === 0
-          ? schedule.startDate
-          : addBusinessDays(schedule.startDate, Math.ceil((schedule.plannedDays * stageIndex) / STAGE_NAMES.length));
-        if (deliveredAt && date > deliveredAt) continue;
-        addEvent(date, {
+      const stages = Array.isArray(production.stages) ? production.stages : [];
+      stages.forEach((stage, stageIndex) => {
+        const enteredAt = stage.entered_at || (stageIndex === 0 ? production.started_at : null);
+        if (!enteredAt) return;
+        addEvent(enteredAt, {
           id: `${project.id}-stage-${stageIndex}`,
           project,
-          label: stageIndex === actualStage && project.status !== 'ENTREGADO'
-            ? `● ${STAGE_NAMES[stageIndex]}`
-            : STAGE_NAMES[stageIndex],
-          isMilestone: stageIndex === actualStage && project.status !== 'ENTREGADO'
+          label: `${STAGE_NAMES[stageIndex]} · avance ${stageIndex + 1} de ${STAGE_NAMES.length}`,
+          stageIndex,
+          capturedAt: enteredAt,
+          isMilestone: true
+        });
+      });
+      if (production.delivered_at) {
+        addEvent(production.delivered_at, {
+          id: `${project.id}-delivered`,
+          project,
+          label: 'Entrega registrada',
+          capturedAt: production.delivered_at,
+          stageIndex: STAGE_NAMES.length - 1,
+          isDeadline: true
         });
       }
-      addEvent(deliveredAt || schedule.deadline, {
-        id: `${project.id}-deadline`,
-        project,
-        label: deliveredAt ? 'Entrega registrada' : 'Entrega programada',
-        isDeadline: true,
-        isLate: !deliveredAt && schedule.daysRemaining < 0
-      });
     });
     return events;
-  }, [calendarProjects, projectSchedules, scheduleNow]);
-  const selectedDayProjects = selectedCalendarDate
-    ? calendarProjects.filter(project => {
-      const schedule = projectSchedules.get(project.id);
-      if (!schedule) return false;
-      const production = normalizeProduction(project.production_data);
-      const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
-      const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
-      return selectedCalendarDate >= schedule.startDate && selectedCalendarDate <= endDate;
-    }).sort((left, right) => {
-      const leftSchedule = projectSchedules.get(left.id);
-      const rightSchedule = projectSchedules.get(right.id);
-      return Number(rightSchedule.daysRemaining < 0) - Number(leftSchedule.daysRemaining < 0)
-        || leftSchedule.deadline - rightSchedule.deadline;
-    })
+  }, [calendarProjects]);
+  const selectedDayActions = selectedCalendarDate
+    ? calendarEvents.get(getDateKey(selectedCalendarDate)) || []
     : [];
-  const lateProjectsCount = calendarProjects.filter(project => {
+  const lateProjectsCount = filteredProjects.filter(project => {
     const schedule = projectSchedules.get(project.id);
     if (!schedule) return false;
     return project.status === 'ENTREGADO'
       ? schedule.daysRemaining < 0
       : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage;
   }).length;
-  const onTimeProjectsCount = calendarProjects.filter(project => {
+  const onTimeProjectsCount = filteredProjects.filter(project => {
     const schedule = projectSchedules.get(project.id);
     return schedule && !(
       project.status === 'ENTREGADO'
@@ -376,6 +364,8 @@ function Pedidos() {
         : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage
     );
   }).length;
+  const activeProjectsCount = filteredProjects.filter(project => project.status !== 'ENTREGADO').length;
+  const deliveredProjectsCount = filteredProjects.length - activeProjectsCount;
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
@@ -904,6 +894,7 @@ function Pedidos() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ padding: '0.3rem 0.55rem', borderRadius: 20, background: '#fef2f2', color: '#b91c1c', fontSize: '0.7rem', fontWeight: 800 }}>{lateProjectsCount} atrasados</span>
                   <span style={{ padding: '0.3rem 0.55rem', borderRadius: 20, background: '#f0fdf4', color: '#166534', fontSize: '0.7rem', fontWeight: 800 }}>{onTimeProjectsCount} en tiempo</span>
+                  <span style={{ padding: '0.3rem 0.55rem', borderRadius: 20, background: '#fff7ed', color: '#9a3412', fontSize: '0.7rem', fontWeight: 800 }}>{projectsWithoutSchedule.length} sin cronograma</span>
                 </div>
               </div>
 
@@ -961,15 +952,7 @@ function Pedidos() {
                   const isToday = dayKey === getDateKey(scheduleNow);
                   const isSelected = dayKey === selectedCalendarDay;
                   const events = calendarEvents.get(dayKey) || [];
-                  const activeProjects = calendarProjects.filter(project => {
-                    const schedule = projectSchedules.get(project.id);
-                    if (!schedule) return false;
-                    const production = normalizeProduction(project.production_data);
-                    const deliveredAt = project.status === 'ENTREGADO' ? calendarDate(production.delivered_at) : null;
-                    const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
-                    return day >= schedule.startDate && day <= endDate;
-                  });
-                  const visibleProjects = activeProjects.slice(0, calendarView === 'month' ? 3 : calendarView === 'week' ? 7 : 14);
+                  const visibleEvents = events.slice(0, calendarView === 'month' ? 3 : calendarView === 'week' ? 7 : 14);
                   return (
                     <button key={`date-${dayKey}`} type="button" aria-pressed={isSelected} onClick={() => {
                       setSelectedCalendarDay(dayKey);
@@ -981,24 +964,20 @@ function Pedidos() {
                         {isToday && <span style={{ color: '#2563eb', fontSize: '0.58rem' }}>HOY</span>}
                       </span>
                       <span style={{ display: 'grid', gap: 2, marginTop: 3 }}>
-                        {visibleProjects.map(project => {
-                          const color = projectColors.get(project.id);
-                          const schedule = projectSchedules.get(project.id);
-                          const actualStage = productionStageIndex(project);
-                          const isLate = project.status !== 'ENTREGADO'
-                            && (schedule.daysRemaining < 0 || actualStage < schedule.expectedStage);
-                          const hasDeadline = events.some(event => event.project.id === project.id && event.isDeadline);
-                          const projectName = project.name || 'Proyecto';
-                          const stageName = project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage];
+                        {visibleEvents.map(event => {
+                          const color = projectColors.get(event.project.id);
+                          const progressLabel = event.isDeadline
+                            ? 'Entregado · avance 6 de 6'
+                            : `Avance ${event.stageIndex + 1} de ${STAGE_NAMES.length} · ${event.label.split(' · ')[0]}`;
                           return (
-                            <span key={project.id}
-                              title={`${projectName} · Etapa registrada: ${stageName} · ${isLate ? 'Atrasado' : project.status === 'ENTREGADO' ? 'Entregado' : 'En tiempo'} · Entrega programada: ${schedule.deadline.toLocaleDateString('es-MX')}${hasDeadline ? ' · Fecha de entrega' : ''}`}
-                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: isLate ? 'inset 0 0 0 2px #7f1d1d' : '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                              {projectName} · {stageName}{hasDeadline ? ' · Entrega' : ''}
+                            <span key={event.id}
+                              title={`${event.project.name || 'Proyecto'} · ${progressLabel} · Capturado: ${formatDate(event.capturedAt)}`}
+                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                              {event.project.name || 'Proyecto'} · {progressLabel}
                             </span>
                           );
                         })}
-                        {activeProjects.length > visibleProjects.length && <span style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 700 }}>+{activeProjects.length - visibleProjects.length} proyectos</span>}
+                        {events.length > visibleEvents.length && <span style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 700 }}>+{events.length - visibleEvents.length} acciones</span>}
                       </span>
                     </button>
                   );
@@ -1010,66 +989,46 @@ function Pedidos() {
                   <strong style={{ color: '#1e3a5f', fontSize: '0.76rem' }}>
                     {selectedCalendarDate?.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   </strong>
-                  <span style={{ color: '#64748b', fontSize: '0.68rem' }}>
-                    {selectedDayProjects.length} proyectos en su periodo de producción
-                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.68rem' }}>{selectedDayActions.length} acciones registradas este día</span>
                 </div>
-                {overviewStage === -1 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {projectsWithoutSchedule.length ? projectsWithoutSchedule.map(project => (
-                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
-                        style={{ padding: '0.35rem 0.5rem', border: '1px solid #fed7aa', borderRadius: 7, background: '#fff7ed', color: '#9a3412', fontSize: '0.68rem', fontWeight: 750, cursor: 'pointer' }}>
-                        {project.name || 'Cliente'} · Falta fecha o plazo
-                      </button>
-                    )) : <span style={{ color: '#64748b', fontSize: '0.7rem' }}>Todos los proyectos tienen fecha y plazo capturados.</span>}
+                {selectedCalendarDay === getDateKey(scheduleNow) && (
+                  <div aria-label="Indicadores de producción de hoy" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 6, marginBottom: 8 }}>
+                    {[
+                      { label: 'Total de proyectos', value: filteredProjects.length, color: '#1d4ed8', background: '#eff6ff' },
+                      { label: 'En producción', value: activeProjectsCount, color: '#475569', background: '#f1f5f9' },
+                      { label: 'En tiempo', value: onTimeProjectsCount, color: '#15803d', background: '#f0fdf4' },
+                      { label: 'Atrasados', value: lateProjectsCount, color: '#b91c1c', background: '#fef2f2' },
+                      { label: 'Entregados', value: deliveredProjectsCount, color: '#6d28d9', background: '#f5f3ff' },
+                      { label: 'Sin cronograma', value: projectsWithoutSchedule.length, color: '#9a3412', background: '#fff7ed' }
+                    ].map(kpi => (
+                      <div key={kpi.label} style={{ padding: '0.5rem 0.6rem', borderRadius: 8, background: kpi.background }}>
+                        <strong style={{ display: 'block', color: kpi.color, fontSize: '1rem', lineHeight: 1.2 }}>{kpi.value}</strong>
+                        <span style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700 }}>{kpi.label}</span>
+                      </div>
+                    ))}
                   </div>
-                ) : selectedDayProjects.length ? (
+                )}
+                {selectedDayActions.length ? (
                   <div style={{ display: 'grid', gap: 4 }}>
-                    {selectedDayProjects.map(project => {
-                      const schedule = projectSchedules.get(project.id);
-                      const actualStage = productionStageIndex(project);
-                      const isLate = project.status === 'ENTREGADO'
-                        ? schedule.daysRemaining < 0
-                        : schedule.daysRemaining < 0 || actualStage < schedule.expectedStage;
-                      const statusLabel = project.status === 'ENTREGADO'
-                        ? schedule.daysRemaining < 0 ? `Entregado ${Math.abs(schedule.daysRemaining)} días después` : 'Entregado'
-                        : schedule.daysRemaining < 0
-                          ? `Vencido ${Math.abs(schedule.daysRemaining)} días hábiles`
-                          : actualStage < schedule.expectedStage ? `Atrasado: debería ir en ${STAGE_NAMES[schedule.expectedStage]}`
-                            : actualStage > schedule.expectedStage ? 'Adelantado al cronograma' : 'En tiempo';
+                    {selectedDayActions.map(action => {
+                      const progressLabel = action.isDeadline
+                        ? 'Entrega registrada · proyecto completo'
+                        : `${STAGE_NAMES[action.stageIndex]} · avance ${action.stageIndex + 1} de ${STAGE_NAMES.length}`;
                       return (
-                        <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
-                          style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1.4fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(110px, 0.8fr)', alignItems: 'center', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                        <button key={action.id} type="button" onClick={() => selectProductionProject(action.project)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(action.project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                           <span style={{ minWidth: 0 }}>
-                            <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
-                            <small style={{ color: '#64748b', fontSize: '0.62rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</small>
+                            <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.project.name || 'Cliente sin nombre'}</strong>
+                            <small style={{ color: '#475569', fontSize: '0.65rem' }}>{progressLabel}</small>
                           </span>
-                          <span style={{ color: '#475569', fontSize: '0.65rem' }}>Etapa: {project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage]}</span>
-                          <span style={{ color: isLate ? '#b91c1c' : '#475569', fontSize: '0.65rem', fontWeight: isLate ? 800 : 600 }}>{statusLabel}</span>
-                          <span style={{ color: '#64748b', fontSize: '0.63rem' }}>Entrega: {schedule.deadline.toLocaleDateString('es-MX')}</span>
+                          <span style={{ flexShrink: 0, color: '#64748b', fontSize: '0.63rem' }}>{formatDate(action.capturedAt)}</span>
                         </button>
                       );
                     })}
                   </div>
                 ) : (
-                  <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
-                    {overviewStage === -1 ? 'No hay proyectos sin cronograma.' : 'No hay proyectos en producción para este día.'}
-                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem' }}>No hay avances ni acciones registrados en esta fecha.</span>
                 )}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginTop: 8 }}>
-                {calendarProjects.map(project => {
-                  const schedule = projectSchedules.get(project.id);
-                  const late = schedule && (schedule.daysRemaining < 0
-                    || (project.status !== 'ENTREGADO' && productionStageIndex(project) < schedule.expectedStage));
-                  return (
-                    <span key={project.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: late ? '#b91c1c' : '#475569', fontSize: '0.62rem' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: projectColors.get(project.id) }} />
-                      {project.name || 'Cliente'}{late ? ' · atrasado' : ''}
-                    </span>
-                  );
-                })}
               </div>
             </section>
           </>
