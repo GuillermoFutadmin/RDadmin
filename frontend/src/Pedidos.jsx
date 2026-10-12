@@ -306,7 +306,7 @@ function Pedidos() {
     const sortedProjects = [...projects].sort((left, right) => left.id - right.id);
     return new Map(sortedProjects.map((project, index) => [
       project.id,
-      `hsl(${Math.round((index * 137.508) % 360)} 68% 42%)`
+      `hsl(${Math.round((index * 137.508) % 360)} 76% 36%)`
     ]));
   }, [projects]);
   const calendarEvents = useMemo(() => {
@@ -946,12 +946,12 @@ function Pedidos() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${calendarView === 'day' ? 1 : 7}, minmax(0, 1fr))`, borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0', background: '#fff' }}>
-                {calendarDays.map(day => {
+                {calendarView !== 'day' && calendarDays.slice(0, calendarView === 'month' ? 7 : calendarDays.length).map(day => {
                   const dayKey = getDateKey(day);
-                  const dayName = day.toLocaleDateString('es-MX', { weekday: calendarView === 'day' ? 'long' : 'short' });
+                  const dayName = day.toLocaleDateString('es-MX', { weekday: 'short' });
                   return (
                     <div key={`weekday-${dayKey}`} style={{ padding: '0.38rem 0.25rem', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: '#eef2f7', color: '#64748b', textAlign: 'center', fontSize: '0.66rem', fontWeight: 800, textTransform: 'capitalize' }}>
-                      {calendarView === 'day' ? dayName : `${dayName} ${day.getDate()}`}
+                      {dayName}
                     </div>
                   );
                 })}
@@ -969,34 +969,36 @@ function Pedidos() {
                     const endDate = deliveredAt || (schedule.deadline > scheduleNow ? schedule.deadline : scheduleNow);
                     return day >= schedule.startDate && day <= endDate;
                   });
-                  const visibleEvents = events.slice(0, calendarView === 'month' ? 2 : calendarView === 'week' ? 6 : 12);
+                  const visibleProjects = activeProjects.slice(0, calendarView === 'month' ? 3 : calendarView === 'week' ? 7 : 14);
                   return (
                     <button key={`date-${dayKey}`} type="button" aria-pressed={isSelected} onClick={() => {
                       setSelectedCalendarDay(dayKey);
                       setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1, 12));
                     }}
-                      style={{ minWidth: 0, minHeight: calendarView === 'month' ? 91 : calendarView === 'week' ? 190 : 280, padding: calendarView === 'day' ? '0.8rem' : '0.35rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
+                      style={{ minWidth: 0, minHeight: calendarView === 'month' ? 112 : calendarView === 'week' ? 210 : 300, padding: calendarView === 'day' ? '0.8rem' : '0.35rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
                       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: inMonth ? '#334155' : '#b6c0ce', fontSize: '0.68rem', fontWeight: isToday ? 850 : 650 }}>
                         <span>{calendarView === 'day' ? day.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' }) : day.getDate()}</span>
                         {isToday && <span style={{ color: '#2563eb', fontSize: '0.58rem' }}>HOY</span>}
                       </span>
-                      {!!activeProjects.length && (
-                        <span aria-label={`${activeProjects.length} proyectos activos`} style={{ display: 'flex', gap: 2, marginTop: 3, overflow: 'hidden' }}>
-                          {activeProjects.slice(0, 8).map(project => <span key={project.id} style={{ width: 6, height: 6, flex: '0 0 6px', borderRadius: '50%', background: projectColors.get(project.id) }} />)}
-                          {activeProjects.length > 8 && <span style={{ color: '#64748b', fontSize: '0.52rem' }}>+{activeProjects.length - 8}</span>}
-                        </span>
-                      )}
                       <span style={{ display: 'grid', gap: 2, marginTop: 3 }}>
-                        {visibleEvents.map(event => {
-                          const color = projectColors.get(event.project.id);
+                        {visibleProjects.map(project => {
+                          const color = projectColors.get(project.id);
+                          const schedule = projectSchedules.get(project.id);
+                          const actualStage = productionStageIndex(project);
+                          const isLate = project.status !== 'ENTREGADO'
+                            && (schedule.daysRemaining < 0 || actualStage < schedule.expectedStage);
+                          const hasDeadline = events.some(event => event.project.id === project.id && event.isDeadline);
+                          const projectName = project.name || 'Proyecto';
+                          const stageName = project.status === 'ENTREGADO' ? 'Entregado' : STAGE_NAMES[actualStage];
                           return (
-                            <span key={event.id} title={`${event.project.name || 'Cliente'} · ${event.label}`}
-                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '2px 3px' : '4px 6px', borderLeft: `3px solid ${color}`, borderRadius: 3, background: event.isLate ? '#fef2f2' : '#f1f5f9', color: event.isLate ? '#b91c1c' : '#334155', fontSize: calendarView === 'month' ? '0.55rem' : '0.68rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <strong>{event.project.name || 'Proyecto'}</strong> · {event.label}
+                            <span key={project.id}
+                              title={`${projectName} · Etapa registrada: ${stageName} · ${isLate ? 'Atrasado' : project.status === 'ENTREGADO' ? 'Entregado' : 'En tiempo'} · Entrega programada: ${schedule.deadline.toLocaleDateString('es-MX')}${hasDeadline ? ' · Fecha de entrega' : ''}`}
+                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: isLate ? 'inset 0 0 0 2px #7f1d1d' : '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                              {projectName} · {stageName}{hasDeadline ? ' · Entrega' : ''}
                             </span>
                           );
                         })}
-                        {events.length > visibleEvents.length && <span style={{ color: '#64748b', fontSize: '0.54rem' }}>+{events.length - visibleEvents.length} hitos</span>}
+                        {activeProjects.length > visibleProjects.length && <span style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 700 }}>+{activeProjects.length - visibleProjects.length} proyectos</span>}
                       </span>
                     </button>
                   );
