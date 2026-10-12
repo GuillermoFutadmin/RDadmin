@@ -22,7 +22,8 @@ export default function Login({ onLoginSuccess }) {
       if (event.origin !== clientPortalOrigin || event.source !== clientPortalFrame.current?.contentWindow) return;
       if (event.data?.type !== 'rdadmin-client-portal-height' || !Number.isFinite(event.data.height)) return;
 
-      setClientPortalHeight(Math.max(240, Math.ceil(event.data.height)));
+      const nextH = Math.max(260, Math.ceil(event.data.height));
+      setClientPortalHeight(prev => (Math.abs(prev - nextH) >= 8 ? nextH : prev));
     };
 
     window.addEventListener('message', handleClientPortalMessage);
@@ -61,9 +62,9 @@ export default function Login({ onLoginSuccess }) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: loginMode === 'client' ? 'flex-start' : 'center',
       boxSizing: 'border-box',
-      padding: '1rem',
+      padding: loginMode === 'client' ? '1.5rem 0.75rem 2.5rem' : '1rem',
       background: '#f8fafc',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>

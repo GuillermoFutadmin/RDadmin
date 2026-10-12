@@ -20,25 +20,46 @@ export default function ClientPortal() {
   useEffect(() => {
     if (window.parent === window || !document.referrer) return undefined;
 
-    const parentOrigin = new URL(document.referrer).origin;
-    const reportHeight = () => {
-      window.parent.postMessage({
-        type: 'rdadmin-client-portal-height',
-        height: document.documentElement.scrollHeight
-      }, parentOrigin);
-    };
-    const resizeObserver = new ResizeObserver(reportHeight);
+    let parentOrigin;
+    try {
+      parentOrigin = new URL(document.referrer).origin;
+    } catch {
+      return undefined;
+    }
 
-    resizeObserver.observe(document.documentElement);
-    resizeObserver.observe(document.body);
+    let lastSentHeight = 0;
+    let rafId = null;
+
+    const reportHeight = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const container = document.getElementById('client-portal-container') || document.body;
+        if (!container) return;
+        const currentHeight = Math.ceil(container.getBoundingClientRect().height);
+        if (currentHeight > 100 && Math.abs(currentHeight - lastSentHeight) >= 8) {
+          lastSentHeight = currentHeight;
+          window.parent.postMessage({
+            type: 'rdadmin-client-portal-height',
+            height: currentHeight
+          }, parentOrigin);
+        }
+      });
+    };
+
+    const container = document.getElementById('client-portal-container') || document.body;
+    const resizeObserver = new ResizeObserver(reportHeight);
+    if (container) {
+      resizeObserver.observe(container);
+    }
     window.addEventListener('load', reportHeight);
     reportHeight();
 
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
       window.removeEventListener('load', reportHeight);
     };
-  }, []);
+  }, [project]);
 
   const refreshProject = useCallback(async () => {
     if (!credentials) return;
@@ -97,10 +118,12 @@ export default function ClientPortal() {
     setSyncError('');
   };
 
+  const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
+
   if (!project) {
     return (
-      <main className="client-portal-login">
-        <section className="client-portal-login-form">
+      <main className="client-portal-login" style={{ minHeight: isEmbedded ? 'auto' : '100vh', padding: isEmbedded ? '0.25rem 0' : '1.5rem 0' }}>
+        <section id="client-portal-container" className="client-portal-login-form">
           {loginError && <div role="alert" style={{ marginBottom: 14, padding: '0.7rem 0.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: '0.82rem' }}>{loginError}</div>}
           <form onSubmit={handleLogin}>
             <label htmlFor="client-public-id" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>ID del contrato</label>
@@ -129,8 +152,14 @@ export default function ClientPortal() {
   const hasProductionStages = getProjectTrackingProgress(project).production.stages.length > 0;
 
   return (
-    <main style={{ minHeight: '100vh', padding: '1.25rem', background: '#f1f5f9', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ width: 'min(100%, 960px)', margin: '0 auto' }}>
+    <main style={{
+      minHeight: isEmbedded ? 'auto' : '100vh',
+      padding: isEmbedded ? '0.25rem 0 1rem' : '1.25rem',
+      background: isEmbedded ? 'transparent' : '#f1f5f9',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      boxSizing: 'border-box'
+    }}>
+      <div id="client-portal-container" style={{ width: 'min(100%, 960px)', margin: '0 auto' }}>
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '0.9rem 1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img src="/logo-rd.png" alt="RD Carpintería" style={{ width: 52, height: 52, objectFit: 'contain' }} />
