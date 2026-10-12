@@ -176,7 +176,7 @@ def health():
 
 @app.get("/")
 def portal_index():
-    return FileResponse(FRONTEND_DIST / "client.html")
+    return FileResponse(FRONTEND_DIST / "client.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/{asset_path:path}")
@@ -184,4 +184,4 @@ def portal_assets(asset_path: str):
     candidate = (FRONTEND_DIST / asset_path).resolve()
     if candidate.is_relative_to(FRONTEND_DIST.resolve()) and candidate.is_file():
         return FileResponse(candidate)
-    return FileResponse(FRONTEND_DIST / "client.html")
+    return FileResponse(FRONTEND_DIST / "client.html", headers={"Cache-Control": "no-cache"})

@@ -118,11 +118,11 @@ if os.path.exists(FRONTEND_DIST):
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         # Fallback to index.html for SPA routing
-        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"), headers={"Cache-Control": "no-cache"})
     
     @app.get("/")
     def serve_react_app():
-        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"), headers={"Cache-Control": "no-cache"})
 
 
 class ProspectCreate(BaseModel):
