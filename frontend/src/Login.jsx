@@ -12,7 +12,7 @@ export default function Login({ onLoginSuccess }) {
   const clientPortalFrame = useRef(null);
 
   const API = '';
-  const clientPortalUrl = import.meta.env.VITE_CLIENT_PORTAL_URL;
+  const clientPortalUrl = import.meta.env.VITE_CLIENT_PORTAL_URL || 'https://lavish-happiness-production-e277.up.railway.app';
 
   useEffect(() => {
     if (!clientPortalUrl) return undefined;
