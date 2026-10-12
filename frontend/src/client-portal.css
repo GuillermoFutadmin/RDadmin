@@ -1,0 +1,23 @@
+html,
+body,
+#root {
+  width: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.client-portal-login {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem 0;
+  background: transparent;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.client-portal-login-form {
+  width: min(100%, 410px);
+}

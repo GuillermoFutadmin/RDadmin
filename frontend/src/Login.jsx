@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -8,9 +8,26 @@ export default function Login({ onLoginSuccess }) {
   const [showLoginOptions, setShowLoginOptions] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [loginMode, setLoginMode] = useState('staff');
+  const [clientPortalHeight, setClientPortalHeight] = useState(240);
+  const clientPortalFrame = useRef(null);
 
   const API = '';
   const clientPortalUrl = import.meta.env.VITE_CLIENT_PORTAL_URL;
+
+  useEffect(() => {
+    if (!clientPortalUrl) return undefined;
+
+    const clientPortalOrigin = new URL(clientPortalUrl).origin;
+    const handleClientPortalMessage = (event) => {
+      if (event.origin !== clientPortalOrigin || event.source !== clientPortalFrame.current?.contentWindow) return;
+      if (event.data?.type !== 'rdadmin-client-portal-height' || !Number.isFinite(event.data.height)) return;
+
+      setClientPortalHeight(Math.max(240, Math.ceil(event.data.height)));
+    };
+
+    window.addEventListener('message', handleClientPortalMessage);
+    return () => window.removeEventListener('message', handleClientPortalMessage);
+  }, [clientPortalUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,7 +87,7 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </div>}
         </div>
-      ) : <div className="login-card" style={loginMode === 'client' ? { width: 'min(calc(100% - 2rem), 1040px)', maxWidth: 1040, padding: '1.25rem' } : undefined}>
+      ) : <div className={`login-card${loginMode === 'client' ? ' login-card-client' : ''}`}>
         {/* Brand Logo/Text */}
         <div className="login-brand">
           <button type="button" className="login-brand-logo" onClick={() => setShowLogin(false)} aria-label="Volver al logo">
@@ -96,9 +113,10 @@ export default function Login({ onLoginSuccess }) {
         {loginMode === 'client' ? (
           clientPortalUrl ? (
             <iframe
+              ref={clientPortalFrame}
               title="Acceso al portal de clientes"
               src={clientPortalUrl}
-              style={{ display: 'block', width: '100%', height: 'min(76vh, 820px)', minHeight: 620, border: '1px solid #e2e8f0', borderRadius: 12, background: '#f1f5f9' }}
+              style={{ display: 'block', width: '100%', height: clientPortalHeight, border: 0, background: 'transparent' }}
             />
           ) : (
             <div role="alert" style={{ padding: '1rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>

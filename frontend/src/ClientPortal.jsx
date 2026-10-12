@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ProjectTracking from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 
@@ -16,6 +16,29 @@ export default function ClientPortal() {
   const [syncError, setSyncError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (window.parent === window || !document.referrer) return undefined;
+
+    const parentOrigin = new URL(document.referrer).origin;
+    const reportHeight = () => {
+      window.parent.postMessage({
+        type: 'rdadmin-client-portal-height',
+        height: document.documentElement.scrollHeight
+      }, parentOrigin);
+    };
+    const resizeObserver = new ResizeObserver(reportHeight);
+
+    resizeObserver.observe(document.documentElement);
+    resizeObserver.observe(document.body);
+    window.addEventListener('load', reportHeight);
+    reportHeight();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('load', reportHeight);
+    };
+  }, []);
 
   const refreshProject = useCallback(async () => {
     if (!credentials) return;
@@ -76,13 +99,8 @@ export default function ClientPortal() {
 
   if (!project) {
     return (
-      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '1rem', background: '#f1f5f9', fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <section style={{ width: 'min(100%, 410px)', padding: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, boxShadow: '0 12px 35px rgba(15,23,42,0.08)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.2rem' }}>
-            <img src="/logo-rd.png" alt="RD Carpintería" style={{ width: 92, height: 82, objectFit: 'contain' }} />
-            <h1 style={{ margin: '0.5rem 0 0', color: '#172b4d', fontSize: '1.35rem' }}>Consulta tu proyecto</h1>
-            <p style={{ margin: '0.4rem 0 0', color: '#64748b', fontSize: '0.86rem' }}>Ingresa el ID de tu contrato y tu contraseña de acceso.</p>
-          </div>
+      <main className="client-portal-login">
+        <section className="client-portal-login-form">
           {loginError && <div role="alert" style={{ marginBottom: 14, padding: '0.7rem 0.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: '0.82rem' }}>{loginError}</div>}
           <form onSubmit={handleLogin}>
             <label htmlFor="client-public-id" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>ID del contrato</label>
@@ -95,7 +113,6 @@ export default function ClientPortal() {
               {loading ? 'Validando...' : 'Ver mi proyecto'}
             </button>
           </form>
-          <p style={{ margin: '1.2rem 0 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.7rem' }}>RD Carpintería · Portal seguro de clientes</p>
         </section>
       </main>
     );

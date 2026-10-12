@@ -60,6 +60,22 @@ body {
   animation: login-card-appear 350ms ease-out both;
 }
 
+.login-card-client {
+  width: min(calc(100% - 2rem), 1040px);
+  max-width: 1040px;
+  padding: 1.25rem;
+}
+
+.login-card-client .login-brand {
+  margin-bottom: 1.25rem;
+}
+
+@media (max-height: 700px) {
+  .login-card-client {
+    padding: 0.75rem 1.25rem;
+  }
+}
+
 .login-brand {
   margin-bottom: 2rem;
 }
