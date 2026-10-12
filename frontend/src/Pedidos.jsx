@@ -546,6 +546,10 @@ function Pedidos() {
 
   const advanceStage = async () => {
     if (!selected) return;
+    if (activeStage !== currentStage) {
+      setMessage(`Para avanzar, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
+      return;
+    }
     const now = new Date().toISOString();
     if (currentStage >= STAGE_NAMES.length - 1) {
       const delivered = await persist({ ...production, delivered_at: now }, 'ENTREGADO');
@@ -558,7 +562,7 @@ function Pedidos() {
     const nextIndex = Math.min(currentStage + 1, STAGE_NAMES.length - 1);
     const nextStages = STAGE_NAMES.map((name, index) => {
       const existing = stages[index] || { name, note: '', photos: [] };
-      if (index === activeStage) return { ...existing, note };
+      if (index === currentStage) return { ...existing, note };
       if (index === nextIndex && !existing.entered_at) return { ...existing, entered_at: now };
       return existing;
     });
@@ -575,6 +579,10 @@ function Pedidos() {
 
   const returnToPreviousStage = async () => {
     if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
+    if (activeStage !== currentStage) {
+      setMessage(`Para cambiar el flujo, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
+      return;
+    }
     const previousStage = currentStage - 1;
     const nextStages = stages.map((stage, index) =>
       index === activeStage ? { ...stage, note } : stage
@@ -1109,8 +1117,8 @@ function Pedidos() {
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
-                  <button type="button" disabled={saving || currentStage <= 0 || selected.status === 'ENTREGADO'} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || currentStage <= 0 || selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer', opacity: currentStage <= 0 || selected.status === 'ENTREGADO' ? 0.55 : 1 }}>
-                    {currentStage > 0 && selected.status !== 'ENTREGADO' ? `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
+                  <button type="button" disabled={saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer', opacity: currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 0.55 : 1 }}>
+                    {currentStage > 0 && selected.status !== 'ENTREGADO' ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
                   </button>
                   <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
                 </div>
@@ -1119,14 +1127,19 @@ function Pedidos() {
                 {STAGE_NAMES.map((name, index) => {
                   const complete = index < currentStage;
                   const active = index === currentStage;
+                  const stage = stages[index] || {};
+                  const photoCount = Array.isArray(stage.photos) ? stage.photos.length : 0;
                   return (
-                    <button key={name} type="button" onClick={() => { setActiveStage(index); setNote(stages[index]?.note || ''); }}
+                    <button key={name} type="button" aria-current={active ? 'step' : undefined} onClick={() => { setActiveStage(index); setNote(stage.note || ''); setMessage(''); }}
                       style={{ flex: '1 0 135px', minWidth: 125, padding: '0.75rem', border: `1px solid ${active ? '#2563eb' : complete ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 12, background: active ? '#eff6ff' : complete ? '#f8fbff' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
                         <span style={{ width: 22, height: 22, borderRadius: 99, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: complete || active ? '#2563eb' : '#e2e8f0', color: complete || active ? '#fff' : '#64748b', fontSize: 11, fontWeight: 800 }}>{complete ? '✓' : index + 1}</span>
                         <span style={{ color: active ? '#1d4ed8' : '#334155', fontSize: '0.75rem', fontWeight: 800 }}>{name}</span>
                       </div>
                       <span style={{ color: '#64748b', fontSize: '0.68rem' }}>{formatDate(stages[index]?.entered_at)}</span>
+                      <span style={{ display: 'block', marginTop: 5, color: '#64748b', fontSize: '0.66rem' }}>
+                        {[stage.note ? 'Comentario' : null, photoCount ? `${photoCount} ${photoCount === 1 ? 'foto' : 'fotos'}` : null].filter(Boolean).join(' · ') || 'Sin avances registrados'}
+                      </span>
                     </button>
                   );
                 })}
@@ -1396,7 +1409,12 @@ function Pedidos() {
 
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, color: '#1d4f91', fontSize: '1rem' }}>{STAGE_NAMES[activeStage]}</h3>
+                <div>
+                  <h3 style={{ margin: 0, color: '#1d4f91', fontSize: '1rem' }}>{STAGE_NAMES[activeStage]}</h3>
+                  <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.72rem' }}>
+                    {activeStage === currentStage ? 'Etapa actual · registra aquí el avance del proyecto.' : activeStage < currentStage ? 'Etapa anterior · consulta o completa sus comentarios y fotos.' : 'Etapa siguiente · puedes preparar sus comentarios y fotos antes de avanzar.'}
+                  </span>
+                </div>
                 <label style={{ padding: '0.55rem 0.8rem', borderRadius: 9, background: '#eff6ff', color: '#1d4f91', fontSize: '0.78rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
                   {saving ? 'Procesando...' : '＋ Agregar foto'}
                   <input type="file" accept="image/*" disabled={saving} onChange={event => { uploadEvidence(event.target.files?.[0]); event.target.value = ''; }} style={{ display: 'none' }} />
@@ -1407,8 +1425,8 @@ function Pedidos() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button type="button" disabled={saving || selected.status === 'ENTREGADO'} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
-                      {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : currentStage === 0 ? 'Pasar a Preparación de materiales →' : 'Guardar y avanzar →'}
+                  <button type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
+                      {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `Guardar avance y pasar a ${STAGE_NAMES[currentStage + 1]} →`}
                   </button>
                 </div>
               </div>
