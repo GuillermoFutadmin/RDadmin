@@ -896,7 +896,7 @@ function Pedidos() {
                   <React.Fragment key={name}>
                     <button type="button" aria-pressed={isActive} aria-label={`${name}, ${count} ${count === 1 ? 'proyecto' : 'proyectos'}`} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
                       className={`production-stage-button${isActive ? ' is-selected' : ''}${count ? ' has-projects' : ''}`}
-                      style={{ '--stage-color': circleColor, borderColor: circleColor, color: isActive ? '#1d4ed8' : '#334155', background: isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc' }}>
+                      style={{ '--stage-color': circleColor, '--stage-surface': isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155' }}>
                       <span className="production-stage-emoji" aria-hidden="true">{STAGE_EMOJIS[index]}</span>
                       <span className="production-stage-name">{name}</span>
                       <span className="production-stage-count" style={{ color: isActive ? '#1d4ed8' : count ? '#15803d' : '#64748b' }}>{count} {count === 1 ? 'proyecto' : 'proyectos'}</span>
