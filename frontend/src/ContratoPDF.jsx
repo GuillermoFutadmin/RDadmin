@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 const API = import.meta.env.VITE_API_URL || '';
 import { LOGO_LEATHER_B64 } from './logoLeatherB64.js';
+import { FIRMA_ROGER_B64 } from './firmaRogerB64.js';
 import { SignaturePad } from './SignaturePad';
 import { PhotoCapture } from './PhotoCapture';
 
@@ -242,7 +243,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   };
   const startDate = parseDate(projectDetails.start_date || prospect.start_date);
   
-  const [repSig, setRepSig] = useState(prospect.contract_signature_rep || null);
+  const [repSig, setRepSig] = useState(prospect.contract_signature_rep || FIRMA_ROGER_B64);
   const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
   const [repPhoto, setRepPhoto] = useState(prospect.contract_photo_rep || null);
   const [clientPhoto, setClientPhoto] = useState(prospect.contract_photo_client || null);
@@ -266,6 +267,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       <div style={{ position: 'relative', height: '110px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
         {sig ? (
           <img src={sig} alt={`Firma ${type}`} style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
+        ) : type === 'rep' ? (
+          <img src={FIRMA_ROGER_B64} alt="Firma Rogelio" style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
         ) : (
           <button onClick={() => setShowCapture(`${type}Sig`)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginBottom: '10px' }}>
             ✏️ Firmar Digitalmente
@@ -274,15 +277,17 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       </div>
       <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
       <strong>{title}</strong>
-      <div style={{ marginTop: '10px' }}>
-        {photo ? (
-           <img src={photo} alt={`INE ${type}`} style={{ maxHeight: '100px', objectFit: 'cover', borderRadius: '4px' }} />
-        ) : (
-          <button onClick={() => setShowCapture(`${type}Photo`)} style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#cbd5e1', color: '#1e293b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            📷 Agregar Foto INE
-          </button>
-        )}
-      </div>
+      {type !== 'rep' && (
+        <div style={{ marginTop: '10px' }}>
+          {photo ? (
+            <img src={photo} alt={`INE ${type}`} style={{ maxHeight: '100px', objectFit: 'cover', borderRadius: '4px' }} />
+          ) : (
+            <button onClick={() => setShowCapture(`${type}Photo`)} style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#cbd5e1', color: '#1e293b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              📷 Agregar Foto INE
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 
