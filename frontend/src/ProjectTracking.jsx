@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { StageIcon } from './StageIcon';
 
 const TRACKING_STAGES = [
   { label: 'Prospecto recibido', icon: '📥' },
@@ -102,7 +103,15 @@ export function getProjectTrackingProgress(prospect) {
   };
 }
 
-export default function ProjectTracking({ prospect, compact = false, showEvidence = false }) {
+const safePhotoUrl = (photo) => {
+  const url = typeof photo === 'string' ? photo : photo?.url;
+  return typeof url === 'string' && (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//')))
+    ? url
+    : null;
+};
+
+export default function ProjectTracking({ prospect, compact = false, showEvidence = false, requestDetails = [] }) {
+  const [selectedStage, setSelectedStage] = useState(null);
   const progress = getProjectTrackingProgress(prospect);
   const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
   const productionStages = production.stages;
@@ -184,7 +193,97 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             })}
           </div>
 
-          {productionStages.length > 0 && (
+          {showEvidence && productionStages.length > 0 && (() => {
+            const activeStage = selectedStage ?? currentProductionStage;
+            const stageData = productionStages[activeStage] || {};
+            const photos = (stageData.photos || []).map(safePhotoUrl).filter(Boolean);
+            const stageName = PRODUCTION_STAGES[activeStage];
+            const stageComplete = delivered || activeStage < currentProductionStage;
+            return (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <strong style={{ color: '#1e3a5f', fontSize: '0.78rem' }}>Avance de producción</strong>
+                  <span style={{ color: '#2563eb', fontSize: '0.72rem', fontWeight: 800 }}>
+                    {delivered ? 'Entrega confirmada' : PRODUCTION_STAGES[currentProductionStage]}
+                  </span>
+                </div>
+                <div className="production-stage-flow is-client">
+                  {PRODUCTION_STAGES.map((name, index) => {
+                    const complete = delivered || index < currentProductionStage;
+                    const current = !delivered && index === currentProductionStage;
+                    const isActive = activeStage === index;
+                    const reached = complete || current;
+                    const color = complete ? '#16a34a' : current ? '#2563eb' : '#cbd5e1';
+                    return (
+                      <React.Fragment key={name}>
+                        <button type="button" aria-pressed={isActive} aria-label={`${name}, ${complete ? 'completada' : current ? 'etapa actual' : 'pendiente'}`}
+                          onClick={() => setSelectedStage(index)}
+                          className={`production-stage-button${isActive ? ' is-selected' : ''}${reached ? ' has-projects' : ''}`}
+                          style={{ '--stage-color': color, '--stage-surface': complete ? '#f0fdf4' : current ? '#eff6ff' : '#f8fafc', color: current ? '#1d4ed8' : complete ? '#166534' : '#334155' }}>
+                          <span className="production-stage-icon"><StageIcon stage={index} /></span>
+                          <span className="production-stage-name">{name}</span>
+                          <span className="production-stage-count" style={{ color: current ? '#1d4ed8' : complete ? '#15803d' : '#64748b' }}>
+                            {complete ? 'Completada' : current ? 'Etapa actual' : 'Pendiente'}
+                          </span>
+                        </button>
+                        {index < PRODUCTION_STAGES.length - 1 && (
+                          <span className={`production-stage-connector${index < currentProductionStage || delivered ? ' is-lit' : ''}${!delivered && index === currentProductionStage ? ' is-next' : ''}`} aria-hidden="true">
+                            <span>›</span>
+                          </span>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+
+                <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 11 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#172b4d', fontSize: '0.92rem' }}>{stageName}</strong>
+                    {formatDate(stageData.entered_at) && <span style={{ color: '#64748b', fontSize: '0.72rem' }}>{formatDate(stageData.entered_at)}</span>}
+                  </div>
+
+                  {activeStage === 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ color: '#172b4d', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Lo que solicitaste</div>
+                      {requestDetails.length ? (
+                        <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+                          {requestDetails.map(([label, value]) => (
+                            <div key={label}>
+                              <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+                              <div style={{ marginTop: 3, color: '#334155', fontSize: '0.86rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '0.84rem' }}>Aún no hay una descripción capturada para este proyecto.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {stageData.note && <div style={{ marginTop: 10, color: '#475569', fontSize: '0.84rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{stageData.note}</div>}
+
+                  {photos.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
+                      {photos.map((url, photoIndex) => (
+                        <a key={`${url}-${photoIndex}`} href={url} target="_blank" rel="noreferrer" aria-label={`Abrir evidencia ${photoIndex + 1} de ${stageName}`}>
+                          <img src={url} alt={`Evidencia ${photoIndex + 1} · ${stageName}`} loading="lazy"
+                            style={{ display: 'block', width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', border: '1px solid #cbd5e1', borderRadius: 9 }} />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {activeStage !== 0 && !photos.length && !stageData.note && (
+                    <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
+                      {stageComplete ? 'Esta etapa no tiene fotos ni notas registradas.' : 'Esta etapa aún no tiene avances registrados.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {productionStages.length > 0 && !showEvidence && (
             <div style={{ marginTop: 8, padding: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 11 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                 <strong style={{ color: '#1e3a5f', fontSize: '0.78rem' }}>Avance de producción</strong>
@@ -205,23 +304,6 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                       {formatDate(stage.entered_at) && <div style={{ marginTop: 3, fontSize: '0.62rem', color: '#64748b' }}>{formatDate(stage.entered_at)}</div>}
                       {stage.note && <div style={{ marginTop: 4, fontSize: '0.67rem', color: '#475569', whiteSpace: 'pre-wrap' }}>{stage.note}</div>}
                       {!!stage.photos?.length && <div style={{ marginTop: 4, fontSize: '0.63rem', color: '#64748b' }}>📷 {stage.photos.length} evidencia{stage.photos.length === 1 ? '' : 's'}</div>}
-                      {showEvidence && !!stage.photos?.length && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-                          {stage.photos.map((photo, photoIndex) => {
-                            const url = typeof photo === 'string' ? photo : photo?.url;
-                            const safeUrl = typeof url === 'string'
-                              && (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//')))
-                              ? url
-                              : null;
-                            return safeUrl ? (
-                              <a key={`${safeUrl}-${photoIndex}`} href={safeUrl} target="_blank" rel="noreferrer" aria-label={`Abrir evidencia ${photoIndex + 1} de ${name}`}>
-                                <img src={safeUrl} alt={`Evidencia ${photoIndex + 1} · ${name}`} loading="lazy"
-                                  style={{ width: 62, height: 62, objectFit: 'cover', border: '1px solid #cbd5e1', borderRadius: 7 }} />
-                              </a>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

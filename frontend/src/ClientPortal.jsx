@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import ProjectTracking from './ProjectTracking';
+import ProjectTracking, { getProjectTrackingProgress } from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 
 const displayValue = (value) => {
@@ -126,6 +126,7 @@ export default function ClientPortal() {
     ['Prioridades', project.project_priorities],
     ['Lo que esperas del proyecto', project.expectations]
   ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
+  const hasProductionStages = getProjectTrackingProgress(project).production.stages.length > 0;
 
   return (
     <main style={{ minHeight: '100vh', padding: '1.25rem', background: '#f1f5f9', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -150,23 +151,25 @@ export default function ClientPortal() {
           </div>
         )}
 
-        <ProjectTracking prospect={project} showEvidence />
+        <ProjectTracking prospect={project} showEvidence requestDetails={projectDetails} />
 
-        <section style={{ marginTop: 12, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
-          <h2 style={{ margin: '0 0 0.75rem', color: '#172b4d', fontSize: '1rem' }}>Lo que solicitaste</h2>
-          {projectDetails.length ? (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {projectDetails.map(([label, value]) => (
-                <div key={label}>
-                  <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-                  <div style={{ marginTop: 3, color: '#334155', fontSize: '0.86rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ margin: 0, color: '#64748b', fontSize: '0.84rem' }}>Aún no hay una descripción capturada para este proyecto.</p>
-          )}
-        </section>
+        {!hasProductionStages && (
+          <section style={{ marginTop: 12, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
+            <h2 style={{ margin: '0 0 0.75rem', color: '#172b4d', fontSize: '1rem' }}>Lo que solicitaste</h2>
+            {projectDetails.length ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {projectDetails.map(([label, value]) => (
+                  <div key={label}>
+                    <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+                    <div style={{ marginTop: 3, color: '#334155', fontSize: '0.86rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, color: '#64748b', fontSize: '0.84rem' }}>Aún no hay una descripción capturada para este proyecto.</p>
+            )}
+          </section>
+        )}
 
         <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
           La información de avance se actualiza automáticamente.
