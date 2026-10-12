@@ -74,15 +74,6 @@ export default function ClientPortal() {
     setSyncError('');
   };
 
-  const projectDetails = [
-    ['Tipo de proyecto', project.project_type],
-    ['Detalle solicitado', project.project_type_other],
-    ['Descripción del proyecto', project.restoration_details],
-    ['Descripción acordada', project.quote_description],
-    ['Prioridades', project.project_priorities],
-    ['Lo que esperas del proyecto', project.expectations]
-  ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
-
   if (!project) {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '1rem', background: '#f1f5f9', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -109,6 +100,15 @@ export default function ClientPortal() {
       </main>
     );
   }
+
+  const projectDetails = [
+    ['Tipo de proyecto', project.project_type],
+    ['Detalle solicitado', project.project_type_other],
+    ['Descripción del proyecto', project.restoration_details],
+    ['Descripción acordada', project.quote_description],
+    ['Prioridades', project.project_priorities],
+    ['Lo que esperas del proyecto', project.expectations]
+  ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
 
   return (
     <main style={{ minHeight: '100vh', padding: '1.25rem', background: '#f1f5f9', fontFamily: 'Inter, system-ui, sans-serif' }}>
