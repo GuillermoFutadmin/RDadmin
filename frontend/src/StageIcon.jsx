@@ -10,10 +10,10 @@ export const PRODUCTION_STAGE_NAMES = [
   'Entrega del proyecto'
 ];
 
-export const StageIcon = ({ stage }) => {
+export const StageIcon = ({ stage, size = 54 }) => {
   const common = {
-    width: 54,
-    height: 54,
+    width: size,
+    height: size,
     viewBox: '0 0 54 54',
     fill: 'none',
     xmlns: 'http://www.w3.org/2000/svg',

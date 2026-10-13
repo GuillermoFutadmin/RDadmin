@@ -979,6 +979,7 @@ function Pedidos() {
                 <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{calendarProjects.length} proyectos</span>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 10, alignItems: 'start' }}>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${calendarView === 'day' ? 1 : 7}, minmax(0, 1fr))`, borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0', background: '#fff' }}>
                 {calendarView !== 'day' && calendarDays.slice(0, calendarView === 'month' ? 7 : calendarDays.length).map(day => {
                   const dayKey = getDateKey(day);
@@ -1001,7 +1002,7 @@ function Pedidos() {
                       setSelectedCalendarDay(dayKey);
                       setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1, 12));
                     }}
-                      style={{ minWidth: 0, minHeight: calendarView === 'month' ? 112 : calendarView === 'week' ? 210 : 300, padding: calendarView === 'day' ? '0.8rem' : '0.35rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
+                      style={{ minWidth: 0, minHeight: calendarView === 'month' ? 78 : calendarView === 'week' ? 180 : 260, padding: calendarView === 'day' ? '0.8rem' : '0.35rem', border: 0, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', background: isSelected ? '#eff6ff' : '#fff', textAlign: 'left', verticalAlign: 'top', cursor: 'pointer', outline: isSelected ? '2px solid #60a5fa' : 'none', outlineOffset: -2 }}>
                       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: inMonth ? '#334155' : '#b6c0ce', fontSize: '0.68rem', fontWeight: isToday ? 850 : 650 }}>
                         <span>{calendarView === 'day' ? day.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' }) : day.getDate()}</span>
                         {isToday && <span style={{ color: '#2563eb', fontSize: '0.58rem' }}>HOY</span>}
@@ -1016,6 +1017,7 @@ function Pedidos() {
                             <span key={event.id}
                               title={`${event.project.name || 'Proyecto'} · ${progressLabel} · Capturado: ${formatDate(event.capturedAt)}`}
                               style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                              {!event.isDeadline && <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 3, padding: 1, background: '#fff', borderRadius: 3 }}><StageIcon stage={event.stageIndex} size={11} /></span>}
                               {event.project.name || 'Proyecto'} · {progressLabel}
                             </span>
                           );
@@ -1027,7 +1029,7 @@ function Pedidos() {
                 })}
               </div>
 
-              <div aria-live="polite" style={{ marginTop: 9, padding: '0.65rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 9 }}>
+              <div aria-live="polite" style={{ padding: '0.65rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 9, maxHeight: 640, overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                   <strong style={{ color: '#1e3a5f', fontSize: '0.76rem' }}>
                     {selectedCalendarDate?.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -1060,9 +1062,12 @@ function Pedidos() {
                       return (
                         <button key={action.id} type="button" onClick={() => selectProductionProject(action.project)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(action.project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
-                          <span style={{ minWidth: 0 }}>
+                          <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {!action.isDeadline && <span style={{ flexShrink: 0, display: 'inline-flex' }}><StageIcon stage={action.stageIndex} size={22} /></span>}
+                            <span style={{ minWidth: 0 }}>
                             <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.project.name || 'Cliente sin nombre'}</strong>
                             <small style={{ color: '#475569', fontSize: '0.65rem' }}>{progressLabel}</small>
+                            </span>
                           </span>
                           <span style={{ flexShrink: 0, color: '#64748b', fontSize: '0.63rem' }}>{formatDate(action.capturedAt)}</span>
                         </button>
@@ -1072,6 +1077,7 @@ function Pedidos() {
                 ) : (
                   <span style={{ color: '#64748b', fontSize: '0.7rem' }}>No hay avances ni acciones registrados en esta fecha.</span>
                 )}
+              </div>
               </div>
             </section>
             ) : (
