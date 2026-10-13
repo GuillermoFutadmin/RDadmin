@@ -126,7 +126,19 @@ const Croquis3D = forwardRef((props, ref) => {
       // Necesario para que el lienzo no quede "contaminado" al cargar una URL de Cloudinary
       // (de lo contrario getSketchData fallaría al guardar o capturar).
       img.crossOrigin = 'anonymous';
-      img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, 0, 0); scheduleAutoSave(); };
+      img.onload = () => {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if (img.width === canvas.width && img.height === canvas.height) {
+          ctx.drawImage(img, 0, 0);
+        } else {
+          // Fotos subidas u otros tamaños: se ajustan al lienzo sobre fondo blanco.
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          const s = Math.min(canvas.width / img.width, canvas.height / img.height);
+          ctx.drawImage(img, (canvas.width - img.width * s) / 2, (canvas.height - img.height * s) / 2, img.width * s, img.height * s);
+        }
+        scheduleAutoSave();
+      };
       img.onerror = () => console.error('No se pudo cargar el croquis guardado');
       img.src = dataUrl;
     },
@@ -166,21 +178,39 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.restore();
   };
 
+  const redoRef = useRef([]);
+
   const pushState = () => {
     if (canvasRef.current) historyRef.current.push(canvasRef.current.toDataURL('image/png'));
+    redoRef.current = [];
+  };
+
+  const restoreFrom = (dataUrl) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); scheduleAutoSave(); };
+    img.src = dataUrl;
   };
 
   const undo = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    redoRef.current.push(canvas.toDataURL('image/png'));
     if (historyRef.current.length > 0) {
-      const img = new Image();
-      img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
-      img.src = historyRef.current.pop();
+      restoreFrom(historyRef.current.pop());
     } else {
       ctx.clearRect(0,0,canvas.width,canvas.height);
     }
+  };
+
+  const redo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || redoRef.current.length === 0) return;
+    historyRef.current.push(canvas.toDataURL('image/png'));
+    restoreFrom(redoRef.current.pop());
   };
 
   const commitText = () => {
@@ -530,7 +560,8 @@ const Croquis3D = forwardRef((props, ref) => {
         <div style={{ width:'1px', height:'22px', background:'#e2e8f0', margin:'0 2px' }} />
         <button onClick={() => setGrid3D(!grid3D)} style={btn(grid3D,'#1d4ed8','#dbeafe')}>🧊 Iso</button>
         <button onClick={() => setModeState('erase')} style={btn(mode==='erase','#b45309','#fef9c3')}>🩹 Borrar</button>
-        <button onClick={undo} style={btn(false)}>↩️</button>
+        <button onClick={undo} style={btn(false)} title="Deshacer">↩️</button>
+        <button onClick={redo} style={btn(false)} title="Rehacer">↪️</button>
         <button onClick={toggleFullscreen} style={btn(false)}>{isFullscreen?'↘️':'⛶'}</button>
         <button onClick={() => { if(window.confirm('¿Limpiar lienzo?')){ pushState(); initCanvas(); } }} style={{ ...btn(false), color:'#dc2626', borderColor:'#fca5a5', background:'#fff1f2' }}>🗑️</button>
         <div style={{ flex:1 }} />

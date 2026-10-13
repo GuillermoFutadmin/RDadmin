@@ -1598,6 +1598,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [obsText, setObsText] = useState('');
   const [photos, setPhotos] = useState({});
   const [croquisPhotos, setCroquisPhotos] = useState([]);
+  const [editingCroquisIdx, setEditingCroquisIdx] = useState(null);
   const [viewPhoto, setViewPhoto] = useState(null);
   const croquisRef = useRef(null);
 
@@ -2534,22 +2535,42 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
               if (croquisRef.current) {
                 const dataUrl = croquisRef.current.getSketchData();
                 if (dataUrl) {
-                  setCroquisPhotos(prev => [...prev, dataUrl]);
+                  setCroquisPhotos(prev => editingCroquisIdx !== null && editingCroquisIdx < prev.length
+                    ? prev.map((p, i) => i === editingCroquisIdx ? dataUrl : p)
+                    : [...prev, dataUrl]);
+                  setEditingCroquisIdx(null);
                   croquisRef.current.clearCanvas();
                 }
               }
             }} style={{ cursor:'pointer', padding:'8px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'6px', fontWeight:'700', fontSize:'0.85rem' }}>
-              📐 Capturar Croquis
+              {editingCroquisIdx !== null ? '💾 Guardar cambios del croquis' : '📐 Capturar Croquis'}
             </button>
           </div>
         </div>
+        {editingCroquisIdx !== null && (
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', background:'#fef9c3', border:'1px solid #fde047', borderRadius:'8px', padding:'8px 12px', marginBottom:'1rem', fontSize:'0.85rem', color:'#713f12' }}>
+            <span>✏️ Editando la foto #{editingCroquisIdx + 1}. Agrega lo que necesites en el lienzo y pulsa “Guardar cambios del croquis”.</span>
+            <button onClick={() => { setEditingCroquisIdx(null); croquisRef.current?.clearCanvas(); }}
+              style={{ marginLeft:'auto', cursor:'pointer', padding:'4px 10px', background:'white', border:'1px solid #cbd5e1', borderRadius:'6px', fontWeight:'700' }}>
+              Cancelar
+            </button>
+          </div>
+        )}
         
         {croquisPhotos.length > 0 ? (
           <div style={{ display:'flex', flexWrap:'wrap', gap:'10px' }}>
             {croquisPhotos.map((p, idx) => (
               <div key={idx} style={{ position:'relative' }}>
-                <img src={p} onClick={() => setViewPhoto(p)} style={{ width:'100px', height:'100px', objectFit:'cover', borderRadius:'8px', border:'2px solid #cbd5e1', cursor:'pointer' }} />
-                <button onClick={() => setCroquisPhotos(prev => prev.filter((_, i) => i !== idx))} style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'24px', height:'24px', fontWeight:'bold', cursor:'pointer' }}>×</button>
+                <img src={p} onClick={() => setViewPhoto(p)} style={{ width:'100px', height:'100px', objectFit:'cover', borderRadius:'8px', border: editingCroquisIdx === idx ? '3px solid #f59e0b' : '2px solid #cbd5e1', cursor:'pointer' }} />
+                <button title="Editar en el lienzo" onClick={() => {
+                  if (!window.confirm('Se cargará esta foto en el lienzo para editarla. El dibujo actual del lienzo se reemplazará. ¿Continuar?')) return;
+                  croquisRef.current?.loadSketchData(p);
+                  setEditingCroquisIdx(idx);
+                }} style={{ position:'absolute', bottom:'-6px', right:'-6px', background:'#f59e0b', color:'white', border:'none', borderRadius:'50%', width:'26px', height:'26px', cursor:'pointer' }}>✏️</button>
+                <button onClick={() => {
+                  setCroquisPhotos(prev => prev.filter((_, i) => i !== idx));
+                  setEditingCroquisIdx(cur => cur === null ? null : cur === idx ? null : cur > idx ? cur - 1 : cur);
+                }} style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'24px', height:'24px', fontWeight:'bold', cursor:'pointer' }}>×</button>
               </div>
             ))}
           </div>
