@@ -319,10 +319,6 @@ function Ventas() {
   const [standaloneName,       setStandaloneName]       = useState('');
   const [isSaving,             setIsSaving]             = useState(false);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => { fetchTemplates(); fetchProspects(); }, [mode]);
-  useAutoRefresh(fetchProspects);
-
   const fetchTemplates = async () => {
     try {
       const res  = await fetch(`${API}/api/templates/`);
@@ -348,6 +344,10 @@ function Ventas() {
       setStandaloneValuations(data.filter(p => p.status === 'Valoración' || p.status === 'Valoracion'));
     } catch (err) { console.error('fetchProspects:', err); }
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => { fetchTemplates(); fetchProspects(); }, [mode]);
+  useAutoRefresh(fetchProspects);
 
   const normalizeItem = i => ({ ...i, unit: i.unit || 'pza', qty: '' });
 
