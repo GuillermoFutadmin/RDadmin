@@ -303,6 +303,7 @@ function Ventas() {
 
   // ── EDIT MODE STATE (modo edit) ───────────────────────────────────────────
   const [editProjectType, setEditProjectType] = useState('');
+  const [generalEdit, setGeneralEdit] = useState(false);
   const [editMaterials,   setEditMaterials]   = useState([]);
   const [editLabor,       setEditLabor]       = useState([]);
   const [editConcepts,    setEditConcepts]    = useState([]);
@@ -449,15 +450,35 @@ function Ventas() {
     setEditLabor(mergeWithStandards(tpl.mano_obra || [], STD_LABOR).map(i   => ({ ...i, unit: i.unit || 'pza' })));
     setEditConcepts(mergeWithStandards(tpl.conceptos || [], STD_CONCEPTS).map(i => ({ ...i, unit: i.unit || 'pza' })));
     setEditProjectType(type);
+    setGeneralEdit(false);
     setStep(2);
   };
 
   // ── Crear nuevo machote ───────────────────────────────────────────────────
+  // Une mano de obra / conceptos de todos los machotes (por descripción) con sus precios
+  const buildGeneral = (field, standards) => {
+    const out = [];
+    const seen = new Map();
+    const add = (it) => {
+      const k = (it.desc || '').trim().toLowerCase();
+      if (!k) return;
+      if (!seen.has(k)) {
+        const n = { id: Date.now() + Math.random(), desc: it.desc, price: Number(it.price) || 0, unit: it.unit || 'pza' };
+        seen.set(k, n); out.push(n);
+      } else if (!seen.get(k).price && Number(it.price)) {
+        seen.get(k).price = Number(it.price);
+      }
+    };
+    Object.values(templatesDb).forEach(t => (t?.[field] || []).forEach(add));
+    standards.forEach(s => add({ desc: s.desc, price: 0, unit: s.unit }));
+    return out;
+  };
+
   const createNewTemplate = async (name, rows) => {
     const data = {
       materiales: rows.map(r => ({ id: Date.now() + Math.random(), desc: r.desc, price: Number(r.price), unit: r.unit || 'pza' })),
-      mano_obra:  STD_LABOR.map(s    => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
-      conceptos:  STD_CONCEPTS.map(s => ({ id: Date.now() + Math.random(), desc: s.desc, price: 0, unit: s.unit })),
+      mano_obra:  buildGeneral('mano_obra', STD_LABOR),
+      conceptos:  buildGeneral('conceptos', STD_CONCEPTS),
       created_at: new Date().toISOString()
     };
     try {
@@ -633,6 +654,48 @@ function Ventas() {
     if (type === 'mat') setEditMaterials(p => p.filter(m => m.id !== id));
     if (type === 'lab') setEditLabor(p    => p.filter(m => m.id !== id));
     if (type === 'con') setEditConcepts(p => p.filter(m => m.id !== id));
+  };
+
+  const initGeneralEdit = () => {
+    setEditLabor(buildGeneral('mano_obra', STD_LABOR));
+    setEditConcepts(buildGeneral('conceptos', STD_CONCEPTS));
+    setEditMaterials([]);
+    setGeneralEdit(true);
+    setEditProjectType('');
+    setStep(2);
+  };
+
+  // Aplica mano de obra y conceptos a TODOS los machotes, sin tocar materiales
+  const saveGeneralEdits = async () => {
+    if (!window.confirm(`Se actualizará mano de obra y conceptos en los ${templateKeys.length} machotes. ¿Continuar?`)) return;
+    setIsSaving(true);
+    const clean = arr => arr.filter(m => (m.desc || '').trim())
+      .map(m => ({ id: m.id, desc: m.desc, price: Number(m.price) || 0, unit: m.unit || 'pza' }));
+    const mano_obra = clean(editLabor);
+    const conceptos = clean(editConcepts);
+    try {
+      const next = {};
+      for (const name of templateKeys) {
+        const data = { ...templatesDb[name], mano_obra, conceptos };
+        const res = await fetch(`${API}/api/templates/${encodeURIComponent(name)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, data: JSON.stringify(data) })
+        });
+        if (!res.ok) throw new Error(`PUT ${name} falló`);
+        next[name] = data;
+      }
+      setTemplatesDb(p => ({ ...p, ...next }));
+      setGeneralEdit(false);
+      setStep(1);
+      showToast('Mano de obra y conceptos actualizados en todos los machotes ✓', 'success');
+    } catch (e) {
+      console.error(e);
+      alert('Error guardando. Algunos machotes pudieron no actualizarse; vuelve a intentar.');
+      fetchTemplates();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const saveTemplateEdits = async () => {
@@ -995,7 +1058,11 @@ function Ventas() {
 
               {/* Botón Nuevo Machote — solo en modo Configurar */}
               {mode === 'edit' && (
-                <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <button onClick={initGeneralEdit}
+                    style={{ padding: '14px 24px', background: 'white', color: '#8b5a2b', border: '2px solid #8b5a2b', borderRadius: '10px', cursor: 'pointer', fontWeight: '800', fontSize: '1rem' }}>
+                    🛠 Editar Mano de obra y Conceptos (todos)
+                  </button>
                   <button
                     onClick={() => setShowNewTemplate(true)}
                     style={{
@@ -1474,12 +1541,12 @@ function Ventas() {
         <div style={{ background: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <h2 style={{ color: '#8b5a2b', margin: 0 }}>✏️ Editando Machote: {editProjectType}</h2>
-              <button onClick={renameTemplate} style={{ background: 'none', border: '1px solid #8b5a2b', borderRadius: '4px', color: '#8b5a2b', cursor: 'pointer', padding: '4px 10px', fontSize: '0.85rem' }}>
+              <h2 style={{ color: '#8b5a2b', margin: 0 }}>{generalEdit ? '🛠 Mano de obra y Conceptos (generales)' : `✏️ Editando Machote: ${editProjectType}`}</h2>
+              {!generalEdit && <button onClick={renameTemplate} style={{ background: 'none', border: '1px solid #8b5a2b', borderRadius: '4px', color: '#8b5a2b', cursor: 'pointer', padding: '4px 10px', fontSize: '0.85rem' }}>
                 Renombrar
-              </button>
+              </button>}
             </div>
-            <button onClick={() => setStep(1)}
+            <button onClick={() => { setGeneralEdit(false); setStep(1); }}
               style={{ padding: '8px 16px', background: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
               ← Volver
             </button>
@@ -1490,14 +1557,16 @@ function Ventas() {
             padding: '10px 16px', marginBottom: '20px', color: '#dc2626',
             fontSize: '0.85rem', fontWeight: '700', textAlign: 'center', letterSpacing: '1px',
           }}>
-            ⚠️ ESTÁS EDITANDO LA PLANTILLA GLOBAL — LOS CAMBIOS AFECTARÁN LAS PRÓXIMAS COTIZACIONES
+            {generalEdit
+              ? `⚠️ ESTOS CAMBIOS SE APLICAN A LOS ${templateKeys.length} MACHOTES (los materiales no se tocan)`
+              : '⚠️ ESTÁS EDITANDO LA PLANTILLA GLOBAL — LOS CAMBIOS AFECTARÁN LAS PRÓXIMAS COTIZACIONES'}
           </div>
 
           {[
             { label: 'Materiales',   items: editMaterials, changer: mkEditChanger(setEditMaterials), type: 'mat' },
             { label: 'Mano de obra', items: editLabor,     changer: mkEditChanger(setEditLabor),     type: 'lab' },
             { label: 'Conceptos',    items: editConcepts,  changer: mkEditChanger(setEditConcepts),  type: 'con' },
-          ].map(({ label, items, changer, type }) => (
+          ].filter(s => !generalEdit || s.type !== 'mat').map(({ label, items, changer, type }) => (
             <table key={type} style={tblSt}>
               <thead><tr>
                 <th style={thSt}>{label}</th>
@@ -1520,7 +1589,7 @@ function Ventas() {
           ))}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', gap: '12px' }}>
-            <button onClick={deleteTemplate}
+            {generalEdit ? <span /> : <button onClick={deleteTemplate}
               style={{
                 padding: '13px 24px', background: 'white', color: '#dc2626',
                 border: '2px solid #fca5a5', borderRadius: '8px', fontSize: '0.92rem',
@@ -1530,14 +1599,14 @@ function Ventas() {
               onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
             >
               🗑 Eliminar Machote
-            </button>
-            <button onClick={saveTemplateEdits} disabled={isSaving}
+            </button>}
+            <button onClick={generalEdit ? saveGeneralEdits : saveTemplateEdits} disabled={isSaving}
               style={{
                 padding: '14px 32px', background: '#eab308', color: 'white',
                 border: 'none', borderRadius: '8px', fontSize: '1.1rem',
                 cursor: 'pointer', fontWeight: 'bold',
               }}>
-              {isSaving ? 'Guardando...' : '💾 Guardar Plantilla Base'}
+              {isSaving ? 'Guardando...' : generalEdit ? '💾 Aplicar a todos los machotes' : '💾 Guardar Plantilla Base'}
             </button>
           </div>
         </div>
