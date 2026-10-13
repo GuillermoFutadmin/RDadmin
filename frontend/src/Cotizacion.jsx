@@ -358,7 +358,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'], avoid: ['.pdf-avoid-break', '.pdf-photo-page', 'li', 'tr'] }
+      pagebreak:    { mode: ['css', 'legacy'] }
     };
     
     const cleanup = () => {
@@ -738,7 +738,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           const hasInfo = colorEntries.length > 0 || materials.length > 0 || (p.countertop_type && p.countertop_type !== 'Sin considerar encimera' && p.countertop_type !== 'none') || (p.hardware_details && p.hardware_details !== 'none');
           if (!hasInfo) return null;
           return (
-            <div style={{ marginBottom: '2rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <div style={{ marginBottom: '2rem' }}>
               <h3 style={secTitle}><span className="no-print">🎨 </span>Especificaciones de Acabados</h3>
               <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '2rem', marginTop: '1rem', alignItems: 'flex-start' }}>
 
@@ -1020,7 +1020,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         })()}
 
         {/* Observaciones */}
-        <div className="pdf-avoid-break" style={{ marginBottom: '2rem', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+        <div style={{ marginBottom: '2rem', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6' }}>
           <h3 style={secTitle}><span className="no-print">📌 </span>Observaciones</h3>
           <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
             <li style={{ marginBottom: '0.4rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
