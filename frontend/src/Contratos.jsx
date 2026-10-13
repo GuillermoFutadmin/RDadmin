@@ -1643,6 +1643,8 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     reader.readAsDataURL(file);
   };
   // Cargar info previa
+  const estimationHadSheets = useRef(false);
+  const fallbackTried = useRef(false);
   useEffect(() => {
     if (prospect.estimation_data && !templateLoaded) {
       try {
@@ -1650,8 +1652,10 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           ? JSON.parse(prospect.estimation_data) : prospect.estimation_data;
         if (d.sheets && d.sheets.length > 0) {
           setSheets(d.sheets);
+          estimationHadSheets.current = true;
         } else if (d.materials || d.labor || d.concepts) {
           setSheets([{ type: prospect.project_type || 'Proyecto', materials: d.materials || [], labor: d.labor || [], concepts: d.concepts || [] }]);
+          estimationHadSheets.current = true;
         }
         if (d.margin !== undefined) setMargin(d.margin);
         if (d.anticipoPct !== undefined) setAnticipoPct(Number(d.anticipoPct));
@@ -1677,10 +1681,11 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     }
   }, [prospect]);
 
-  // Cargar desde valuation_data o machotes
+  // Cargar desde valuation_data o machotes (si la estimación guardada no trae hojas)
   useEffect(() => {
-    if (templateLoaded || prospect.estimation_data) return;
-
+    if (estimationHadSheets.current || fallbackTried.current) return;
+    if (!prospect.estimation_data && templateLoaded) return;
+    fallbackTried.current = true;
     if (prospect.valuation_data) {
       try {
         const rawVal = JSON.parse(prospect.valuation_data);
