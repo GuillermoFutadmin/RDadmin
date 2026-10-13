@@ -336,7 +336,7 @@ function Ventas() {
 
   const fetchProspects = async () => {
     try {
-      const res  = await fetch(`${API}/api/prospects`);
+      const res  = await fetch(`${API}/api/prospects?light=true`);
       if (!res.ok) throw new Error(`No se pudieron actualizar los prospectos (${res.status})`);
       const data = await res.json();
       // Solo mostrar prospectos SIN valoración guardada; los que ya tienen valuation_data quedan ocultos

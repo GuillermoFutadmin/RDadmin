@@ -5,6 +5,7 @@ import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, Ico
 import ProjectTracking from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 const API = import.meta.env.VITE_API_URL || '';
+import { fetchFullProspect, mergeHeavy } from './prospectData';
 
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val || 0);
@@ -592,13 +593,13 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const fetchContratos = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`${API}/api/prospects`);
+      const res = await fetch(`${API}/api/prospects?light=true`);
       if (!res.ok) throw new Error(`No se pudieron actualizar los contratos (${res.status})`);
       const data = await res.json();
       setContratos(data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
       if (selected) {
         const updatedSelected = data.find(item => item.id === selected.id);
-        if (updatedSelected) setSelected(updatedSelected);
+        if (updatedSelected) setSelected(prev => mergeHeavy(updatedSelected, prev));
       }
     } catch (e) { console.error(e); }
     finally {
@@ -608,6 +609,15 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
 
   useEffect(() => { fetchContratos(); }, []);
   useAutoRefresh(() => fetchContratos({ silent: true }));
+  // El listado es ligero: al abrir un contrato se descarga su registro completo.
+  useEffect(() => {
+    if (!selected?.is_light) return;
+    let cancelled = false;
+    fetchFullProspect(selected.id).then(full => {
+      if (!cancelled && full) setSelected(current => current && current.id === full.id ? full : current);
+    });
+    return () => { cancelled = true; };
+  }, [selected?.id, selected?.is_light]);
   useEffect(() => {
     if (startView === 'estimacion_list') {
       setView('estimacion_menu');
@@ -669,6 +679,17 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   };
 
   // ── Views ──
+  if (selected?.is_light && ['contrato_pdf', 'cotizacion_view', 'detail', 'estimacion'].includes(view)) {
+    return (
+      <div style={{ padding:'2rem', textAlign:'center', color:'#64748b' }}>
+        <p>Cargando contrato…</p>
+        <button onClick={() => { setView('list'); setSelected(null); }}
+          style={{ padding:'0.4rem 0.8rem', border:'1px solid #cbd5e1', borderRadius:'6px', background:'white', cursor:'pointer' }}>
+          Volver
+        </button>
+      </div>
+    );
+  }
   if (view === 'contrato_pdf' && selected) {
     return (
       <ContratoPDFView 
@@ -706,12 +727,12 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
           onStartProduction={handleStartProduction}
           onRefresh={async () => {
             // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
-            const res = await fetch(`${API}/api/prospects`);
+            const res = await fetch(`${API}/api/prospects?light=true`);
             const data = await res.json();
             const freshContratos = data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status));
             setContratos(freshContratos);
-            const freshSelected = freshContratos.find(p => p.id === selected.id);
-            if (freshSelected) setSelected(freshSelected);
+            const freshFull = await fetchFullProspect(selected.id);
+            if (freshFull) setSelected(freshFull);
           }}
         />
       </div>

@@ -3046,7 +3046,7 @@ function Prospects() {
   const [showPapelera,    setShowPapelera]    = useState(false);
 
   const fetchProspects = () => {
-    return fetch(`${API}/api/prospects`)
+    return fetch(`${API}/api/prospects?light=true`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();

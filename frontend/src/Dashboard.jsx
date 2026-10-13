@@ -97,7 +97,7 @@ function Dashboard() {
   const [hoveredStage, setHoveredStage] = useState(null);
 
   const refreshDashboard = async () => {
-    const response = await fetch(`${API}/api/prospects`);
+    const response = await fetch(`${API}/api/prospects?light=true`);
     if (!response.ok) throw new Error(`No se pudo sincronizar el panel (${response.status})`);
     const data = await response.json();
     const all = Array.isArray(data) ? data : [];

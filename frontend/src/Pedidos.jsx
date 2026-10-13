@@ -4,6 +4,7 @@ import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
 
 const API = import.meta.env.VITE_API_URL || '';
+import { fetchFullProspect, mergeHeavy } from './prospectData';
 const STAGE_NAMES = PRODUCTION_STAGE_NAMES;
 
 const SPANISH_LABELS = {
@@ -241,13 +242,13 @@ function Pedidos() {
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const response = await fetch(`${API}/api/prospects`);
+      const response = await fetch(`${API}/api/prospects?light=true`);
       if (!response.ok) throw new Error(`No se pudo cargar Producción (${response.status})`);
       const data = await response.json();
       const productionProjects = data.filter(project =>
         project.is_contract && project.production_data && ['PRODUCCION', 'ENTREGADO'].includes(project.status)
       );
-      setProjects(productionProjects);
+      setProjects(current => productionProjects.map(project => mergeHeavy(project, current.find(item => item.id === project.id))));
       setSelectedId(current => productionProjects.some(project => project.id === current)
         ? current
         : null);
@@ -371,6 +372,17 @@ function Pedidos() {
 
   const selected = projects.find(project => project.id === selectedId) || null;
   useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
+  // El listado es ligero: al seleccionar un proyecto se descarga su registro completo.
+  const selectedIsLight = !!selected?.is_light;
+  useEffect(() => {
+    if (!selectedId || !selectedIsLight) return;
+    let cancelled = false;
+    fetchFullProspect(selectedId).then(full => {
+      if (cancelled || !full) return;
+      setProjects(current => current.map(item => item.id === full.id ? full : item));
+    });
+    return () => { cancelled = true; };
+  }, [selectedId, selectedIsLight]);
   const renderPreview = selected ? collectImageUrls(selected.render_image_path)[0] : null;
   const production = normalizeProduction(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];

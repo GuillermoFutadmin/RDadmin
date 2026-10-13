@@ -214,6 +214,7 @@ class ProspectUpdate(ProspectCreate):
 
 class ProspectResponse(ProspectCreate):
     id: int
+    is_light: bool = False
     status: Optional[str] = 'Prospecto'
     design_image_path: Optional[str] = None
     space_image_path: Optional[str] = None
@@ -328,9 +329,37 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 # ── PROSPECTS ────────────────────────────────────────────────
 
+# Campos con imágenes base64 que hacen pesadísimo el listado (varios MB).
+HEAVY_PROSPECT_FIELDS = (
+    "estimation_data", "contract_photo_rep", "contract_photo_client",
+    "contract_signature_rep", "contract_signature_client",
+)
+
 @app.get("/api/prospects", response_model=List[ProspectResponse])
-def get_prospects(db: Session = Depends(get_db)):
-    return db.query(models.Prospect).all()
+def get_prospects(light: bool = False, db: Session = Depends(get_db)):
+    if not light:
+        return db.query(models.Prospect).all()
+    # Modo ligero: no se leen de la BD los campos pesados; estimation_data se
+    # sustituye por un marcador para que los botones sigan sabiendo si existe.
+    cols = [c for c in models.Prospect.__table__.columns if c.name not in HEAVY_PROSPECT_FIELDS]
+    has_est = models.Prospect.estimation_data.isnot(None).label("_has_estimation")
+    rows = db.query(*cols, has_est).all()
+    result = []
+    for row in rows:
+        data = dict(row._mapping)
+        has = data.pop("_has_estimation")
+        data["estimation_data"] = '{"_light":true}' if has else None
+        data["is_light"] = True
+        result.append(ProspectResponse(**data))
+    return result
+
+
+@app.get("/api/prospects/{prospect_id}", response_model=ProspectResponse)
+def get_prospect(prospect_id: int, db: Session = Depends(get_db)):
+    db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not db_prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+    return db_prospect
 
 
 import string
