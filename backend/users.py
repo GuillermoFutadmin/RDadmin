@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 import json
-import hashlib
 
 from database import engine, get_db
 import models
+from auth import (hash_password, verify_password_hash, needs_rehash, create_token,
+                  login_blocked, login_failed, login_ok)
 
 # Asegurar que la tabla exista
 models.User.__table__.create(bind=engine, checkfirst=True)
@@ -46,10 +47,6 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-# Helper de hasheo simple (Para producción real usar bcrypt o passlib, pero para este caso sirve como protección básica)
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
-
 # Crear usuario admin inicial si no hay usuarios
 def create_initial_admin(db: Session):
     if db.query(models.User).count() == 0:
@@ -64,15 +61,28 @@ def create_initial_admin(db: Session):
         db.add(admin)
         db.commit()
 
+def _require_admin(request: Request):
+    if getattr(request.state, "role", None) != "Administrador":
+        raise HTTPException(status_code=403, detail="Se requiere rol Administrador")
+
+
 @router.post("/login")
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     create_initial_admin(db)
+    key = f"{(request.client.host if request.client else '')}|{req.username.lower()}"
+    if login_blocked(key):
+        raise HTTPException(status_code=429, detail="Demasiados intentos. Espera unos minutos.")
     user = db.query(models.User).filter(models.User.username == req.username).first()
-    if not user or user.password_hash != hash_password(req.password):
+    if not user or not verify_password_hash(req.password, user.password_hash):
+        login_failed(key)
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
     if user.status != "Activo":
         raise HTTPException(status_code=403, detail="La cuenta está inactiva")
-    
+    login_ok(key)
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(req.password)
+        db.commit()
+
     return {
         "id": user.id,
         "name": user.name,
@@ -80,7 +90,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         "role": user.role,
         "photo_path": user.photo_path,
         "permissions": json.loads(user.permissions) if user.permissions else [],
-        "token": f"token-{user.id}" # Token muy básico
+        "token": create_token(user.id, user.role)
     }
 
 class VerifyPasswordRequest(BaseModel):
@@ -89,14 +99,17 @@ class VerifyPasswordRequest(BaseModel):
     password: str
 
 @router.post("/verify-password")
-def verify_password(req: VerifyPasswordRequest, db: Session = Depends(get_db)):
+def verify_password(req: VerifyPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    # Solo se puede verificar la contraseña de la propia sesión (o de cualquiera si es admin).
     user = None
     if req.user_id:
         user = db.query(models.User).filter(models.User.id == req.user_id).first()
     elif req.username:
         user = db.query(models.User).filter(models.User.username == req.username).first()
-    
-    if not user or user.password_hash != hash_password(req.password):
+    if user and user.id != getattr(request.state, "user_id", None):
+        _require_admin(request)
+
+    if not user or not verify_password_hash(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Contraseña incorrecta")
     return {"ok": True}
 
@@ -114,7 +127,8 @@ def get_users(db: Session = Depends(get_db)):
     return res
 
 @router.post("/", response_model=UserResponse)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(user: UserCreate, request: Request, db: Session = Depends(get_db)):
+    _require_admin(request)
     if db.query(models.User).filter(models.User.username == user.username).first():
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
     
@@ -137,7 +151,12 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     )
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+def update_user(user_id: int, user: UserUpdate, request: Request, db: Session = Depends(get_db)):
+    if getattr(request.state, "role", None) != "Administrador":
+        # Un usuario normal solo puede editar su propio nombre y contraseña.
+        if user_id != getattr(request.state, "user_id", None):
+            raise HTTPException(status_code=403, detail="Se requiere rol Administrador")
+        user = UserUpdate(name=user.name, password=user.password)
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -165,7 +184,8 @@ def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
     )
 
 @router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    _require_admin(request)
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")

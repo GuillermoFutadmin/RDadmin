@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import date, datetime
 import models, os, shutil, uuid
 import imagestore
+import auth
 from database import engine, get_db
 import cloudinary
 import cloudinary.uploader
@@ -59,9 +60,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app = FastAPI(title="RDadmin API")
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+app.middleware("http")(auth.auth_middleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "https://futadmin.com.mx,https://www.futadmin.com.mx,http://localhost:5173,http://localhost:8000").split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
