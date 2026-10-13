@@ -1637,6 +1637,11 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         if (d.obsText) setObsText(d.obsText);
         if (d.photos) setPhotos(d.photos);
         if (d.croquisPhotos) setCroquisPhotos(d.croquisPhotos);
+        if (d.prospect_measurements !== undefined) {
+          setProspectMeasurements(d.prospect_measurements);
+        } else if (prospect.measurements) {
+          setProspectMeasurements(prospect.measurements);
+        }
         if (d.projectDetails) {
           setProjectDetails(previous => ({ ...previous, ...d.projectDetails }));
         }
@@ -1842,6 +1847,83 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [activeFields, setActiveFields] = useState({});
   const [expandedSections, setExpandedSections] = useState({});
   const [showCotizadorModal, setShowCotizadorModal] = useState(false);
+  const [prospectMeasurements, setProspectMeasurements] = useState(prospect.measurements || '');
+  const [editingAreaNotes, setEditingAreaNotes] = useState({});
+  const [areaNotesDraft, setAreaNotesDraft] = useState({});
+
+  const isPartInGroup = (part, labelLower) => {
+    const p = (part || '').toLowerCase();
+    if (!labelLower) return true;
+    if (labelLower.includes('cocina')) return p.includes('cocina') || p.includes('isla') || p.includes('península') || p.includes('peninsula');
+    if (labelLower.includes('clóset') || labelLower.includes('closet')) {
+      return p.includes('clóset') || p.includes('closet') || p.includes('vestidor') || p.includes('vanity');
+    }
+    if (labelLower.includes('sólida') || labelLower.includes('solida')) return p.includes('sólida') || p.includes('solida');
+    if (labelLower.includes('tambor')) return p.includes('tambor');
+    if (labelLower.includes('restauraci')) return p.includes('restauración') || p.includes('restauracion');
+    if (labelLower.includes('otros')) return p.includes('otros') || (!p.includes('cocina') && !p.includes('closet') && !p.includes('clóset') && !p.includes('puerta'));
+    return false;
+  };
+
+  const startEditAreaNotes = (areaKey, currentFiltered) => {
+    setAreaNotesDraft(prev => ({
+      ...prev,
+      [areaKey]: currentFiltered.join('\n')
+    }));
+    setEditingAreaNotes(prev => ({
+      ...prev,
+      [areaKey]: true
+    }));
+  };
+
+  const cancelEditAreaNotes = (areaKey) => {
+    setEditingAreaNotes(prev => ({
+      ...prev,
+      [areaKey]: false
+    }));
+  };
+
+  const saveAreaNotes = async (areaKey, labelLower) => {
+    const draft = areaNotesDraft[areaKey] !== undefined ? areaNotesDraft[areaKey] : '';
+    const newLines = draft
+      .split('\n')
+      .map(line => line.replace(/^[•\-\*]\s*/, '').trim())
+      .filter(Boolean);
+
+    const currentAll = prospectMeasurements ? prospectMeasurements.split(' | ') : [];
+    let replaced = false;
+    const updated = [];
+
+    currentAll.forEach(part => {
+      if (isPartInGroup(part, labelLower)) {
+        if (!replaced) {
+          updated.push(...newLines);
+          replaced = true;
+        }
+      } else {
+        updated.push(part);
+      }
+    });
+
+    if (!replaced) {
+      updated.push(...newLines);
+    }
+
+    const finalMeasurements = updated.join(' | ');
+    setProspectMeasurements(finalMeasurements);
+    prospect.measurements = finalMeasurements;
+    setEditingAreaNotes(prev => ({ ...prev, [areaKey]: false }));
+
+    try {
+      await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ measurements: finalMeasurements })
+      });
+    } catch (err) {
+      console.error('Error al guardar notas de área', err);
+    }
+  };
 
   const isSectionExpanded = (sec) => {
     if (expandedSections[sec.key] !== undefined) {
@@ -1889,12 +1971,16 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     const timer = setTimeout(async () => {
       const data = { 
         sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
-        croquis_data: croquisRef.current?.getSketchData(), unit
+        croquis_data: croquisRef.current?.getSketchData(), unit,
+        prospect_measurements: prospectMeasurements
       };
       try {
         const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
           method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ estimation_data: JSON.stringify(data) }) // Guardado silencioso sin cambiar status
+          body: JSON.stringify({ 
+            estimation_data: JSON.stringify(data),
+            measurements: prospectMeasurements
+          }) // Guardado silencioso sin cambiar status
         });
         if (!response.ok) throw new Error(`Error ${response.status}`);
         setAutoSaveStatus('✅ Borrador auto-guardado');
@@ -1904,19 +1990,24 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       }
     }, 2000); // Esperar 2 segundos después de escribir/subir foto
     return () => clearTimeout(timer);
-  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, projectDetails, totalWithMargin, estimatedDeliveryDate, templateLoaded]);
+  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, projectDetails, totalWithMargin, estimatedDeliveryDate, templateLoaded, prospectMeasurements]);
 
 
   const handleSave = async () => {
     setSaving(true);
     const data = { 
       sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
-      croquis_data: croquisRef.current?.getSketchData(), unit
+      croquis_data: croquisRef.current?.getSketchData(), unit,
+      prospect_measurements: prospectMeasurements
     };
     try {
       const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ estimation_data: JSON.stringify(data), status: 'ESTIMACIÓN' })
+        body: JSON.stringify({ 
+          estimation_data: JSON.stringify(data), 
+          status: 'ESTIMACIÓN',
+          measurements: prospectMeasurements
+        })
       });
       if (!response.ok) throw new Error(`Error ${response.status}`);
       setSaveMsg('✅ Guardado correctamente');
@@ -2113,28 +2204,109 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
                  </div>
                )}
                {(() => {
-                 if (!prospect.measurements) return null;
-                 const parts = prospect.measurements.split(' | ');
+                 const areaKey = group._groupLabel || `group_${gi}`;
                  const labelLower = group._groupLabel ? group._groupLabel.toLowerCase() : '';
-                 const filtered = parts.filter(part => {
-                   const p = part.toLowerCase();
-                   if (labelLower.includes('cocina')) return p.includes('cocina');
-                   if (labelLower.includes('clóset') || labelLower.includes('closet')) return p.includes('clóset') || p.includes('closet') || p.includes('vestidor');
-                   if (labelLower.includes('sólida')) return p.includes('sólida') || p.includes('solida');
-                   if (labelLower.includes('tambor')) return p.includes('tambor');
-                   if (labelLower.includes('restauraci')) return p.includes('restauración') || p.includes('restauracion');
-                   if (labelLower.includes('otros')) return p.includes('otros') || (!p.includes('cocina') && !p.includes('closet') && !p.includes('puerta'));
-                   return false;
-                 });
-                 if (filtered.length > 0) {
+                 const parts = prospectMeasurements ? prospectMeasurements.split(' | ') : [];
+                 const filtered = parts.filter(part => isPartInGroup(part, labelLower));
+                 const isEditingThisArea = Boolean(editingAreaNotes[areaKey]);
+
+                 if (filtered.length > 0 || isEditingThisArea) {
                    return (
                      <div style={{ marginBottom:'1rem', background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:'8px', padding:'0.8rem' }}>
-                       <div style={{ fontSize:'0.65rem', fontWeight:'800', color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:'4px' }}>
-                         📝 Notas previas del prospecto para esta área
+                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px', flexWrap:'wrap', gap:'6px' }}>
+                         <div style={{ fontSize:'0.65rem', fontWeight:'800', color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                           📝 Notas previas del prospecto para esta área
+                         </div>
+                         {!isEditingThisArea ? (
+                           <button
+                             type="button"
+                             onClick={() => startEditAreaNotes(areaKey, filtered)}
+                             style={{
+                               background:'#eff6ff',
+                               color:'#1d4ed8',
+                               border:'1px solid #bfdbfe',
+                               borderRadius:'6px',
+                               padding:'3px 9px',
+                               fontSize:'0.72rem',
+                               fontWeight:'700',
+                               cursor:'pointer',
+                               display:'inline-flex',
+                               alignItems:'center',
+                               gap:'4px',
+                               transition:'all 0.15s'
+                             }}
+                           >
+                             ✏️ Editar notas
+                           </button>
+                         ) : (
+                           <div style={{ display:'flex', gap:'6px' }}>
+                             <button
+                               type="button"
+                               onClick={() => saveAreaNotes(areaKey, labelLower)}
+                               style={{
+                                 background:'#10b981',
+                                 color:'white',
+                                 border:'none',
+                                 borderRadius:'6px',
+                                 padding:'3px 10px',
+                                 fontSize:'0.72rem',
+                                 fontWeight:'700',
+                                 cursor:'pointer'
+                               }}
+                             >
+                               ✔ Guardar notas
+                             </button>
+                             <button
+                               type="button"
+                               onClick={() => cancelEditAreaNotes(areaKey)}
+                               style={{
+                                 background:'#f1f5f9',
+                                 color:'#64748b',
+                                 border:'1px solid #cbd5e1',
+                                 borderRadius:'6px',
+                                 padding:'3px 8px',
+                                 fontSize:'0.72rem',
+                                 fontWeight:'600',
+                                 cursor:'pointer'
+                               }}
+                             >
+                               Cancelar
+                             </button>
+                           </div>
+                         )}
                        </div>
-                       <div style={{ fontSize:'0.85rem', color:'#1e293b', fontWeight:'500' }}>
-                         {filtered.map((msg, i) => <div key={i}>• {msg}</div>)}
-                       </div>
+
+                       {!isEditingThisArea ? (
+                         <div style={{ fontSize:'0.85rem', color:'#1e293b', fontWeight:'500', lineHeight:'1.5' }}>
+                           {filtered.map((msg, i) => <div key={i} style={{ marginBottom: i === filtered.length - 1 ? 0 : '4px' }}>• {msg}</div>)}
+                         </div>
+                       ) : (
+                         <div>
+                           <textarea
+                             value={areaNotesDraft[areaKey] ?? ''}
+                             onChange={e => setAreaNotesDraft(prev => ({ ...prev, [areaKey]: e.target.value }))}
+                             rows={Math.max(3, (areaNotesDraft[areaKey] || '').split('\n').length + 1)}
+                             placeholder="Escribe o ajusta las notas para esta área..."
+                             style={{
+                               width:'100%',
+                               padding:'8px 10px',
+                               border:'1.5px solid #3b82f6',
+                               borderRadius:'6px',
+                               fontSize:'0.85rem',
+                               lineHeight:'1.5',
+                               color:'#1e293b',
+                               background:'white',
+                               outline:'none',
+                               boxSizing:'border-box',
+                               fontFamily:'inherit',
+                               resize:'vertical'
+                             }}
+                           />
+                           <div style={{ fontSize:'0.7rem', color:'#64748b', marginTop:'4px' }}>
+                             Presiona <strong>✔ Guardar notas</strong> para aplicar los ajustes.
+                           </div>
+                         </div>
+                       )}
                      </div>
                    );
                  }
