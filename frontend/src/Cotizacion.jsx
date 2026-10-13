@@ -511,10 +511,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                           const matchedImg = layoutImages.find(img => img.name === valUpper);
                           return (
                             <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '25%', background: '#f8fafc' }}>{parts[0].replace(/^- /g, '').trim()}</td>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '40%' }}>{valStr}</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '32%', background: '#f8fafc', lineHeight: '1.4', verticalAlign: 'top', overflowWrap: 'anywhere' }}>{parts[0].replace(/^- /g, '').trim()}</td>
+                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '38%', lineHeight: '1.4', verticalAlign: 'top' }}>{valStr}</td>
                               {hasImages && (
-                                <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem', width: '35%', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
+                                <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem', width: '30%', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
                                   {matchedImg && (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                       <img src={matchedImg.src} alt={matchedImg.name} style={{ maxWidth: '100%', maxHeight: '65px', objectFit: 'contain' }} />
