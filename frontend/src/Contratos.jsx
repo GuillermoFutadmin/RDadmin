@@ -1840,7 +1840,47 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [saveMsg, setSaveMsg] = useState('');
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   const [activeFields, setActiveFields] = useState({});
+  const [expandedSections, setExpandedSections] = useState({});
   const [showCotizadorModal, setShowCotizadorModal] = useState(false);
+
+  const isSectionExpanded = (sec) => {
+    if (expandedSections[sec.key] !== undefined) {
+      return expandedSections[sec.key];
+    }
+    if (sec.fields && sec.fields.length > 0) {
+      return sec.fields.some(f => {
+        const k = `${sec.key}_${f.id}`;
+        return (measures[k] !== undefined && measures[k] !== '') || !!photos[k] || !!activeFields[k];
+      });
+    }
+    return false;
+  };
+
+  const toggleSection = (secKey, currentExpanded) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [secKey]: !currentExpanded
+    }));
+  };
+
+  const countSectionData = (sec) => {
+    if (!sec.fields) return 0;
+    return sec.fields.filter(f => {
+      const k = `${sec.key}_${f.id}`;
+      return (measures[k] !== undefined && measures[k] !== '') || !!photos[k];
+    }).length;
+  };
+
+  const measureGroups = getMeasureSections(prospect.project_type);
+  const allMeasureSections = measureGroups.flatMap(g => g.sections);
+  const allSectionsExpanded = allMeasureSections.length > 0 && allMeasureSections.every(s => isSectionExpanded(s));
+
+  const toggleAllSections = () => {
+    const nextState = !allSectionsExpanded;
+    const update = {};
+    allMeasureSections.forEach(s => { update[s.key] = nextState; });
+    setExpandedSections(prev => ({ ...prev, ...update }));
+  };
 
   // Auto-guardado al servidor en segundo plano
   useEffect(() => {
@@ -1976,9 +2016,30 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       <div style={{ background:'white', borderRadius:'10px', border:'1px solid #e2e8f0', padding:'1.2rem', marginBottom:'1.5rem' }}>
          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap: 'wrap', gap: '10px' }}>
            <h3 style={{ margin:0, color:'#1e293b', fontSize:'1rem', fontWeight:'700' }}>📋 Notas y Medidas de Visita</h3>
-           <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', background:'#f1f5f9', padding:'4px', borderRadius:'8px' }}>
-             <button onClick={() => handleUnitChange('cm')} style={{ padding:'4px 12px', background:unit==='cm'?'white':'transparent', color:unit==='cm'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='cm'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>CM</button>
-             <button onClick={() => handleUnitChange('in')} style={{ padding:'4px 12px', background:unit==='in'?'white':'transparent', color:unit==='in'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='in'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>IN (Pulgadas)</button>
+           <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap' }}>
+             <button
+               type="button"
+               onClick={toggleAllSections}
+               style={{
+                 padding:'4px 10px',
+                 background:'#f8fafc',
+                 color:'#475569',
+                 borderRadius:'6px',
+                 border:'1px solid #cbd5e1',
+                 fontWeight:'600',
+                 fontSize:'0.75rem',
+                 cursor:'pointer',
+                 display:'flex',
+                 alignItems:'center',
+                 gap:'4px'
+               }}
+             >
+               {allSectionsExpanded ? '▲ Contraer todos los recursos' : '▼ Expandir todos los recursos'}
+             </button>
+             <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', background:'#f1f5f9', padding:'4px', borderRadius:'8px' }}>
+               <button onClick={() => handleUnitChange('cm')} style={{ padding:'4px 12px', background:unit==='cm'?'white':'transparent', color:unit==='cm'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='cm'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>CM</button>
+               <button onClick={() => handleUnitChange('in')} style={{ padding:'4px 12px', background:unit==='in'?'white':'transparent', color:unit==='in'?'#1e40af':'#64748b', borderRadius:'6px', border:'none', fontWeight:'700', fontSize:'0.75rem', cursor:'pointer', boxShadow:unit==='in'?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.2s' }}>IN (Pulgadas)</button>
+             </div>
            </div>
          </div>
          
@@ -2115,51 +2176,145 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
                  </div>
                )}
                
-               {group.sections.map(sec => (
-                 <div key={sec.key} style={{ marginBottom:'0.75rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden' }}>
-                   <div style={{ background:sec.bg, borderBottom:`1.5px solid ${sec.color}33`, padding:'0.55rem 0.9rem', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                     <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
-                   </div>
-                   <div style={{ padding:'0.75rem 0.9rem' }}>
-                     {sec.key.includes('materiales') ? (
-                       <div style={{ background:'#fffbeb', padding:'0.8rem', borderRadius:'8px', border:'1px dashed #fcd34d', display:'flex', flexWrap:'wrap', gap:'1rem' }}>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Principal</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type || 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Secundario</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type_2 || 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Interior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.interior_color_type ? `${prospect.interior_color_type} · ${prospect.interior_color_code}` : 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Inferior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_inf_color_type ? `${prospect.exterior_inf_color_type} · ${prospect.exterior_inf_color_code}` : 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Superior</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_sup_color_type ? `${prospect.exterior_sup_color_type} · ${prospect.exterior_sup_color_code}` : 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Encimera</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.countertop_type || 'N/A'}</div>
-                         </div>
-                         <div style={{ flex:'1 1 140px' }}>
-                           <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Herrajes</label>
-                           <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.hardware_details || 'N/A'}</div>
-                         </div>
+               {group.sections.map(sec => {
+                 const isExpanded = isSectionExpanded(sec);
+                 const dataCount = countSectionData(sec);
+                 const allFieldsActive = sec.fields && sec.fields.length > 0 && sec.fields.every(f => {
+                   const k = `${sec.key}_${f.id}`;
+                   return activeFields[k] || (measures[k] !== undefined && measures[k] !== '') || !!photos[k];
+                 });
+
+                 return (
+                   <div key={sec.key} style={{ marginBottom:'0.75rem', border:`1.5px solid ${sec.color}22`, borderRadius:'10px', overflow:'hidden', boxShadow: isExpanded ? '0 2px 8px rgba(0,0,0,0.03)' : 'none' }}>
+                     <div 
+                       onClick={() => toggleSection(sec.key, isExpanded)}
+                       style={{ 
+                         background:sec.bg, 
+                         borderBottom: isExpanded ? `1.5px solid ${sec.color}33` : 'none', 
+                         padding:'0.55rem 0.9rem', 
+                         display:'flex', 
+                         alignItems:'center', 
+                         justifyContent:'space-between',
+                         cursor:'pointer',
+                         userSelect:'none',
+                         gap:'0.5rem'
+                       }}
+                     >
+                       <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                         <span style={{ fontSize:'0.8rem', fontWeight:'800', color:sec.color, letterSpacing:'0.04em' }}>{sec.label}</span>
+                         {dataCount > 0 && (
+                           <span style={{ fontSize:'0.68rem', fontWeight:'700', color:'white', background:sec.color, padding:'1px 7px', borderRadius:'10px' }}>
+                             {dataCount} {dataCount === 1 ? 'campo activo' : 'campos activos'}
+                           </span>
+                         )}
                        </div>
-                     ) : (
-                       <div style={{ display:'flex', flexWrap:'wrap', gap:'0.65rem' }}>
-                         {sec.fields.map(f => renderField(f, sec.key))}
+
+                       <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                         {isExpanded && !sec.key.includes('materiales') && (
+                           <button
+                             type="button"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               setActiveFields(prev => {
+                                 const next = { ...prev };
+                                 sec.fields.forEach(f => {
+                                   const k = `${sec.key}_${f.id}`;
+                                   if (allFieldsActive) {
+                                     const hasVal = (measures[k] !== undefined && measures[k] !== '') || !!photos[k];
+                                     if (!hasVal) delete next[k];
+                                   } else {
+                                     next[k] = true;
+                                   }
+                                 });
+                                 return next;
+                               });
+                             }}
+                             style={{
+                               background: 'none',
+                               border: 'none',
+                               color: sec.color,
+                               fontSize: '0.72rem',
+                               fontWeight: '700',
+                               cursor: 'pointer',
+                               padding: '2px 6px',
+                               textDecoration: 'underline'
+                             }}
+                             title="Abrir u ocultar todos los campos"
+                           >
+                             {allFieldsActive ? 'Ocultar vacíos' : 'Mostrar todos los campos'}
+                           </button>
+                         )}
+                         <button
+                           type="button"
+                           onClick={(e) => { e.stopPropagation(); toggleSection(sec.key, isExpanded); }}
+                           style={{
+                             background: isExpanded ? '#ffffff' : sec.color,
+                             color: isExpanded ? '#475569' : '#ffffff',
+                             border: isExpanded ? '1px solid #cbd5e1' : 'none',
+                             borderRadius: '16px',
+                             padding: '3px 11px',
+                             fontSize: '0.74rem',
+                             fontWeight: '700',
+                             cursor: 'pointer',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '4px',
+                             boxShadow: isExpanded ? 'none' : '0 1px 3px rgba(0,0,0,0.12)',
+                             transition: 'all 0.15s ease'
+                           }}
+                         >
+                           {isExpanded ? (
+                             <><span>▲</span> Contraer</>
+                           ) : (
+                             <><span style={{ fontSize:'0.9rem', lineHeight:1 }}>+</span> Expandir recurso</>
+                           )}
+                         </button>
+                       </div>
+                     </div>
+
+                     {isExpanded && (
+                       <div style={{ padding:'0.75rem 0.9rem' }}>
+                         {sec.key.includes('materiales') ? (
+                           <div style={{ background:'#fffbeb', padding:'0.8rem', borderRadius:'8px', border:'1px dashed #fcd34d', display:'flex', flexWrap:'wrap', gap:'1rem' }}>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Principal</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type || 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Material Secundario</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.material_type_2 || 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Interior</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.interior_color_type ? `${prospect.interior_color_type} · ${prospect.interior_color_code}` : 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Inferior</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_inf_color_type ? `${prospect.exterior_inf_color_type} · ${prospect.exterior_inf_color_code}` : 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Color Ext. Superior</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.exterior_sup_color_type ? `${prospect.exterior_sup_color_type} · ${prospect.exterior_sup_color_code}` : 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Encimera</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.countertop_type || 'N/A'}</div>
+                             </div>
+                             <div style={{ flex:'1 1 140px' }}>
+                               <label style={{ fontSize:'0.65rem', fontWeight:'800', color:'#b45309', textTransform:'uppercase', letterSpacing:'0.04em' }}>Herrajes</label>
+                               <div style={{ fontSize:'0.85rem', fontWeight:'700', color:'#78350f', marginTop:'2px' }}>{prospect.hardware_details || 'N/A'}</div>
+                             </div>
+                           </div>
+                         ) : (
+                           <div style={{ display:'flex', flexWrap:'wrap', gap:'0.65rem' }}>
+                             {sec.fields.map(f => renderField(f, sec.key))}
+                           </div>
+                         )}
                        </div>
                      )}
                    </div>
-                 </div>
-               ))}
+                 );
+               })}
              </div>
            ));
          })()}
