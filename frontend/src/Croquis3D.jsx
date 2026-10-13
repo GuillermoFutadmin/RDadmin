@@ -45,6 +45,7 @@ const Croquis3D = forwardRef((props, ref) => {
       try {
         const data = canvas.toDataURL('image/png');
         localStorage.setItem(storageKey, data);
+        localStorage.setItem(storageKey + '_measures', JSON.stringify(measuresRef.current));
       } catch(e) {}
     }, 800);
   }, [storageKey]);
@@ -53,6 +54,7 @@ const Croquis3D = forwardRef((props, ref) => {
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
     if (!saved) return;
+    try { measuresRef.current = JSON.parse(localStorage.getItem(storageKey + '_measures') || '[]'); } catch { measuresRef.current = []; }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const img = new Image();
@@ -102,7 +104,9 @@ const Croquis3D = forwardRef((props, ref) => {
     const c = canvasRef.current;
     if (c) {
       c.getContext('2d').clearRect(0, 0, c.width, c.height);
+      measuresRef.current = [];
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageKey + '_measures');
     }
   };
 
@@ -118,7 +122,9 @@ const Croquis3D = forwardRef((props, ref) => {
       ctx.drawImage(canvas, 0, 0);
       return tmp.toDataURL('image/png');
     },
-    loadSketchData: (dataUrl) => {
+    getMeasures: () => measuresRef.current.map(x => ({ ...x })),
+    loadSketchData: (dataUrl, measures) => {
+      measuresRef.current = Array.isArray(measures) ? measures.map(x => ({ ...x })) : [];
       const canvas = canvasRef.current;
       if (!canvas || !dataUrl) return;
       const ctx = canvas.getContext('2d');
@@ -179,29 +185,34 @@ const Croquis3D = forwardRef((props, ref) => {
   };
 
   const redoRef = useRef([]);
+  // Medidas dibujadas (posición y texto) para poder editarlas con doble clic.
+  const measuresRef = useRef([]);
+  const snapshotOf = () => ({ img: canvasRef.current.toDataURL('image/png'), m: measuresRef.current.map(x => ({ ...x })) });
 
   const pushState = () => {
-    if (canvasRef.current) historyRef.current.push(canvasRef.current.toDataURL('image/png'));
+    if (canvasRef.current) historyRef.current.push(snapshotOf());
     redoRef.current = [];
   };
 
-  const restoreFrom = (dataUrl) => {
+  const restoreFrom = (entry) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    measuresRef.current = entry.m.map(x => ({ ...x }));
     const img = new Image();
     img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); scheduleAutoSave(); };
-    img.src = dataUrl;
+    img.src = entry.img;
   };
 
   const undo = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    redoRef.current.push(canvas.toDataURL('image/png'));
+    redoRef.current.push(snapshotOf());
     if (historyRef.current.length > 0) {
       restoreFrom(historyRef.current.pop());
     } else {
+      measuresRef.current = [];
       ctx.clearRect(0,0,canvas.width,canvas.height);
     }
   };
@@ -209,7 +220,7 @@ const Croquis3D = forwardRef((props, ref) => {
   const redo = () => {
     const canvas = canvasRef.current;
     if (!canvas || redoRef.current.length === 0) return;
-    historyRef.current.push(canvas.toDataURL('image/png'));
+    historyRef.current.push(snapshotOf());
     restoreFrom(redoRef.current.pop());
   };
 
@@ -444,14 +455,49 @@ const Croquis3D = forwardRef((props, ref) => {
     ctx.restore();
   };
 
+  const labelBox = (m) => {
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.save();
+    ctx.font = 'bold 20px Inter,Arial,sans-serif';
+    const tw = ctx.measureText(m.label).width + 16;
+    ctx.restore();
+    return { cx: (m.x1 + m.x2) / 2, cy: (m.y1 + m.y2) / 2, tw };
+  };
+
+  const handleDoubleClick = (e) => {
+    if (!measuresRef.current.length) return;
+    const canvas = canvasRef.current;
+    const pos = getPos(e, canvas);
+    for (let i = measuresRef.current.length - 1; i >= 0; i--) {
+      const m = measuresRef.current[i];
+      const { cx, cy, tw } = labelBox(m);
+      if (Math.abs(pos.x - cx) <= tw / 2 + 12 && Math.abs(pos.y - cy) <= 28) {
+        const parts = m.label.split(' ');
+        const unit = parts.length > 1 ? parts.pop() : 'm';
+        setMeasurePopup({ visible: true, editIdx: i, x1: m.x1, y1: m.y1, x2: m.x2, y2: m.y2,
+          screenX: 0, screenY: 0, value: parts.join(' '), unit });
+        setTimeout(() => measureValueRef.current?.focus(), 60);
+        return;
+      }
+    }
+  };
+
   const commitMeasure = (value, unit) => {
     if (!value.trim()) { setMeasurePopup(p => ({ ...p, visible: false })); scheduleAutoSave(); return; }
-    const { x1, y1, x2, y2 } = measurePopup;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    // Restore clean state (line already drawn in preview), just paint on top
-    drawMeasureLine(x1, y1, x2, y2, `${value} ${unit}`);
-    setMeasurePopup(p => ({ ...p, visible: false }));
+    const { x1, y1, x2, y2, editIdx } = measurePopup;
+    const label = `${value.trim()} ${unit}`;
+    if (editIdx != null && measuresRef.current[editIdx]) {
+      pushState();
+      const ctx = canvasRef.current.getContext('2d');
+      const { cx, cy, tw } = labelBox(measuresRef.current[editIdx]);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx - tw / 2 - 2, cy - 18, tw + 4, 36);
+      measuresRef.current[editIdx] = { x1, y1, x2, y2, label };
+    } else {
+      measuresRef.current.push({ x1, y1, x2, y2, label });
+    }
+    drawMeasureLine(x1, y1, x2, y2, label);
+    setMeasurePopup(p => ({ ...p, visible: false, editIdx: null }));
     scheduleAutoSave();
   };
 
@@ -609,7 +655,7 @@ const Croquis3D = forwardRef((props, ref) => {
           style={{ position:'absolute', top:0, left:0, pointerEvents:'none', zIndex:1, width:'100%', height:'100%' }} />
         <canvas ref={canvasRef} width={2000} height={1500}
           style={{ position:'absolute', top:0, left:0, cursor:curStyle, touchAction:'none', zIndex:2, width:'100%', height:'100%' }}
-          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
+          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing} onDoubleClick={handleDoubleClick}
           onPointerMove={handlePointerMove} />
         {cursorPos && (
           <div style={{

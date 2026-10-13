@@ -1598,6 +1598,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
   const [obsText, setObsText] = useState('');
   const [photos, setPhotos] = useState({});
   const [croquisPhotos, setCroquisPhotos] = useState([]);
+  const [photoMeasures, setPhotoMeasures] = useState([]);
   const [editingCroquisIdx, setEditingCroquisIdx] = useState(null);
   const [viewPhoto, setViewPhoto] = useState(null);
   const croquisRef = useRef(null);
@@ -1659,6 +1660,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         if (d.obsText) setObsText(d.obsText);
         if (d.photos) setPhotos(d.photos);
         if (d.croquisPhotos) setCroquisPhotos(d.croquisPhotos);
+        if (d.croquis_photo_measures) setPhotoMeasures(d.croquis_photo_measures);
         if (d.prospect_measurements !== undefined) {
           setProspectMeasurements(d.prospect_measurements);
         } else if (prospect.measurements) {
@@ -1668,7 +1670,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           setProjectDetails(previous => ({ ...previous, ...d.projectDetails }));
         }
         if (d.croquis_data) {
-          setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data), 200);
+          setTimeout(() => croquisRef.current?.loadSketchData(d.croquis_data, d.croquis_measures), 200);
         }
         setTemplateLoaded(true);
       } catch {}
@@ -1993,7 +1995,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
     const timer = setTimeout(async () => {
       const data = { 
         sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
-        croquis_data: croquisRef.current?.getSketchData(), unit,
+        croquis_data: croquisRef.current?.getSketchData(), croquis_measures: croquisRef.current?.getMeasures?.(), croquis_photo_measures: photoMeasures, unit,
         prospect_measurements: prospectMeasurements
       };
       try {
@@ -2012,14 +2014,14 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       }
     }, 2000); // Esperar 2 segundos después de escribir/subir foto
     return () => clearTimeout(timer);
-  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, projectDetails, totalWithMargin, estimatedDeliveryDate, templateLoaded, prospectMeasurements]);
+  }, [sheets, margin, anticipoPct, measures, unit, obsText, photos, croquisPhotos, photoMeasures, projectDetails, totalWithMargin, estimatedDeliveryDate, templateLoaded, prospectMeasurements]);
 
 
   const handleSave = async () => {
     setSaving(true);
     const data = { 
       sheets, margin, anticipoPct, measures, obsText, totalWithMargin, photos, croquisPhotos, projectDetails: savedProjectDetails,
-      croquis_data: croquisRef.current?.getSketchData(), unit,
+      croquis_data: croquisRef.current?.getSketchData(), croquis_measures: croquisRef.current?.getMeasures?.(), croquis_photo_measures: photoMeasures, unit,
       prospect_measurements: prospectMeasurements
     };
     try {
@@ -2535,6 +2537,9 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
               if (croquisRef.current) {
                 const dataUrl = croquisRef.current.getSketchData();
                 if (dataUrl) {
+                  const target = editingCroquisIdx !== null && editingCroquisIdx < croquisPhotos.length ? editingCroquisIdx : croquisPhotos.length;
+                  const ms = croquisRef.current.getMeasures();
+                  setPhotoMeasures(prev => { const n = [...prev]; while (n.length < target) n.push([]); n[target] = ms; return n; });
                   setCroquisPhotos(prev => editingCroquisIdx !== null && editingCroquisIdx < prev.length
                     ? prev.map((p, i) => i === editingCroquisIdx ? dataUrl : p)
                     : [...prev, dataUrl]);
@@ -2564,11 +2569,12 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
                 <img src={p} onClick={() => setViewPhoto(p)} style={{ width:'100px', height:'100px', objectFit:'cover', borderRadius:'8px', border: editingCroquisIdx === idx ? '3px solid #f59e0b' : '2px solid #cbd5e1', cursor:'pointer' }} />
                 <button title="Editar en el lienzo" onClick={() => {
                   if (!window.confirm('Se cargará esta foto en el lienzo para editarla. El dibujo actual del lienzo se reemplazará. ¿Continuar?')) return;
-                  croquisRef.current?.loadSketchData(p);
+                  croquisRef.current?.loadSketchData(p, photoMeasures[idx]);
                   setEditingCroquisIdx(idx);
                 }} style={{ position:'absolute', bottom:'-6px', right:'-6px', background:'#f59e0b', color:'white', border:'none', borderRadius:'50%', width:'26px', height:'26px', cursor:'pointer' }}>✏️</button>
                 <button onClick={() => {
                   setCroquisPhotos(prev => prev.filter((_, i) => i !== idx));
+                  setPhotoMeasures(prev => prev.filter((_, i) => i !== idx));
                   setEditingCroquisIdx(cur => cur === null ? null : cur === idx ? null : cur > idx ? cur - 1 : cur);
                 }} style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'24px', height:'24px', fontWeight:'bold', cursor:'pointer' }}>×</button>
               </div>
