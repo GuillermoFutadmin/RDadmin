@@ -214,7 +214,7 @@ const EMPTY_FORM = {
   project_type: '', project_type_other: '', kitchen_layout: '', kitchen_addons: '', closet_layout: '', closet_addons: '',
   kitchen_measurements: '', kitchen_island_measurements: '', kitchen_peninsula_measurements: '',
   closet_measurements: '', closet_island_measurements: '', closet_vanity_measurements: '',
-  door_solid_measurements: '', door_tambor_measurements: '', restorations: [], other_measurements: '', material_type: '',
+  door_solid_measurements: '', door_tambor_measurements: '', restorations: [], other_projects: [], other_measurements: '', material_type: '',
   material_type_2: '',
   material_type_interior: '',
   material_type_exterior: '',
@@ -262,10 +262,74 @@ function dbToForm(p) {
   } catch(e) {
     form.restorations = [];
   }
+
+  // Parsear otros proyectos (other_projects)
+  let parsedOther = [];
+  try {
+    if (p.other_projects && p.other_projects.startsWith('[')) {
+      parsedOther = JSON.parse(p.other_projects);
+    } else if (p.project_type_other && p.project_type_other.startsWith('[')) {
+      parsedOther = JSON.parse(p.project_type_other);
+    }
+  } catch(e) {
+    parsedOther = [];
+  }
+
+  // Si no había JSON pero hay texto en project_type_other (ej. separado por comas)
+  if ((!parsedOther || parsedOther.length === 0) && p.project_type_other) {
+    const rawNames = p.project_type_other.split(',').map(s => s.trim()).filter(Boolean);
+    if (rawNames.length > 0) {
+      const rawMeasurements = (p.other_measurements || '').split('|').map(s => s.trim()).filter(Boolean);
+      parsedOther = rawNames.map((name, idx) => {
+        let m = '';
+        if (rawMeasurements[idx]) {
+          const parts = rawMeasurements[idx].split(':');
+          if (parts.length > 1 && parts[0].trim().toLowerCase() === name.toLowerCase()) {
+            m = parts.slice(1).join(':').trim();
+          } else {
+            m = rawMeasurements[idx];
+          }
+        } else if (idx === 0 && p.other_measurements && p.other_measurements !== '0') {
+          m = p.other_measurements;
+        }
+        return { name, measurements: m };
+      });
+    }
+  }
+
+  if (p.project_type && p.project_type.includes('OTROS') && (!parsedOther || parsedOther.length === 0)) {
+    parsedOther = [{ name: '', measurements: '' }];
+  }
+
+  form.other_projects = parsedOther || [];
   return form;
 }
 
 function formToPayload(f) {
+  const validOtherProjects = (f.other_projects || []).filter(item => 
+    (item.name && item.name.trim()) || (item.measurements && item.measurements.trim())
+  );
+  
+  const otherNames = validOtherProjects.map(item => item.name ? item.name.trim() : '').filter(Boolean);
+  const otherSpecs = validOtherProjects.map(item => {
+    const n = item.name ? item.name.trim() : '';
+    const m = item.measurements ? item.measurements.trim() : '';
+    if (n && m) return `${n}: ${m}`;
+    return m || n;
+  }).filter(Boolean);
+
+  const project_type_other_val = otherNames.length > 0
+    ? otherNames.join(', ')
+    : (f.project_type_other || null);
+
+  const other_measurements_val = otherSpecs.length > 0
+    ? otherSpecs.join(' | ')
+    : (f.other_measurements || null);
+
+  const other_projects_val = validOtherProjects.length > 0
+    ? JSON.stringify(validOtherProjects)
+    : null;
+
   return {
     name: f.name, contact_info: f.contact_info, location: f.location,
     project_priorities: Object.keys(f.priorities).filter(k => f.priorities[k]).join(', '),
@@ -273,13 +337,16 @@ function formToPayload(f) {
     design_details: f.design_details,
     hardware_details: f.hardware_details,
     start_date: f.start_date || null, delivery_date: f.delivery_date || null, production_days: f.production_days || null,
-    project_type: f.project_type || null, project_type_other: f.project_type_other || null, kitchen_layout: f.kitchen_layout || null, kitchen_addons: f.kitchen_addons || null, closet_layout: f.closet_layout || null, closet_addons: f.closet_addons || null,
+    project_type: f.project_type || null, 
+    project_type_other: project_type_other_val, 
+    kitchen_layout: f.kitchen_layout || null, kitchen_addons: f.kitchen_addons || null, closet_layout: f.closet_layout || null, closet_addons: f.closet_addons || null,
     kitchen_measurements: f.kitchen_measurements || null, kitchen_island_measurements: f.kitchen_island_measurements || null, kitchen_peninsula_measurements: f.kitchen_peninsula_measurements || null,
     closet_measurements: f.closet_measurements || null, closet_island_measurements: f.closet_island_measurements || null, closet_vanity_measurements: f.closet_vanity_measurements || null,
     door_solid_measurements: f.door_solid_measurements || null, door_tambor_measurements: f.door_tambor_measurements || null, 
     restoration_details: JSON.stringify(f.restorations || []),
     restoration_measurements: null,
-    other_measurements: f.other_measurements || null,
+    other_measurements: other_measurements_val,
+    other_projects: other_projects_val,
     measurements: (() => {
       const parts = [];
       if (f.kitchen_measurements) parts.push(`Cocina (${f.kitchen_layout || 'Distribución'}): ${f.kitchen_measurements}`);
@@ -293,7 +360,11 @@ function formToPayload(f) {
       if (f.restorations && f.restorations.length > 0) {
         parts.push(`Restauración: ${f.restorations.map(r => `${r.type} (${r.measurements})`).join(', ')}`);
       }
-      if (f.other_measurements) parts.push(`Otros: ${f.other_measurements}`);
+      if (validOtherProjects.length > 0) {
+        parts.push(`Otros: ${validOtherProjects.map(r => `${r.name || 'Proyecto'}${r.measurements ? ` (${r.measurements})` : ''}`).join(', ')}`);
+      } else if (f.other_measurements) {
+        parts.push(`Otros: ${f.other_measurements}`);
+      }
       return parts.length > 0 ? parts.join(' | ') : (f.measurements || null);
     })(),
     material_type: f.material_type, estimated_price: f.estimated_price, project_timeline: f.project_timeline || null,
@@ -1609,10 +1680,12 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
     } else {
       updated = [...current, typeId];
     }
+    const isOtros = updated.includes('OTROS');
     setFormData(prev => ({
       ...prev,
       project_type: updated.join(', '),
-      project_type_other: updated.includes('OTROS') ? prev.project_type_other : ''
+      project_type_other: isOtros ? prev.project_type_other : '',
+      other_projects: isOtros ? ((prev.other_projects && prev.other_projects.length > 0) ? prev.other_projects : [{ name: '', measurements: '' }]) : []
     }));
   };
 
@@ -1836,38 +1909,249 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
             </div>
           )}
 
-          {/* Campo para especificar en caso de OTROS */}
+          {/* Proyectos Personalizados / OTROS (Múltiples Proyectos con Especificaciones) */}
           {formData.project_type && formData.project_type.includes('OTROS') && (
             <div style={{
-              marginTop: '0.85rem',
-              padding: '0.85rem 1rem',
-              backgroundColor: '#fafafa',
-              borderRadius: '10px',
-              border: '1px dashed #cbd5e1'
+              marginTop: '1.1rem',
+              padding: '1.1rem 1.25rem',
+              backgroundColor: '#fffaf5',
+              borderRadius: '12px',
+              border: '1.5px solid #fed7aa',
+              boxShadow: '0 2px 8px rgba(249, 115, 22, 0.05)'
             }}>
-              <label style={{ ...labelStyle, color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span>✏️</span> Especificar qué tipo de proyecto (Otros):
-              </label>
-              <input required
-                type="text"
-                name="project_type_other"
-                value={formData.project_type_other}
-                onChange={handleChange}
-                placeholder="Ej. Mueble de baño flotante, Centro de entretenimiento TV, Cantina, Escritorio ejecutivo..."
-                style={{ ...inputStyle, marginTop: '0.4rem', backgroundColor: '#ffffff' }}
-              />
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '0.85rem',
+                borderBottom: '1.5px dashed #fed7aa',
+                paddingBottom: '0.6rem',
+                flexWrap: 'wrap',
+                gap: '0.5rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.3rem' }}>✨</span>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#9a3412' }}>
+                      Proyectos Personalizados / Fuera de Catálogo (Otros)
+                    </h4>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: '#7c2d12' }}>
+                      Agrega individualmente cada proyecto de este cliente con sus especificaciones y medidas.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    background: '#ffedd5',
+                    color: '#c2410c',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '20px',
+                    border: '1px solid #fed7aa'
+                  }}>
+                    {((formData.other_projects && formData.other_projects.length > 0) ? formData.other_projects.length : 1)} {((formData.other_projects && formData.other_projects.length > 0) ? formData.other_projects.length : 1) === 1 ? 'proyecto' : 'proyectos'}
+                  </span>
+                </div>
+              </div>
 
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.7rem', marginBottom: '0.35rem' }}>
-                <span>📏</span> Medidas del Proyecto (Otros):
-              </label>
-              <input required
-                type="text"
-                name="other_measurements"
-                value={formData.other_measurements}
-                onChange={handleChange}
-                placeholder="Ej. 2.40 m largo x 1.80 m alto x 0.40 m fondo"
-                style={{ ...inputStyle, margin: 0, backgroundColor: '#ffffff' }}
-              />
+              {/* Botones de sugerencias rápidas */}
+              <div style={{ marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: '700', color: '#9a3412', display: 'block', marginBottom: '0.35rem' }}>
+                  💡 Sugerencias rápidas (haz clic para agregar):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {[
+                    'Mueble de Baño Flotante',
+                    'Centro de TV',
+                    'Cava de Vinos',
+                    'Muro Decorativo / Lambrín',
+                    'Credenza',
+                    'Escritorio Ejecutivo',
+                    'Repisas Flotantes',
+                    'Plafón con Luz Indirecta',
+                    'Cantina / Bar',
+                    'Forrado de Pilares'
+                  ].map(suggestion => (
+                    <button
+                      type="button"
+                      key={suggestion}
+                      onClick={() => {
+                        const current = [...(formData.other_projects || [])];
+                        if (current.length === 1 && !current[0].name.trim() && !current[0].measurements.trim()) {
+                          current[0].name = suggestion;
+                        } else {
+                          current.push({ name: suggestion, measurements: '' });
+                        }
+                        setFormData({ ...formData, other_projects: current });
+                      }}
+                      style={{
+                        padding: '0.22rem 0.55rem',
+                        fontSize: '0.74rem',
+                        fontWeight: '600',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #fdba74',
+                        color: '#c2410c',
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fed7aa'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
+                    >
+                      + {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista de proyectos */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {((formData.other_projects && formData.other_projects.length > 0) ? formData.other_projects : [{ name: '', measurements: '' }]).map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderRadius: '10px',
+                      border: '1px solid #fed7aa',
+                      padding: '0.85rem 1rem',
+                      boxShadow: '0 1px 4px rgba(234, 88, 12, 0.04)',
+                      transition: 'border-color 0.15s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: '800',
+                          backgroundColor: '#ffedd5',
+                          color: '#c2410c',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '6px'
+                        }}>
+                          #{idx + 1}
+                        </span>
+                        <span style={{ fontSize: '0.86rem', fontWeight: '750', color: '#1e293b' }}>
+                          {item.name ? item.name : `Proyecto #${idx + 1}`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = [...(formData.other_projects || [])];
+                          if (current.length > 1) {
+                            current.splice(idx, 1);
+                            setFormData({ ...formData, other_projects: current });
+                          } else {
+                            setFormData({ ...formData, other_projects: [{ name: '', measurements: '' }] });
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          fontSize: '0.76rem',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.2rem 0.45rem',
+                          borderRadius: '4px'
+                        }}
+                        title="Eliminar este proyecto"
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(280px, 1.4fr)', gap: '0.85rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.25rem' }}>
+                          <span>✏️</span> Nombre / Tipo de Proyecto:
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.name}
+                          onChange={(e) => {
+                            const current = [...(formData.other_projects || [])];
+                            if (!current[idx]) current[idx] = { name: '', measurements: '' };
+                            current[idx].name = e.target.value;
+                            setFormData({ ...formData, other_projects: current });
+                          }}
+                          placeholder="Ej. Cava de vinos, Mueble TV diseño en U..."
+                          style={{
+                            ...inputStyle,
+                            margin: 0,
+                            backgroundColor: '#ffffff',
+                            fontSize: '0.88rem',
+                            fontWeight: '600',
+                            borderColor: '#fed7aa'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.25rem' }}>
+                          <span>📏</span> Medidas y Especificaciones:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={item.measurements}
+                          onChange={(e) => {
+                            const current = [...(formData.other_projects || [])];
+                            if (!current[idx]) current[idx] = { name: '', measurements: '' };
+                            current[idx].measurements = e.target.value;
+                            setFormData({ ...formData, other_projects: current });
+                          }}
+                          placeholder="Ej. 2.40 m largo x 1.80 m alto x 0.40 m fondo · Acabado nogal con iluminación led..."
+                          style={{
+                            ...inputStyle,
+                            margin: 0,
+                            backgroundColor: '#ffffff',
+                            fontSize: '0.85rem',
+                            resize: 'vertical',
+                            minHeight: '44px',
+                            borderColor: '#e2e8f0'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Botón para agregar más proyectos */}
+              <div style={{ marginTop: '0.9rem', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = [...(formData.other_projects || [])];
+                    current.push({ name: '', measurements: '' });
+                    setFormData({ ...formData, other_projects: current });
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.6rem 1.3rem',
+                    backgroundColor: '#ea580c',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.86rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#c2410c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#ea580c'; }}
+                >
+                  <span>➕</span> Agregar otro proyecto (Otros)
+                </button>
+              </div>
             </div>
           )}
 
@@ -2687,6 +2971,55 @@ function ProspectDetail({ prospect, onEdit, onDelete, onBack, onRestore }) {
         {colorChip('Color Ext. Inferior', prospect.exterior_inf_color_type, prospect.exterior_inf_color_code)}
         {colorChip('Color Ext. Superior', prospect.exterior_sup_color_type, prospect.exterior_sup_color_code)}
       </div>
+
+      {/* ── PROYECTOS OTROS / PERSONALIZADOS DETALLE ── */}
+      {(() => {
+        let otherList = [];
+        try {
+          if (prospect.other_projects && prospect.other_projects.startsWith('[')) {
+            otherList = JSON.parse(prospect.other_projects);
+          } else if (prospect.project_type_other && prospect.project_type_other.startsWith('[')) {
+            otherList = JSON.parse(prospect.project_type_other);
+          }
+        } catch(e) {}
+        if (!otherList.length && prospect.project_type_other && prospect.project_type?.includes('OTROS')) {
+          const names = prospect.project_type_other.split(',').map(s => s.trim()).filter(Boolean);
+          const rawMeasures = (prospect.other_measurements || '').split('|').map(s => s.trim()).filter(Boolean);
+          otherList = names.map((name, idx) => ({
+            name,
+            measurements: rawMeasures[idx] || (idx === 0 && prospect.other_measurements !== '0' ? prospect.other_measurements : '')
+          }));
+        }
+        if (!otherList.length) return null;
+
+        return (
+          <div style={{ marginTop: '0.75rem', padding: '0.85rem 1rem', backgroundColor: '#fffaf5', border: '1.5px solid #fed7aa', borderRadius: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ✨ Proyectos Especiales / Otros ({otherList.length})
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: otherList.length > 1 ? 'repeat(auto-fit, minmax(260px, 1fr))' : '1fr', gap: '0.6rem' }}>
+              {otherList.map((item, idx) => (
+                <div key={idx} style={{ backgroundColor: '#ffffff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.65rem 0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#ffedd5', color: '#c2410c', padding: '1px 6px', borderRadius: '4px' }}>
+                      #{idx + 1}
+                    </span>
+                    <strong style={{ fontSize: '0.88rem', color: '#1e293b' }}>{item.name || 'Proyecto sin nombre'}</strong>
+                  </div>
+                  {item.measurements && (
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                      <span style={{ fontWeight: '600', color: '#9a3412' }}>📏 Especificaciones: </span>
+                      {item.measurements}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {prospect.expectations && (
         <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.55rem', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>

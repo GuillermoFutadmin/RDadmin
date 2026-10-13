@@ -76,7 +76,33 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             subItems.push(`- Tipo: ${p.restoration_details}`, `- Medidas: ${p.restoration_measurements || ''}`);
           }
         }
-        if (pt === 'OTROS' && p.other_project_measurements) subItems.push(`- Medidas: ${p.other_project_measurements}`);
+        if (pt === 'OTROS') {
+          let parsedOthers = [];
+          try {
+            if (p.other_projects && p.other_projects.startsWith('[')) {
+              parsedOthers = JSON.parse(p.other_projects);
+            } else if (p.project_type_other && p.project_type_other.startsWith('[')) {
+              parsedOthers = JSON.parse(p.project_type_other);
+            }
+          } catch(e) {}
+          if (!parsedOthers.length && p.project_type_other) {
+            const rawNames = p.project_type_other.split(',').map(s => s.trim()).filter(Boolean);
+            const rawSpecs = (p.other_measurements || '').split('|').map(s => s.trim()).filter(Boolean);
+            parsedOthers = rawNames.map((name, idx) => ({
+              name,
+              measurements: rawSpecs[idx] || (idx === 0 && p.other_measurements !== '0' ? p.other_measurements : '')
+            }));
+          }
+          if (parsedOthers.length > 0) {
+            parsedOthers.forEach(item => {
+              if (item.name) {
+                subItems.push(`- ${item.name}${item.measurements ? `: ${item.measurements}` : ''}`);
+              }
+            });
+          } else if (p.other_measurements) {
+            subItems.push(`- Medidas: ${p.other_measurements}`);
+          }
+        }
         
         if (pt === 'COCINA') {
           if (p.kitchen_layout) subItems.push(`- Distribución: ${p.kitchen_layout}`);

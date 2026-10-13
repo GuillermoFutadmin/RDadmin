@@ -43,6 +43,7 @@ class Prospect(Base):
     door_tambor_measurements = Column(String, nullable=True)
     restoration_measurements = Column(String, nullable=True)
     other_measurements = Column(String, nullable=True)
+    other_projects = Column(String, nullable=True)
     contact_info = Column(String, index=True, nullable=True)
     location = Column(String, nullable=True)
     project_priorities = Column(String, nullable=True)

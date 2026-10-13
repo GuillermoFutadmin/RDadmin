@@ -48,6 +48,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_client VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_rep VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_client VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN other_projects VARCHAR;")
     safe_alter("ALTER TABLE users ADD COLUMN photo_path VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
@@ -163,6 +164,7 @@ class ProspectCreate(BaseModel):
     door_tambor_measurements: Optional[str] = None
     restoration_measurements: Optional[str] = None
     other_measurements: Optional[str] = None
+    other_projects: Optional[str] = None
     contact_info: Optional[str] = None
     location: Optional[str] = None
     project_priorities: Optional[str] = None

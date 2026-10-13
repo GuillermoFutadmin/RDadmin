@@ -126,6 +126,13 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
   const restorations = Array.isArray(restorationRows)
     ? restorationRows.map((item) => [item.type || 'Restauración', item.measurements || item.details]).filter(([, value]) => value)
     : [];
+  const otherProjectRows = parseStoredJson(prospect.other_projects, []);
+  const otherProjects = Array.isArray(otherProjectRows) && otherProjectRows.length > 0
+    ? otherProjectRows
+    : (prospect.project_type_other ? prospect.project_type_other.split(',').map(s => s.trim()).filter(Boolean).map((n, idx) => ({
+        name: n,
+        measurements: ((prospect.other_measurements || '').split('|')[idx] || '').trim()
+      })) : []);
   const valuationData = parseStoredJson(prospect.valuation_data, {});
   const valuationIsStructured = typeof prospect.valuation_data === 'string'
     && /^[\s]*[\[{]/.test(prospect.valuation_data);
@@ -236,6 +243,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
     ['Restauraciones capturadas', restorations.length ? restorations.map(([type, measurements]) => `${type}: ${measurements}`).join('\n') : null],
     ['Medidas de restauración', prospect.restoration_measurements],
     ['Otras medidas', prospect.other_measurements],
+    ['Otros proyectos capturados', otherProjects.length ? otherProjects.map(op => `${op.name}${op.measurements ? `: ${op.measurements}` : ''}`).join('\n') : (prospect.project_type_other || null)],
     ['Notas originales', prospect.valuation_data && !valuationIsStructured && valuationSheets.length === 0 ? prospect.valuation_data : null],
     ['Detalles de restauración', prospect.restoration_details && !restorationIsStructured && restorations.length === 0 ? prospect.restoration_details : null]
   ];
