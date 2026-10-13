@@ -1,4 +1,9 @@
 {
   "$schema": "https://schema.railpack.com",
-  "buildAptPackages": ["nodejs", "npm"]
+  "buildAptPackages": ["nodejs", "npm"],
+  "build": {
+    "cmds": [
+      "cd frontend && npm ci && npm run build"
+    ]
+  }
 }
