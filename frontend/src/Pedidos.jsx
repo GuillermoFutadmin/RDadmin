@@ -238,6 +238,7 @@ function Pedidos() {
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierForMaterial, setSupplierForMaterial] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
+  const [showSemaforo, setShowSemaforo] = useState(false);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -884,7 +885,28 @@ function Pedidos() {
             <h2 style={{ margin: 0, color: '#172b4d', fontSize: '1rem' }}>Flujo y control de tiempos</h2>
             <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.78rem' }}>Los círculos muestran la etapa registrada en Producción. La tabla compara ese avance con el esperado según los días hábiles de Prospectos, divididos entre seis etapas.</div>
           </div>
-          <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>{filteredProjects.length} proyectos</span>
+            <button
+              type="button"
+              id="btn-semaforo-produccion"
+              aria-pressed={showSemaforo}
+              onClick={() => setShowSemaforo(v => !v)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '0.45rem 0.85rem',
+                border: `2px solid ${showSemaforo ? '#16a34a' : '#cbd5e1'}`,
+                borderRadius: 20,
+                background: showSemaforo ? '#f0fdf4' : '#fff',
+                color: showSemaforo ? '#15803d' : '#475569',
+                fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <span style={{ fontSize: '1rem' }}>🚦</span>
+              Semáforo de producción
+            </button>
+          </div>
         </div>
         {loading ? (
           <p style={{ margin: 0, padding: '1rem', color: '#64748b' }}>Cargando proyectos...</p>
@@ -924,6 +946,163 @@ function Pedidos() {
                 Sin cronograma ({projectsWithoutSchedule.length})
               </button>
             </div>
+
+            {/* ── SEMÁFORO DE PRODUCCIÓN ── */}
+            {showSemaforo && (() => {
+              const SEMAFORO_ETAPAS = [
+                'Render y conseguir materiales',
+                'Preparación de Diseño y Materiales',
+                'Producción iniciada',
+                'Avance 1',
+                'Avance 2 / revisión',
+                'Entrega del proyecto'
+              ];
+              const getSemaforo = (project) => {
+                const schedule = projectSchedules.get(project.id);
+                const currentStageIdx = productionStageIndex(project);
+                const isDelivered = project.status === 'ENTREGADO';
+                if (isDelivered) return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '✅', label: 'Entregado', etapa: SEMAFORO_ETAPAS[5], detail: '' };
+                if (!schedule) {
+                  return { color: '#78716c', bg: '#fafaf9', border: '#d6d3d1', emoji: '⚪', label: 'Sin cronograma', etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: 'No tiene días de producción registrados' };
+                }
+                const { expectedStage, daysRemaining, elapsedDays, plannedDays } = schedule;
+                const stageDiff = currentStageIdx - expectedStage;
+                if (daysRemaining < 0 || stageDiff < -1) {
+                  const diasAtras = Math.abs(daysRemaining);
+                  return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', emoji: '🔴', label: stageDiff < -1 ? `Atrasado ${Math.abs(stageDiff)} etapa(s)` : `${diasAtras} día(s) vencido(s)`, etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: `Etapa actual: ${currentStageIdx + 1} · Esperada: ${expectedStage + 1}` };
+                }
+                if (stageDiff < 0 || daysRemaining <= 3) {
+                  return { color: '#d97706', bg: '#fffbeb', border: '#fde68a', emoji: '🟡', label: daysRemaining <= 3 && daysRemaining >= 0 ? `${daysRemaining} día(s) restante(s)` : 'Etapa ligeramente atrás', etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: `Etapa actual: ${currentStageIdx + 1} · Esperada: ${expectedStage + 1}` };
+                }
+                return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '🟢', label: `${daysRemaining} día(s) restante(s)`, etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: `Etapa ${currentStageIdx + 1} de ${SEMAFORO_ETAPAS.length}` };
+              };
+              const semRed = filteredProjects.filter(p => getSemaforo(p).emoji === '🔴');
+              const semYellow = filteredProjects.filter(p => getSemaforo(p).emoji === '🟡');
+              const semGreen = filteredProjects.filter(p => getSemaforo(p).emoji === '🟢');
+              const semWhite = filteredProjects.filter(p => getSemaforo(p).emoji === '⚪');
+              const semDone = filteredProjects.filter(p => getSemaforo(p).emoji === '✅');
+              const orderedProjects = [...semRed, ...semYellow, ...semGreen, ...semWhite, ...semDone];
+              return (
+                <section
+                  aria-label="Semáforo de producción"
+                  style={{
+                    marginTop: 2,
+                    marginBottom: 4,
+                    padding: '1rem',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                    border: '2px solid #334155',
+                    borderRadius: 14,
+                    boxShadow: '0 8px 28px rgba(15,23,42,0.18)'
+                  }}
+                >
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                    <div>
+                      <div style={{ color: '#94a3b8', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Control de producción</div>
+                      <h3 style={{ margin: '3px 0 0', color: '#f1f5f9', fontSize: '1rem' }}>🚦 Semáforo de producción</h3>
+                      <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: 2 }}>Días hábiles ÷ 6 etapas · Se actuali&shy;za en tiempo real</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {[['🔴', semRed.length, '#fecaca', '#7f1d1d'], ['🟡', semYellow.length, '#fde68a', '#78350f'], ['🟢', semGreen.length, '#bbf7d0', '#14532d'], ['⚪', semWhite.length, '#e2e8f0', '#475569'], ['✅', semDone.length, '#a7f3d0', '#065f46']].map(([emoji, count, bg, color]) => (
+                        <span key={emoji} style={{ padding: '0.28rem 0.6rem', borderRadius: 999, background: bg, color, fontSize: '0.72rem', fontWeight: 800 }}>{emoji} {count}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Leyenda de etapas */}
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 0 10px', marginBottom: 10, borderBottom: '1px solid #334155' }}>
+                    {SEMAFORO_ETAPAS.map((etapa, idx) => (
+                      <div key={etapa} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '0.3rem 0.6rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 20 }}>
+                        <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#334155', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>{idx + 1}</span>
+                        <span style={{ color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{etapa}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Lista de clientes */}
+                  {orderedProjects.length === 0 ? (
+                    <div style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.82rem' }}>No hay proyectos en producción.</div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 10 }}>
+                      {orderedProjects.map(project => {
+                        const sem = getSemaforo(project);
+                        const schedule = projectSchedules.get(project.id);
+                        const stageIdx = productionStageIndex(project);
+                        return (
+                          <button
+                            key={project.id}
+                            type="button"
+                            id={`semaforo-cliente-${project.id}`}
+                            onClick={() => selectProductionProject(project)}
+                            style={{
+                              display: 'flex', flexDirection: 'column', gap: 8,
+                              padding: '0.85rem 1rem',
+                              background: '#1e293b',
+                              border: `2px solid ${sem.border}`,
+                              borderLeft: `6px solid ${sem.color}`,
+                              borderRadius: 12,
+                              textAlign: 'left', cursor: 'pointer',
+                              transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 20px rgba(0,0,0,0.3)`; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                          >
+                            {/* Fila superior: nombre + semáforo */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                              <div style={{ minWidth: 0 }}>
+                                <strong style={{ display: 'block', color: '#f1f5f9', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {project.name || 'Cliente sin nombre'}
+                                </strong>
+                                <span style={{ display: 'block', marginTop: 2, color: '#94a3b8', fontSize: '0.71rem' }}>
+                                  {project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}
+                                </span>
+                              </div>
+                              <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.4rem', lineHeight: 1 }}>{sem.emoji}</div>
+                                <div style={{ marginTop: 3, fontSize: '0.62rem', fontWeight: 800, color: sem.color, whiteSpace: 'nowrap' }}>{sem.label}</div>
+                              </div>
+                            </div>
+
+                            {/* Etapa actual */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ display: 'flex', gap: 3, flex: 1 }}>
+                                {SEMAFORO_ETAPAS.map((_, idx) => {
+                                  const done = idx < stageIdx || project.status === 'ENTREGADO';
+                                  const curr = idx === stageIdx && project.status !== 'ENTREGADO';
+                                  return (
+                                    <div key={idx} style={{
+                                      flex: 1, height: 6, borderRadius: 999,
+                                      background: done ? sem.color : curr ? sem.color : '#334155',
+                                      opacity: curr ? 1 : done ? 0.85 : 0.3,
+                                      transition: 'all 0.2s ease'
+                                    }} />
+                                  );
+                                })}
+                              </div>
+                              <span style={{ flexShrink: 0, fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>
+                                {project.status === 'ENTREGADO' ? '6/6' : `${stageIdx + 1}/6`}
+                              </span>
+                            </div>
+
+                            {/* Etapa + días */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 600 }}>
+                                {sem.etapa}
+                              </span>
+                              {schedule && project.status !== 'ENTREGADO' && (
+                                <span style={{ fontSize: '0.65rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                  {schedule.elapsedDays}d / {schedule.plannedDays}d hábiles
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
             {overviewStage === null ? (
             <section aria-label="Calendario de producción" style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
