@@ -243,17 +243,19 @@ header h1 {
   }
 }
 
-.print-only {
+.print-only, .print-only-grid {
   display: none !important;
 }
 
 @media print {
   .print-only { display: block !important; }
+  .print-only-grid { display: grid !important; }
   .no-print { display: none !important; }
 }
 
 /* Reglas cuando html2pdf está generando */
 .pdf-exporting .print-only { display: block !important; }
+.pdf-exporting .print-only-grid { display: grid !important; }
 .pdf-exporting .no-print { display: none !important; }
 
 .pdf-exporting #cotizacion-doc {

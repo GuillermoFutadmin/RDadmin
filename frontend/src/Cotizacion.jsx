@@ -1054,19 +1054,77 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
         {/* Anexo de Imágenes de Referencia */}
         {(() => {
-          const validPreviewImages = imagePreview.filter(Boolean);
-          const hasFieldPhotos = Object.keys(fieldPhotos).length > 0;
-          const hasCroquisPhotos = croquisPhotos.length > 0;
-          
+          const spaceList = (p.space_image_path ? p.space_image_path.split(',') : [])
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(resolveUrl);
+
+          const rawRef = p.reference_image_path 
+            ? p.reference_image_path.split(',') 
+            : (p.design_image_path ? [p.design_image_path] : []);
+          const refList = rawRef
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(resolveUrl);
+
+          // Armar lista completa de imágenes para el PDF:
+          const annexImages = [];
+          const seen = new Set();
+
+          // 1. Fotos del Espacio de Prospectos (todas las que se hayan capturado)
+          spaceList.forEach((src, idx) => {
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              annexImages.push({ src, label: `Foto del Espacio ${idx + 1}` });
+            }
+          });
+
+          // 2. Fotos de Referencia de Prospectos (todas las que se hayan capturado)
+          refList.forEach((src, idx) => {
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              annexImages.push({ src, label: `Imagen de Referencia ${idx + 1}` });
+            }
+          });
+
+          // 3. Fotos manuales adicionales (imagePreview) si el usuario cargó fotos directamente aquí
+          imagePreview.forEach((src, idx) => {
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              annexImages.push({ src, label: `Foto Adicional ${idx + 1}` });
+            }
+          });
+
+          // 4. Fotos asociadas a medidas
+          Object.entries(fieldPhotos || {}).forEach(([key, src]) => {
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              annexImages.push({ src, label: `Medida: ${key}` });
+            }
+          });
+
+          // 5. Croquis
+          (croquisPhotos || []).forEach((src, idx) => {
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              annexImages.push({ src, label: `Croquis ${idx + 1}` });
+            }
+          });
+
+          const hasAnyImages = annexImages.length > 0;
+          if (!hasAnyImages) return null;
+
           return (
             <div style={{ marginTop: '3rem', pageBreakBefore: 'always', breakBefore: 'page' }}>
               <h3 style={{ ...secTitle, marginBottom: '1.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias
+                <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias ({annexImages.length})
               </h3>
 
               {/* Controles de carga manual visibles solo en pantalla */}
               <div className="no-print" style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.8rem' }}>Agregar fotos manuales al anexo:</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.8rem' }}>
+                  Fotos manuales adicionales al anexo:
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
                   {[0, 1, 2, 3].map(idx => (
                     <div key={idx} style={{ position: 'relative', border: '2px dashed #cbd5e1', borderRadius: '6px', overflow: 'hidden', aspectRatio: '1', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -1085,35 +1143,43 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                     </div>
                   ))}
                 </div>
+
+                {(spaceList.length > 0 || refList.length > 0) && (
+                  <div style={{ marginTop: '1rem', paddingTop: '0.8rem', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#64748b' }}>
+                    <div style={{ fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}>
+                      ✨ Fotos vinculadas desde Prospectos ({spaceList.length + refList.length}) que se incluirán en el PDF:
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {spaceList.map((src, i) => (
+                        <div key={`sp-${i}`} style={{ width: '60px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', position: 'relative' }}>
+                          <img src={src} alt="Espacio" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '8px', textAlign: 'center' }}>Espacio {i+1}</span>
+                        </div>
+                      ))}
+                      {refList.map((src, i) => (
+                        <div key={`rf-${i}`} style={{ width: '60px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', position: 'relative' }}>
+                          <img src={src} alt="Ref" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '8px', textAlign: 'center' }}>Ref {i+1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
-              
-              {(validPreviewImages.length > 0 || hasFieldPhotos || hasCroquisPhotos) && <div className="print-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-                {imagePreview.map((src, i) => {
-                  if (!src) return null;
-                  const labelStr = i < 2 ? `Foto del Espacio ${i + 1}` : `Referencia ${i - 1}`;
-                  return (
-                    <div key={`ref-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                      <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>{labelStr}</div>
-                      <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
+              {/* Cuadrícula para Impresión / PDF: se muestran TODAS las fotos */}
+              <div className="print-only-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.2rem' }}>
+                {annexImages.map((img, i) => (
+                  <div key={`annex-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid', background: 'white' }}>
+                    <div style={{ background: '#f8fafc', padding: '6px 8px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
+                      {img.label}
                     </div>
-                  );
-                })}
-                
-                {Object.entries(fieldPhotos).map(([key, src]) => (
-                  <div key={`field-${key}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Medida: {key}</div>
-                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
+                    <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'white' }}>
+                      <img src={img.src} alt={img.label} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
+                    </div>
                   </div>
                 ))}
-                
-                {croquisPhotos.map((src, i) => (
-                  <div key={`croq-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Croquis {i+1}</div>
-                    <img src={src} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />
-                  </div>
-                ))}
-              </div>}
+              </div>
             </div>
           );
         })()}
