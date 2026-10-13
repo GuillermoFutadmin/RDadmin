@@ -475,6 +475,40 @@ function Ventas() {
     }
   };
 
+  // ── Copiar machote ────────────────────────────────────────────────────────
+  const copyTemplate = async (type) => {
+    const tpl = templatesDb[type];
+    if (!tpl) return;
+    const input = window.prompt('Nombre del nuevo machote:', `${type} (copia)`);
+    if (input === null) return;
+    const name = input.trim();
+    if (!name) { alert('El nombre no puede estar vacío'); return; }
+    if (templateKeys.some(k => k.toLowerCase() === name.toLowerCase())) {
+      alert('Ya existe un machote con ese nombre');
+      return;
+    }
+    const fresh = (arr = []) => arr.map(i => ({ ...i, id: Date.now() + Math.random() }));
+    const data = {
+      materiales: fresh(tpl.materiales),
+      mano_obra:  fresh(tpl.mano_obra),
+      conceptos:  fresh(tpl.conceptos),
+      created_at: new Date().toISOString()
+    };
+    try {
+      const res = await fetch(`${API}/api/templates/${encodeURIComponent(name)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, data: JSON.stringify(data) }),
+      });
+      if (!res.ok) throw new Error('PUT failed');
+      await fetchTemplates();
+      showToast(`Machote "${name}" copiado ✓`, 'success');
+    } catch (err) {
+      console.error(err);
+      alert('Error al copiar machote');
+    }
+  };
+
   // ── Eliminar machote ──────────────────────────────────────────────────────
   const deleteTemplate = async () => {
     if (!window.confirm(`¿Eliminar el machote "${editProjectType}" permanentemente?`)) return;
@@ -933,7 +967,8 @@ function Ventas() {
               </h3>
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 {templateKeys.map(type => (
-                  <button key={type}
+                  <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                  <button
                     onClick={() => mode === 'capture' ? initFirstSheet(type) : initEditTemplate(type)}
                     style={{
                       padding: '16px 36px', fontSize: '1.1rem', background: 'white',
@@ -948,6 +983,13 @@ function Ventas() {
                       </span>
                     )}
                   </button>
+                  {mode === 'edit' && (
+                    <button onClick={() => copyTemplate(type)}
+                      style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#8b5a2b', cursor: 'pointer', fontWeight: 'bold' }}>
+                      📋 Copiar
+                    </button>
+                  )}
+                  </div>
                 ))}
               </div>
 
