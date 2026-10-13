@@ -258,6 +258,21 @@ header h1 {
 .pdf-exporting .print-only-grid { display: grid !important; }
 .pdf-exporting .no-print { display: none !important; }
 
+.pdf-exporting .pdf-photo-page {
+  display: flex !important;
+  page-break-before: always !important;
+  break-before: page !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+.pdf-exporting .pdf-avoid-break,
+.pdf-exporting li,
+.pdf-exporting tr {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
 .pdf-exporting #cotizacion-doc {
   border: none !important;
   box-shadow: none !important;

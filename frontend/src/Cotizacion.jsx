@@ -358,7 +358,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] }
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'], avoid: ['.pdf-avoid-break', '.pdf-photo-page', 'li', 'tr'] }
     };
     
     const cleanup = () => {
@@ -1020,10 +1020,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         })()}
 
         {/* Observaciones */}
-        <div style={{ marginBottom: '2rem', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6' }}>
+        <div className="pdf-avoid-break" style={{ marginBottom: '2rem', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <h3 style={secTitle}><span className="no-print">📌 </span>Observaciones</h3>
           <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-            <li style={{ marginBottom: '0.4rem' }}>
+            <li style={{ marginBottom: '0.4rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               {(() => {
                 const fmtCur = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
                 const numTotal = parseFloat(String(quoteTotal).replace(/[^\d.-]/g, '')) || 0;
@@ -1039,12 +1039,12 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 );
               })()}
             </li>
-            <li style={{ marginBottom: '0.3rem' }}>El costo del render del proyecto se incluye en el anticipo.</li>
-            <li style={{ marginBottom: '0.3rem' }}>Un año de garantía por defectos de fabricación, sujeta a previa revisión.</li>
-            <li style={{ marginBottom: '0.3rem' }}>Todo cambio una vez empezada la producción tendrá costo extra.</li>
-            <li style={{ marginBottom: '0.3rem' }}><strong>No incluye:</strong> jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.</li>
-            <li style={{ marginBottom: '0.3rem' }}>No hay devolución del anticipo en caso de cancelación.</li>
-            <li style={{ marginBottom: '0.3rem' }}>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>El costo del render del proyecto se incluye en el anticipo.</li>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>Un año de garantía por defectos de fabricación, sujeta a previa revisión.</li>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>Todo cambio una vez empezada la producción tendrá costo extra.</li>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}><strong>No incluye:</strong> jaladeras y cubierta, instalación de aparatos eléctricos, trabajos eléctricos en mueblería, fontanería u otros servicios similares, nuestros servicios se limitan únicamente a la fabricación e instalación de muebles de carpintería.</li>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>No hay devolución del anticipo en caso de cancelación.</li>
+            <li style={{ marginBottom: '0.3rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               Cotización válida por 
               <input type="number" value={validez} onChange={e => setValidez(e.target.value)} style={{ width: '45px', ...inputDash, textAlign: 'center', padding: '0.1rem 0.2rem', fontSize: '0.85rem', margin: '0 4px' }} />
               días naturales.
@@ -1071,7 +1071,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           const annexImages = [];
           const seen = new Set();
 
-          // 1. Fotos del Espacio de Prospectos (todas las que se hayan capturado)
+          // 1. Fotos del Espacio de Prospectos
           spaceList.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
@@ -1079,7 +1079,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             }
           });
 
-          // 2. Fotos de Referencia de Prospectos (todas las que se hayan capturado)
+          // 2. Fotos de Referencia de Prospectos
           refList.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
@@ -1087,7 +1087,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             }
           });
 
-          // 3. Fotos manuales adicionales (imagePreview) si el usuario cargó fotos directamente aquí
+          // 3. Fotos manuales adicionales (imagePreview)
           imagePreview.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
@@ -1111,19 +1111,20 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             }
           });
 
-          const hasAnyImages = annexImages.length > 0;
-          if (!hasAnyImages) return null;
+          if (annexImages.length === 0) return null;
+
+          // Agrupar en exactamente 2 fotos por hoja:
+          const photoPages = [];
+          for (let i = 0; i < annexImages.length; i += 2) {
+            photoPages.push(annexImages.slice(i, i + 2));
+          }
 
           return (
-            <div style={{ marginTop: '3rem', pageBreakBefore: 'always', breakBefore: 'page' }}>
-              <h3 style={{ ...secTitle, marginBottom: '1.5rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                <span className="no-print">📸 </span>Anexo: Imágenes del Proyecto y Referencias ({annexImages.length})
-              </h3>
-
+            <div>
               {/* Controles de carga manual visibles solo en pantalla */}
-              <div className="no-print" style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.8rem' }}>
-                  Fotos manuales adicionales al anexo:
+              <div className="no-print" style={{ marginTop: '2rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.8rem' }}>
+                  📸 Anexo: Imágenes del Proyecto y Referencias ({annexImages.length} fotos — 2 por hoja en PDF)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
                   {[0, 1, 2, 3].map(idx => (
@@ -1147,7 +1148,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 {(spaceList.length > 0 || refList.length > 0) && (
                   <div style={{ marginTop: '1rem', paddingTop: '0.8rem', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#64748b' }}>
                     <div style={{ fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}>
-                      ✨ Fotos vinculadas desde Prospectos ({spaceList.length + refList.length}) que se incluirán en el PDF:
+                      ✨ Fotos vinculadas desde Prospectos ({spaceList.length + refList.length}) que se imprimirán a 2 fotos por hoja:
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {spaceList.map((src, i) => (
@@ -1166,31 +1167,117 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                   </div>
                 )}
               </div>
-              
-              {/* Cuadrícula para Impresión / PDF: se muestran TODAS las fotos */}
-              <div className="print-only-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.2rem' }}>
-                {annexImages.map((img, i) => (
-                  <div key={`annex-${i}`} style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', pageBreakInside: 'avoid', breakInside: 'avoid', background: 'white' }}>
-                    <div style={{ background: '#f8fafc', padding: '6px 8px', fontSize: '0.8rem', fontWeight: 'bold', textAlign: 'center', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
-                      {img.label}
-                    </div>
-                    <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'white' }}>
-                      <img src={img.src} alt={img.label} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
-                    </div>
+
+              {/* Hojas del PDF: exactamente 2 fotos por hoja */}
+              {photoPages.map((pair, pageIdx) => (
+                <div
+                  key={`photo-page-${pageIdx}`}
+                  className="print-only pdf-photo-page"
+                  style={{
+                    pageBreakBefore: 'always',
+                    breakBefore: 'page',
+                    pageBreakInside: 'avoid',
+                    breakInside: 'avoid',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-start',
+                    paddingTop: '0.6rem',
+                    marginBottom: '1rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #fed7aa', paddingBottom: '0.4rem', marginBottom: '1.2rem' }}>
+                    <h3 style={{ fontSize: '0.92rem', fontWeight: '800', color: '#f97316', margin: 0 }}>
+                      📸 Anexo: Imágenes del Proyecto y Referencias
+                    </h3>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
+                      Anexo Hoja {pageIdx + 1} de {photoPages.length} · Fotos {pageIdx * 2 + 1}{pair.length > 1 ? `-${pageIdx * 2 + pair.length}` : ''} de {annexImages.length}
+                    </span>
                   </div>
-                ))}
-              </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.4rem'
+                  }}>
+                    {pair.map((img, imgIdx) => (
+                      <div
+                        key={`img-${pageIdx}-${imgIdx}`}
+                        className="pdf-avoid-break"
+                        style={{
+                          border: '1.5px solid #cbd5e1',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          pageBreakInside: 'avoid',
+                          breakInside: 'avoid',
+                          background: 'white'
+                        }}
+                      >
+                        <div style={{
+                          background: '#f8fafc',
+                          padding: '6px 12px',
+                          fontSize: '0.82rem',
+                          fontWeight: 'bold',
+                          color: '#334155',
+                          borderBottom: '1px solid #e2e8f0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <span>{img.label}</span>
+                          <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 'normal' }}>
+                            {pageIdx * 2 + imgIdx + 1} / {annexImages.length}
+                          </span>
+                        </div>
+                        <div style={{
+                          height: pair.length === 1 ? '480px' : '330px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '8px',
+                          background: 'white'
+                        }}>
+                          <img
+                            src={img.src}
+                            alt={img.label}
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain',
+                              display: 'block'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })()}
 
         {/* Pie de página oficial */}
-        <div style={{ textAlign: 'center', marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/logo-leather.png" alt="Sello RD Carpinteria" style={{ width: '160px', height: '160px', objectFit: 'contain', marginBottom: '0.8rem', borderRadius: '50%' }} />
-          <p style={{ margin: '0 0 0.3rem 0', fontSize: '0.95rem', fontWeight: '700', color: '#334155' }}>
+        <div
+          className="pdf-avoid-break"
+          style={{
+            textAlign: 'center',
+            marginTop: '2.5rem',
+            paddingTop: '1.5rem',
+            borderTop: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            pageBreakInside: 'avoid',
+            breakInside: 'avoid'
+          }}
+        >
+          <img src="/logo-leather.png" alt="Sello RD Carpinteria" style={{ width: '130px', height: '130px', objectFit: 'contain', marginBottom: '0.6rem', borderRadius: '50%' }} />
+          <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.92rem', fontWeight: '700', color: '#334155' }}>
             Documento oficial de RD Carpintería
           </p>
-          <a href="https://rdcarpinteria.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem', color: '#2563eb', textDecoration: 'none', fontWeight: '500' }}>
+          <a href="https://rdcarpinteria.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.82rem', color: '#2563eb', textDecoration: 'none', fontWeight: '500' }}>
             https://rdcarpinteria.com/
           </a>
         </div>
