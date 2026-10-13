@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -28,6 +28,17 @@ engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=0, pool_timeout=5
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 sys.path.insert(0, str(ROOT_DIR / "backend"))
 import models  # noqa: E402
+
+# Ensure any recently-added columns exist in this database instance.
+def _safe_alter(sql: str) -> None:
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(sql))
+    except Exception:  # noqa: BLE001
+        pass
+
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS other_projects VARCHAR;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;")
 
 app = FastAPI(title="RDadmin Client Portal")
 
@@ -142,27 +153,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
     if not public_id or not req.password:
         raise HTTPException(status_code=401, detail="ID o contraseña incorrectos")
 
-    project = db.query(
-        models.Prospect.id,
-        models.Prospect.public_id,
-        models.Prospect.contract_password,
-        models.Prospect.name,
-        models.Prospect.project_type,
-        models.Prospect.project_type_other,
-        models.Prospect.other_projects,
-        models.Prospect.restoration_details,
-        models.Prospect.quote_description,
-        models.Prospect.project_priorities,
-        models.Prospect.expectations,
-        models.Prospect.capture_date,
-        models.Prospect.contract_date,
-        models.Prospect.delivery_date,
-        models.Prospect.status,
-        models.Prospect.is_contract,
-        models.Prospect.has_quote,
-        models.Prospect.valuation_data,
-        models.Prospect.production_data,
-    ).filter(
+    project = db.query(models.Prospect).filter(
         models.Prospect.public_id == public_id,
         models.Prospect.contract_password == req.password,
     ).first()
