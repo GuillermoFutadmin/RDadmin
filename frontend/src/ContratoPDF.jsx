@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 const API = import.meta.env.VITE_API_URL || '';
-import { LOGO_LEATHER_B64 } from './logoLeatherB64.js';
 import { FIRMA_ROGER_B64 } from './firmaRogerB64.js';
 import { SignaturePad } from './SignaturePad';
 import { PhotoCapture } from './PhotoCapture';
@@ -477,13 +476,6 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             {obsItems.map((obs, i) => <li key={i}>{obs}</li>)}
           </ul>
         </div>
-
-        {/* ── Official footer ── */}
-        <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-          <img src={LOGO_LEATHER_B64} alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
-          <p style={{ margin: '10px 0 4px', fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>Documento oficial de RD Carpintería</p>
-          <a href="https://rdcarpinteria.com/" style={{ fontSize: '0.85rem', color: '#2563eb', textDecoration: 'none' }}>https://rdcarpinteria.com/</a>
-        </div>
       </div>
 
       {/* Hidden container exclusively for PDF export to render pure HTML blocks */}
@@ -556,12 +548,6 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
           <ul style={{ paddingLeft: '18px', marginTop: '6px' }}>
             {obsItems.map((obs, i) => <li key={i} style={{ marginBottom: '4px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>{obs}</li>)}
           </ul>
-        </div>
-
-        <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', textAlign: 'center', pageBreakInside: 'avoid' }}>
-          <img src={LOGO_LEATHER_B64} alt="RD Carpintería" style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '50%' }} />
-          <p style={{ margin: '10px 0 4px', fontWeight: 'bold', fontSize: '14px', color: '#1e293b' }}>Documento oficial de RD Carpintería</p>
-          <p style={{ margin: 0, fontSize: '12px', color: '#2563eb' }}>https://rdcarpinteria.com/</p>
         </div>
 
         {/* Anexo de Evidencias (Only included if photos are captured) */}
