@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Date
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Date, Text
 from database import Base
 import datetime
 
@@ -106,6 +106,15 @@ class Prospect(Base):
     contract_signature_client = Column(String, nullable=True)
     contract_photo_rep = Column(String, nullable=True)
     contract_photo_client = Column(String, nullable=True)
+
+class ImagesBackup(Base):
+    """Copia íntegra (base64 original) de cada campo antes de migrar sus imágenes a Cloudinary."""
+    __tablename__ = 'prospects_images_backup'
+    id = Column(Integer, primary_key=True, index=True)
+    prospect_id = Column(Integer, index=True)
+    field = Column(String)
+    original = Column(Text)
+    backed_up_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Template(Base):
     __tablename__ = 'templates'

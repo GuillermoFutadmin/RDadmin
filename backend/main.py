@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
 import models, os, shutil, uuid
+import imagestore
 from database import engine, get_db
 import cloudinary
 import cloudinary.uploader
@@ -72,6 +73,20 @@ import store
 app.include_router(users.router)
 app.include_router(collaborators.router)
 app.include_router(store.router)
+
+@app.on_event("startup")
+async def migrate_images_on_startup():
+    """Mueve a Cloudinary las imágenes base64 existentes (con respaldo previo)."""
+    imagestore.start_background_migration()
+
+
+@app.get("/api/admin/images-status")
+def images_status(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    pending = db.execute(text("SELECT COUNT(*) FROM prospects WHERE estimation_data LIKE '%data:image%'")).scalar()
+    backups = db.execute(text("SELECT COUNT(*) FROM prospects_images_backup")).scalar()
+    return {"pending_base64_records": pending, "backup_rows": backups, "cloudinary": imagestore.cloudinary_ready()}
+
 
 @app.on_event("startup")
 async def seed_on_startup():
@@ -387,6 +402,9 @@ def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = De
     for key, value in prospect.dict(exclude_unset=True).items():
         # Prevent overriding read-only fields on update if they happen to be in the payload
         if key not in ['id', 'public_id', 'capture_date']:
+            if key == 'estimation_data' and isinstance(value, str) and 'data:image' in value:
+                # Las fotos y croquis nuevos se guardan en Cloudinary; si fallan, se conserva el base64.
+                value, _, _ = imagestore.externalize_json(value, prospect_id)
             setattr(db_prospect, key, value)
     db.commit()
     db.refresh(db_prospect)

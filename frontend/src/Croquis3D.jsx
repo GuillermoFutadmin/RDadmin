@@ -123,7 +123,11 @@ const Croquis3D = forwardRef((props, ref) => {
       if (!canvas || !dataUrl) return;
       const ctx = canvas.getContext('2d');
       const img = new Image();
+      // Necesario para que el lienzo no quede "contaminado" al cargar una URL de Cloudinary
+      // (de lo contrario getSketchData fallaría al guardar o capturar).
+      img.crossOrigin = 'anonymous';
       img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, 0, 0); scheduleAutoSave(); };
+      img.onerror = () => console.error('No se pudo cargar el croquis guardado');
       img.src = dataUrl;
     },
     clearCanvas: () => initCanvas()
