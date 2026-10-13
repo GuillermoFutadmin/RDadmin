@@ -54,8 +54,38 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     return 'COTIZACIÓN DE PROYECTO';
   };
 
+  const getOtherProjectsList = () => {
+    let list = [];
+    if (Array.isArray(p.other_projects)) {
+      list = p.other_projects;
+    } else if (typeof p.other_projects === 'string' && p.other_projects.trim()) {
+      try {
+        const parsed = JSON.parse(p.other_projects);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch(e) {}
+    }
+    if (!list.length && typeof p.project_type_other === 'string' && p.project_type_other.trim()) {
+      try {
+        if (p.project_type_other.startsWith('[')) {
+          const parsed = JSON.parse(p.project_type_other);
+          if (Array.isArray(parsed)) list = parsed;
+        }
+      } catch(e) {}
+    }
+    if (!list.length && p.project_type_other) {
+      const rawNames = p.project_type_other.split(',').map(s => s.trim()).filter(Boolean);
+      const rawSpecs = (p.other_measurements || '').split('|').map(s => s.trim()).filter(Boolean);
+      list = rawNames.map((name, idx) => ({
+        name,
+        measurements: rawSpecs[idx] || (idx === 0 && p.other_measurements !== '0' ? p.other_measurements : '')
+      }));
+    }
+    return (list || []).filter(item => item && (item.name || item.measurements));
+  };
+
   const getDefaultDesc = () => {
     let desc = [];
+    const otherProjectsList = getOtherProjectsList();
     if (p.project_type) {
       desc.push(`• Proyecto: Fabricación de ${p.project_type.toLowerCase()}`);
       const types = p.project_type.split(',').map(s => s.trim().toUpperCase());
@@ -77,27 +107,12 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           }
         }
         if (pt === 'OTROS') {
-          let parsedOthers = [];
-          try {
-            if (p.other_projects && p.other_projects.startsWith('[')) {
-              parsedOthers = JSON.parse(p.other_projects);
-            } else if (p.project_type_other && p.project_type_other.startsWith('[')) {
-              parsedOthers = JSON.parse(p.project_type_other);
-            }
-          } catch(e) {}
-          if (!parsedOthers.length && p.project_type_other) {
-            const rawNames = p.project_type_other.split(',').map(s => s.trim()).filter(Boolean);
-            const rawSpecs = (p.other_measurements || '').split('|').map(s => s.trim()).filter(Boolean);
-            parsedOthers = rawNames.map((name, idx) => ({
-              name,
-              measurements: rawSpecs[idx] || (idx === 0 && p.other_measurements !== '0' ? p.other_measurements : '')
-            }));
-          }
-          if (parsedOthers.length > 0) {
-            parsedOthers.forEach(item => {
-              if (item.name) {
-                subItems.push(`- ${item.name}${item.measurements ? `: ${item.measurements}` : ''}`);
-              }
+          if (otherProjectsList.length > 0) {
+            otherProjectsList.forEach((item, idx) => {
+              const rawName = (item.name || '').trim();
+              const label = rawName ? (rawName.startsWith('#') ? rawName : `#${idx + 1} ${rawName}`) : `Proyecto #${idx + 1}`;
+              const cleanMeas = (item.measurements || '').replace(/\r?\n/g, ' · ').trim();
+              subItems.push(`- ${label}: ${cleanMeas || 'Fabricación sobre diseño y especificaciones'}`);
             });
           } else if (p.other_measurements) {
             subItems.push(`- Medidas: ${p.other_measurements}`);
@@ -132,10 +147,22 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         if (pt === 'ASADOR' && p.outdoor_kitchen_measurements) subItems.push(`- Medidas: ${p.outdoor_kitchen_measurements}`);
         
         if (subItems.length > 0) {
-          desc.push(`\n${pt}:`);
+          const headerName = pt === 'OTROS' ? 'PROYECTOS A FABRICAR (OTROS)' : pt;
+          desc.push(`\n${headerName}:`);
           subItems.forEach(item => desc.push(`  ${item}`));
         }
       });
+
+      // Si no incluía 'OTROS' en project_type pero sí capturó proyectos en la lista:
+      if (!types.includes('OTROS') && otherProjectsList.length > 0) {
+        desc.push(`\nPROYECTOS ADICIONALES:`);
+        otherProjectsList.forEach((item, idx) => {
+          const rawName = (item.name || '').trim();
+          const label = rawName ? (rawName.startsWith('#') ? rawName : `#${idx + 1} ${rawName}`) : `Proyecto #${idx + 1}`;
+          const cleanMeas = (item.measurements || '').replace(/\r?\n/g, ' · ').trim();
+          desc.push(`  - ${label}: ${cleanMeas || 'Fabricación sobre diseño y especificaciones'}`);
+        });
+      }
     }
     
     // Materiales, colores, encimera y herrajes se muestran en fichas visuales 
@@ -149,12 +176,39 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     const designDetails = typeof p.design_details === 'string'
       ? p.design_details.replace(/\s*\r?\n\s*/g, ' ').trim()
       : '';
-    const descriptionLines = (p.quote_description || getDefaultDesc())
+    
+    const others = getOtherProjectsList();
+    let baseDesc = p.quote_description;
+
+    // Si ya existe quote_description, pero hay proyectos capturados en OTROS y
+    // quote_description no contiene ninguno de esos proyectos (o solo la descripción genérica anterior):
+    if (others.length > 0) {
+      const hasAnyOtherInDesc = baseDesc && others.some(o => o.name && baseDesc.toLowerCase().includes(o.name.trim().toLowerCase()));
+      if (!hasAnyOtherInDesc) {
+        baseDesc = getDefaultDesc();
+      }
+    }
+
+    if (!baseDesc) {
+      baseDesc = getDefaultDesc();
+    }
+
+    const descriptionLines = baseDesc
       .split('\n')
       .filter(line => !line.trim().toLowerCase().startsWith(`${designLabel.toLowerCase()}:`));
 
     if (designDetails) descriptionLines.push(`${designLabel}: ${designDetails}`);
     return descriptionLines.join('\n').trim();
+  };
+
+  const handleSyncProspectProjects = () => {
+    const freshDesc = getDefaultDesc();
+    const designLabel = 'Descripción del diseño / notas del espacio';
+    const designDetails = typeof p.design_details === 'string' ? p.design_details.replace(/\s*\r?\n\s*/g, ' ').trim() : '';
+    const lines = freshDesc.split('\n').filter(line => !line.trim().toLowerCase().startsWith(`${designLabel.toLowerCase()}:`));
+    if (designDetails) lines.push(`${designLabel}: ${designDetails}`);
+    setQuoteDesc(lines.join('\n').trim());
+    setIsEditingDesc(false);
   };
 
   const [quoteTitle, setQuoteTitle] = React.useState(p.quote_title || getDefaultTitle());
@@ -496,11 +550,23 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', alignItems: 'start' }}>
             <div>
-              <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b' }}>Descripción detallada (Secciones, materiales, exclusiones):</label>
-                <button type="button" onClick={() => setIsEditingDesc(!isEditingDesc)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', background: isEditingDesc ? '#3b82f6' : '#e2e8f0', color: isEditingDesc ? 'white' : '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' }}>
-                  {isEditingDesc ? <><span>👁️</span> Ver Formato Final</> : <><span>✏️</span> Editar Texto</>}
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button 
+                    type="button" 
+                    onClick={handleSyncProspectProjects} 
+                    title="Recargar los proyectos y especificaciones capturados en Prospectos"
+                    style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', background: '#fff7ed', color: '#c2410c', border: '1.5px solid #fed7aa', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#ffedd5'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; }}
+                  >
+                    <span>🔄</span> Sincronizar Proyectos
+                  </button>
+                  <button type="button" onClick={() => setIsEditingDesc(!isEditingDesc)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', background: isEditingDesc ? '#3b82f6' : '#e2e8f0', color: isEditingDesc ? 'white' : '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' }}>
+                    {isEditingDesc ? <><span>👁️</span> Ver Formato Final</> : <><span>✏️</span> Editar Texto</>}
+                  </button>
+                </div>
               </div>
               {isEditingDesc && (
                 <textarea 
@@ -524,7 +590,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                         if (isHeader) {
                           return (
                             <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                              <td colSpan={hasImages ? 3 : 2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155' }}>
+                              <td colSpan={hasImages ? 3 : 2} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '0.45rem 0.7rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#334155', fontSize: '0.82rem', letterSpacing: '0.04em' }}>
                                 {line}
                               </td>
                             </tr>
@@ -535,10 +601,33 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                           const valStr = parts.slice(1).join(':').trim();
                           const valUpper = valStr.toUpperCase();
                           const matchedImg = layoutImages.find(img => img.name === valUpper);
+                          const cleanLabel = parts[0].replace(/^- /g, '').trim();
+                          const isNumberedProject = /^#\d+/i.test(cleanLabel);
                           return (
                             <tr key={i} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', fontWeight: 'bold', width: '32%', background: '#f8fafc', lineHeight: '1.4', verticalAlign: 'top', overflowWrap: 'anywhere' }}>{parts[0].replace(/^- /g, '').trim()}</td>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem 0.6rem', width: '38%', lineHeight: '1.4', verticalAlign: 'top' }}>{valStr}</td>
+                              <td style={{
+                                border: '1px solid #cbd5e1',
+                                padding: '0.45rem 0.7rem',
+                                fontWeight: 'bold',
+                                width: hasImages ? '32%' : '35%',
+                                background: isNumberedProject ? '#fffaf5' : '#f8fafc',
+                                color: isNumberedProject ? '#c2410c' : '#1e293b',
+                                lineHeight: '1.4',
+                                verticalAlign: 'top',
+                                overflowWrap: 'anywhere'
+                              }}>
+                                {cleanLabel}
+                              </td>
+                              <td style={{
+                                border: '1px solid #cbd5e1',
+                                padding: '0.45rem 0.7rem',
+                                width: hasImages ? '38%' : '65%',
+                                lineHeight: '1.4',
+                                verticalAlign: 'top',
+                                color: '#334155'
+                              }}>
+                                {valStr}
+                              </td>
                               {hasImages && (
                                 <td style={{ border: '1px solid #cbd5e1', padding: '0.4rem', width: '30%', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
                                   {matchedImg && (
