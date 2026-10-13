@@ -1126,9 +1126,15 @@ function Pedidos() {
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
+                  {currentStage <= 0 && selected.status !== 'ENTREGADO' ? (
+                    <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.55 : 1 }}>
+                      ↩ Regresar a contrato
+                    </button>
+                  ) : (
                   <button type="button" disabled={saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer', opacity: currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 0.55 : 1 }}>
                     {currentStage > 0 && selected.status !== 'ENTREGADO' ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
                   </button>
+                  )}
                   <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
                 </div>
               </div>
