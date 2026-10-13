@@ -300,8 +300,25 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     `Cotización válida por ${prospect.quote_validez || '10'} días naturales.`
   ];
 
+  const [saved, setSaved] = useState(false);
+
   const handleGeneratePDF = async () => {
     setSaving(true);
+    try {
+      await onSaveStatus();
+      setSaved(true);
+    } catch (e) {
+      console.error(e);
+      alert('Error guardando el contrato: ' + e.message);
+      setSaving(false);
+      return;
+    }
+    // Deja que el botón se pinte en verde antes de mostrar la pregunta
+    await new Promise(r => setTimeout(r, 150));
+    if (!window.confirm('✅ Contrato guardado. ¿Quieres descargar el PDF?')) {
+      setSaving(false);
+      return;
+    }
     try {
       const element = document.getElementById('contrato-doc-export');
       const filename = `Contrato_${prospect.public_id || prospect.id}_${prospect.name || 'Cliente'}.pdf`;
@@ -363,7 +380,6 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       }).save().then(() => {
         element.style.display = 'none';
       });
-      await onSaveStatus();
       setSaving(false);
 
     } catch (e) {
@@ -399,8 +415,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         <button
           onClick={handleGeneratePDF}
           disabled={saving}
-          style={{ padding: '0.55rem 1.4rem', background: saving ? '#94a3b8' : '#8b5cf6', color: 'white', border: 'none', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          {saving ? '⏳ Generando PDF...' : '💾 Guardar y Descargar PDF'}
+          style={{ padding: '0.55rem 1.4rem', background: saving ? '#94a3b8' : saved ? '#16a34a' : '#8b5cf6', color: 'white', border: 'none', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          {saving ? '⏳ Procesando...' : saved ? '✅ Guardado — Descargar PDF' : '💾 Guardar y Descargar PDF'}
         </button>
       </div>
 
