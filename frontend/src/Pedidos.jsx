@@ -76,6 +76,20 @@ const formatDate = (value) => value
   ? new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Pendiente';
 
+const formatReadableDate = (dateKey) => {
+  if (!dateKey) return '';
+  const parts = String(dateKey).split('-');
+  if (parts.length < 3) return String(dateKey);
+  const [year, month, day] = parts.map(Number);
+  const d = new Date(year, month - 1, day, 12);
+  return d.toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
 const calendarDate = (value) => {
   if (!value) return null;
   const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -241,6 +255,12 @@ function Pedidos() {
   const [showSemaforo, setShowSemaforo] = useState(false);
   const [semaforoSelected, setSemaforoSelected] = useState(null);
   const [semaforoUploadingStage, setSemaforoUploadingStage] = useState(null);
+  const [semaforoSelectedDayKey, setSemaforoSelectedDayKey] = useState(null);
+  const [semaforoAdvanceComment, setSemaforoAdvanceComment] = useState('');
+  const [semaforoAdvanceFiles, setSemaforoAdvanceFiles] = useState([]);
+  const [semaforoAdvancePublished, setSemaforoAdvancePublished] = useState(true);
+  const [semaforoUploadingAdvance, setSemaforoUploadingAdvance] = useState(false);
+  const [semaforoLightboxUrl, setSemaforoLightboxUrl] = useState(null);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -960,6 +980,62 @@ function Pedidos() {
                 'Avance 2 / revisión',
                 'Entrega del proyecto'
               ];
+
+              const getProjectStaleInfo = (project) => {
+                if (project.status === 'ENTREGADO') return { isStale: false, hours: 0 };
+                const prod = normalizeProduction(project.production_data);
+                const timestamps = [];
+                if (prod.started_at) timestamps.push(new Date(prod.started_at).getTime());
+                if (Array.isArray(prod.stages)) {
+                  prod.stages.forEach(stg => {
+                    if (stg.entered_at) timestamps.push(new Date(stg.entered_at).getTime());
+                    if (Array.isArray(stg.photos)) {
+                      stg.photos.forEach(ph => {
+                        const u = ph.uploaded_at || ph.created_at;
+                        if (u) timestamps.push(new Date(u).getTime());
+                      });
+                    }
+                  });
+                }
+                if (Array.isArray(prod.daily_advances)) {
+                  prod.daily_advances.forEach(adv => {
+                    const u = adv.created_at || (adv.date ? `${adv.date}T12:00:00` : null);
+                    if (u) timestamps.push(new Date(u).getTime());
+                  });
+                }
+                if (!timestamps.length && project.updated_at) {
+                  timestamps.push(new Date(project.updated_at).getTime());
+                }
+                if (!timestamps.length && project.contract_date) {
+                  timestamps.push(new Date(project.contract_date).getTime());
+                }
+                const lastTs = timestamps.length ? Math.max(...timestamps) : 0;
+                if (!lastTs) return { isStale: true, hours: 24 };
+                const diffMs = Date.now() - lastTs;
+                const hours = Math.floor(diffMs / (3600 * 1000));
+                return { isStale: hours >= 24, hours };
+              };
+
+              const getProjectBusinessDaysList = (startDate, plannedDays) => {
+                if (!startDate || !Number.isFinite(plannedDays) || plannedDays <= 0) return [];
+                const list = [];
+                const cur = new Date(startDate);
+                cur.setHours(12, 0, 0, 0);
+                let count = 0;
+                while (count < plannedDays) {
+                  if (cur.getDay() !== 0 && cur.getDay() !== 6) {
+                    count += 1;
+                    list.push({
+                      dayNumber: count,
+                      date: new Date(cur),
+                      dateKey: getDateKey(cur)
+                    });
+                  }
+                  cur.setDate(cur.getDate() + 1);
+                }
+                return list;
+              };
+
               const getSemaforo = (project) => {
                 const schedule = projectSchedules.get(project.id);
                 const currentStageIdx = productionStageIndex(project);
@@ -984,6 +1060,7 @@ function Pedidos() {
               const semGreen = filteredProjects.filter(p => getSemaforo(p).emoji === '🟢');
               const semWhite = filteredProjects.filter(p => getSemaforo(p).emoji === '⚪');
               const semDone = filteredProjects.filter(p => getSemaforo(p).emoji === '✅');
+              const semStale = filteredProjects.filter(p => getProjectStaleInfo(p).isStale);
               const orderedProjects = [...semRed, ...semYellow, ...semGreen, ...semWhite, ...semDone];
               return (
                 <section
@@ -1005,7 +1082,12 @@ function Pedidos() {
                       <h3 style={{ margin: '3px 0 0', color: '#f1f5f9', fontSize: '1rem' }}>🚦 Semáforo de producción</h3>
                       <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: 2 }}>Días hábiles ÷ 6 etapas · Se actuali&shy;za en tiempo real</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {semStale.length > 0 && (
+                        <span style={{ padding: '0.28rem 0.65rem', borderRadius: 999, background: '#7f1d1d', color: '#fecaca', border: '1px solid #ef4444', fontSize: '0.72rem', fontWeight: 900, boxShadow: '0 0 10px rgba(239,68,68,0.3)' }}>
+                          🚨 {semStale.length} sin avance &gt;24h
+                        </span>
+                      )}
                       {[['🔴', semRed.length, '#fecaca', '#7f1d1d'], ['🟡', semYellow.length, '#fde68a', '#78350f'], ['🟢', semGreen.length, '#bbf7d0', '#14532d'], ['⚪', semWhite.length, '#e2e8f0', '#475569'], ['✅', semDone.length, '#a7f3d0', '#065f46']].map(([emoji, count, bg, color]) => (
                         <span key={emoji} style={{ padding: '0.28rem 0.6rem', borderRadius: 999, background: bg, color, fontSize: '0.72rem', fontWeight: 800 }}>{emoji} {count}</span>
                       ))}
@@ -1031,6 +1113,7 @@ function Pedidos() {
                         const sem = getSemaforo(project);
                         const schedule = projectSchedules.get(project.id);
                         const stageIdx = productionStageIndex(project);
+                        const staleInfo = getProjectStaleInfo(project);
                         return (
                           <button
                             key={project.id}
@@ -1042,15 +1125,43 @@ function Pedidos() {
                               display: 'flex', flexDirection: 'column', gap: 8,
                               padding: '0.85rem 1rem',
                               background: '#1e293b',
-                              border: `2px solid ${sem.border}`,
-                              borderLeft: `6px solid ${sem.color}`,
+                              border: staleInfo.isStale ? '2px solid #ef4444' : `2px solid ${sem.border}`,
+                              borderLeft: staleInfo.isStale ? '6px solid #ef4444' : `6px solid ${sem.color}`,
                               borderRadius: 12,
                               textAlign: 'left', cursor: 'pointer',
+                              position: 'relative',
+                              boxShadow: staleInfo.isStale ? '0 0 16px rgba(239,68,68,0.22)' : 'none',
                               transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                             }}
                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 20px rgba(0,0,0,0.3)`; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = staleInfo.isStale ? '0 0 16px rgba(239,68,68,0.22)' : 'none'; }}
                           >
+                            {/* Alarma 24 horas sin actividad */}
+                            {staleInfo.isStale && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 6,
+                                padding: '4px 8px',
+                                background: 'linear-gradient(90deg, #991b1b 0%, #dc2626 100%)',
+                                border: '1px solid #f87171',
+                                borderRadius: 7,
+                                color: '#ffffff',
+                                fontSize: '0.64rem',
+                                fontWeight: 900,
+                                boxShadow: '0 2px 8px rgba(220,38,38,0.4)'
+                              }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#fff', boxShadow: '0 0 6px #fff' }} />
+                                  🚨 ALERTA 24H: Sin avance en taller
+                                </span>
+                                <span style={{ background: '#7f1d1d', padding: '1px 5px', borderRadius: 4, fontSize: '0.6rem', fontWeight: 900, border: '1px solid #f87171' }}>
+                                  +{staleInfo.hours}h
+                                </span>
+                              </div>
+                            )}
+
                             {/* Fila superior: nombre + semáforo */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                               <div style={{ minWidth: 0 }}>
@@ -1112,7 +1223,9 @@ function Pedidos() {
                     const sstgs = Array.isArray(sprod.stages) ? sprod.stages : [];
                     const ssched = projectSchedules.get(sp.id);
                     const scIdx = productionStageIndex(sp);
-                    const stageColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
+                    const isDelivered = sp.status === 'ENTREGADO';
+                    const staleInfo = getProjectStaleInfo(sp);
+
                     const getSem = (proj) => {
                       const sc = projectSchedules.get(proj.id);
                       const ci = productionStageIndex(proj);
@@ -1125,82 +1238,169 @@ function Pedidos() {
                     };
                     const sem = getSem(sp);
 
-                    const uploadDailyPhoto = async (file, stageIdx) => {
-                      if (!file) return;
-                      setSemaforoUploadingStage(stageIdx);
+                    // Días y cronograma del proyecto
+                    const sPlannedDays = ssched?.plannedDays || Number.parseInt(sp.production_days, 10) || 30;
+                    const sStartDate = ssched?.startDate || calendarDate(sprod.started_at) || calendarDate(sp.contract_date) || new Date();
+                    const rawProjectDays = getProjectBusinessDaysList(sStartDate, sPlannedDays);
+                    const projectDays = rawProjectDays.length > 0 ? rawProjectDays : getProjectBusinessDaysList(new Date(), 30);
+
+                    // Avances diarios por fecha
+                    const dailyAdvances = Array.isArray(sprod.daily_advances) ? sprod.daily_advances : [];
+                    const advancesByDate = new Map();
+                    dailyAdvances.forEach(adv => {
+                      const k = adv.date || (adv.created_at ? getDateKey(new Date(adv.created_at)) : null);
+                      if (!k) return;
+                      if (!advancesByDate.has(k)) advancesByDate.set(k, []);
+                      advancesByDate.get(k).push(adv);
+                    });
+
+                    const todayKey = getDateKey(new Date());
+                    // Día activo seleccionado (por defecto hoy si está dentro del proyecto, o el primer día)
+                    const activeDayKey = semaforoSelectedDayKey || (projectDays.some(d => d.dateKey === todayKey) ? todayKey : projectDays[0]?.dateKey);
+                    const activeDayObj = projectDays.find(d => d.dateKey === activeDayKey) || projectDays[0];
+                    const activeDayAdvances = activeDayKey ? (advancesByDate.get(activeDayKey) || []) : [];
+
+                    // Subir avance a este día
+                    const handleUploadDayAdvance = async (e) => {
+                      e.preventDefault();
+                      if (!semaforoAdvanceFiles || semaforoAdvanceFiles.length === 0) {
+                        alert('Por favor selecciona al menos una foto.');
+                        return;
+                      }
+                      if (!activeDayKey) {
+                        alert('Selecciona un día del calendario.');
+                        return;
+                      }
+                      setSemaforoUploadingAdvance(true);
                       try {
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        const res = await fetch(`${API}/api/prospects/${sp.id}/production-evidence/${stageIdx}`, { method:'POST', body:fd });
-                        if (!res.ok) throw new Error('No se pudo subir');
-                        const result = await res.json();
-                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: result.production_data } : p));
-                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: result.production_data } : prev);
-                      } catch(e) { setMessage(e.message); }
-                      finally { setSemaforoUploadingStage(null); }
+                        let lastResult = null;
+                        for (const file of semaforoAdvanceFiles) {
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          fd.append('date', activeDayKey);
+                          fd.append('comment', semaforoAdvanceComment);
+                          fd.append('published', semaforoAdvancePublished ? 'true' : 'false');
+                          const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances`, {
+                            method: 'POST',
+                            body: fd
+                          });
+                          if (!res.ok) throw new Error('Error al subir la evidencia diaria');
+                          lastResult = await res.json();
+                        }
+                        if (lastResult) {
+                          setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: lastResult.production_data } : p));
+                          setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: lastResult.production_data } : prev);
+                        }
+                        setSemaforoAdvanceFiles([]);
+                        setSemaforoAdvanceComment('');
+                        setMessage('✅ Evidencia del día guardada correctamente');
+                      } catch (err) {
+                        setMessage('❌ ' + err.message);
+                      } finally {
+                        setSemaforoUploadingAdvance(false);
+                      }
                     };
 
-                    const togglePublish = async (stageIdx, photoUrl) => {
-                      const stg = sstgs[stageIdx] || {};
-                      const photos = Array.isArray(stg.photos) ? stg.photos : [];
-                      const nextPhotos = photos.map(p => {
-                        const u = typeof p === 'string' ? p : p.url;
-                        if (u !== photoUrl) return p;
-                        if (typeof p === 'string') return { url: p, published: true };
-                        return { ...p, published: !p.published };
-                      });
-                      const nextStgs = sstgs.map((s, i) => i === stageIdx ? { ...s, photos: nextPhotos } : s);
-                      const nextProd = { ...sprod, stages: nextStgs };
+                    // Alternar publicación al cliente
+                    const handleToggleDailyPublish = async (advId, currentPublished) => {
                       try {
-                        const res = await fetch(`${API}/api/prospects/${sp.id}`, {
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ production_data: JSON.stringify(nextProd) })
+                          body: JSON.stringify({ published: !currentPublished })
                         });
-                        if (!res.ok) throw new Error('No se pudo actualizar');
+                        if (!res.ok) throw new Error('Error al actualizar visibilidad');
                         const updated = await res.json();
-                        setProjects(cur => cur.map(p => p.id === updated.id ? updated : p));
-                        setSemaforoSelected(prev => prev?.id === updated.id ? updated : prev);
-                      } catch(e) { setMessage(e.message); }
+                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: updated.production_data } : p));
+                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: updated.production_data } : prev);
+                      } catch (err) {
+                        setMessage('❌ ' + err.message);
+                      }
                     };
 
-                    // Recopilar todos los nodos de la línea de tiempo
-                    const lastIdx = STAGE_NAMES.length - 1; // 5: 'Entrega del proyecto'
-                    const isDelivered = sp.status === 'ENTREGADO';
-                    const lastStg = sstgs[lastIdx] || {};
-                    const lastPhotos = Array.isArray(lastStg.photos)
-                      ? lastStg.photos.map(p => typeof p === 'string' ? { url: p, published: false } : p)
-                      : [];
-
-                    const nodes = [
-                      { type:'start', date: ssched?.startDate, label:'Inicio', color:'#3b82f6' },
-                      ...STAGE_NAMES.slice(0, lastIdx).map((name, idx) => {
-                        const stg = sstgs[idx] || {};
-                        const photos = Array.isArray(stg.photos)
-                          ? stg.photos.map(p => typeof p === 'string' ? { url: p, published: false } : p)
-                          : [];
-                        return { type:'stage', idx, name, stg, photos, color: stageColors[idx],
-                          done: idx < scIdx || isDelivered,
-                          active: idx === scIdx && !isDelivered,
-                          date: stg.entered_at ? new Date(stg.entered_at) : null };
-                      }),
-                      {
-                        type: 'stage',
-                        idx: lastIdx,
-                        name: isDelivered ? 'Entregado' : STAGE_NAMES[lastIdx],
-                        stg: lastStg,
-                        photos: lastPhotos,
-                        color: isDelivered ? '#16a34a' : (ssched && ssched.daysRemaining < 0 ? '#ef4444' : stageColors[lastIdx]),
-                        done: isDelivered,
-                        active: scIdx === lastIdx && !isDelivered,
-                        date: isDelivered && sprod.delivered_at
-                          ? new Date(sprod.delivered_at)
-                          : (ssched?.deadline ? new Date(ssched.deadline) : (lastStg.entered_at ? new Date(lastStg.entered_at) : null))
+                    // Eliminar avance
+                    const handleDeleteDailyAdvance = async (advId) => {
+                      if (!window.confirm('¿Eliminar esta foto de avance?')) return;
+                      try {
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}`, {
+                          method: 'DELETE'
+                        });
+                        if (!res.ok) throw new Error('Error al eliminar');
+                        const updated = await res.json();
+                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: updated.production_data } : p));
+                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: updated.production_data } : prev);
+                      } catch (err) {
+                        setMessage('❌ ' + err.message);
                       }
-                    ];
+                    };
+
+                    // Agrupar días del proyecto por semanas (de 5 días hábiles c/u)
+                    const projectWeeks = [];
+                    for (let i = 0; i < projectDays.length; i += 5) {
+                      projectWeeks.push({
+                        weekNum: Math.floor(i / 5) + 1,
+                        days: projectDays.slice(i, i + 5)
+                      });
+                    }
+
+                    // Días transcurridos vs restantes
+                    const totalDays = projectDays.length;
+                    const elapsedDaysCount = projectDays.filter(d => d.dateKey < todayKey).length;
+                    const remainingDaysCount = projectDays.filter(d => d.dateKey > todayKey).length;
+
+                    // Dimensiones para la línea horizontal de todos los días (e.g. 100 días)
+                    const daySlotWidth = 62;
+                    const timelineTrackWidth = Math.max(900, totalDays * daySlotWidth + 120);
+                    const filledProgressWidth = Math.min(timelineTrackWidth - 120, elapsedDaysCount * daySlotWidth);
 
                     return (
                       <div style={{ marginTop:16, padding:'1.25rem', background:'linear-gradient(135deg,#0f172a,#1a2744)', border:`2px solid ${sem.color}44`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
+
+                        {/* Alerta de 24 horas sin actividad si aplica */}
+                        {staleInfo.isStale && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 10,
+                            padding: '0.65rem 1rem',
+                            marginBottom: 16,
+                            background: 'linear-gradient(90deg, #7f1d1d 0%, #991b1b 100%)',
+                            border: '1px solid #ef4444',
+                            borderRadius: 10,
+                            color: '#ffffff',
+                            boxShadow: '0 4px 14px rgba(220,38,38,0.3)'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                              <div>
+                                <strong style={{ display: 'block', fontSize: '0.78rem', color: '#fee2e2' }}>
+                                  ¡ALERTA DE PRODUCCIÓN: +{staleInfo.hours} horas sin reporte en taller!
+                                </strong>
+                                <span style={{ fontSize: '0.68rem', color: '#fca5a5' }}>
+                                  No se ha subido evidencia hoy. Selecciona el día actual en el calendario abajo para registrar fotos y actualizar el semáforo.
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSemaforoSelectedDayKey(todayKey)}
+                              style={{
+                                padding: '0.35rem 0.8rem',
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: 'none',
+                                borderRadius: 7,
+                                fontSize: '0.7rem',
+                                fontWeight: 900,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Ir a HOY y subir foto 📸
+                            </button>
+                          </div>
+                        )}
 
                         {/* Header del panel */}
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:16 }}>
@@ -1208,13 +1408,15 @@ function Pedidos() {
                             <div style={{ color:'#94a3b8', fontSize:'0.65rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.1em' }}>
                               {sp.project_type || 'Proyecto'} · {sp.public_id || `ID ${sp.id}`}
                             </div>
-                            <div style={{ color:'#f1f5f9', fontSize:'1rem', fontWeight:800, marginTop:2 }}>{sp.name}</div>
+                            <div style={{ color:'#ffffff', fontSize:'1.1rem', fontWeight:900, marginTop:2 }}>{sp.name}</div>
                           </div>
                           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
                             <span style={{ padding:'0.25rem 0.7rem', borderRadius:999, background:`${sem.color}22`, color:sem.color, fontSize:'0.72rem', fontWeight:800, border:`1px solid ${sem.color}55` }}>
                               {sem.emoji} {sem.label}
                             </span>
-                            {ssched && <span style={{ color:'#64748b', fontSize:'0.68rem' }}>{ssched.elapsedDays}d / {ssched.plannedDays}d hábiles · {ssched.timeProgress}%</span>}
+                            <span style={{ color:'#cbd5e1', fontSize:'0.72rem', fontWeight:700 }}>
+                              {totalDays} días hábiles contratados · {elapsedDaysCount} días agotados
+                            </span>
                             <button type="button" onClick={() => { setSemaforoSelected(null); selectProductionProject(sp); }}
                               style={{ padding:'0.35rem 0.8rem', border:'1px solid #3b82f6', borderRadius:8, background:'#1d4ed8', color:'#fff', fontSize:'0.7rem', fontWeight:800, cursor:'pointer' }}>
                               📋 Ficha completa
@@ -1224,148 +1426,629 @@ function Pedidos() {
                           </div>
                         </div>
 
-                        {/* Barra de progreso */}
-                        {ssched && (
-                          <div style={{ marginBottom:20 }}>
-                            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.65rem', color:'#64748b', marginBottom:4 }}>
-                              <span>📅 {ssched.startDate.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</span>
-                              <span style={{ color: ssched.daysRemaining < 0 ? '#ef4444':'#22c55e' }}>🏁 {ssched.deadline.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
+                        {/* Barra de resumen */}
+                        <div style={{ display:'flex', gap:10, flexWrap:'wrap', padding:'0.6rem 0.85rem', background:'#0b1329', border:'1px solid #1e293b', borderRadius:10, marginBottom:18 }}>
+                          <span style={{ color:'#ffffff', fontSize:'0.72rem', fontWeight:700 }}>
+                            📅 <strong>Inicio:</strong> {sStartDate.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })}
+                          </span>
+                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#ffffff', fontSize:'0.72rem', fontWeight:700 }}>
+                            🏁 <strong>Compromiso:</strong> {ssched?.deadline ? ssched.deadline.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' }) : 'Calculando...'}
+                          </span>
+                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#38bdf8', fontSize:'0.72rem', fontWeight:800 }}>
+                            ⏳ {elapsedDaysCount} días agotados
+                          </span>
+                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#22c55e', fontSize:'0.72rem', fontWeight:800 }}>
+                            🟢 {remainingDaysCount} días restantes
+                          </span>
+                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#fbbf24', fontSize:'0.72rem', fontWeight:800 }}>
+                            📸 {dailyAdvances.length} fotos de avance
+                          </span>
+                        </div>
+
+                        {/* ── SECCIÓN 1: LÍNEA DE TIEMPO CON TODOS LOS DÍAS (N RAYAS EN 2 NIVELES) ── */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8, marginBottom:8 }}>
+                            <div>
+                              <h4 style={{ margin:0, color:'#ffffff', fontSize:'0.88rem', fontWeight:900 }}>
+                                📏 Línea de tiempo diaria completa ({totalDays} días contratados)
+                              </h4>
+                              <span style={{ color:'#94a3b8', fontSize:'0.67rem' }}>
+                                Rayas de cada uno de los días con fechas en letras blancas alternadas (arriba y abajo en 2 niveles para evitar encimarse). Haz clic en cualquier día para ver sus fotos.
+                              </span>
                             </div>
-                            <div style={{ position:'relative', height:8, background:'#1e3a5f', borderRadius:999, overflow:'hidden' }}>
-                              <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${ssched.timeProgress}%`,
-                                background: ssched.daysRemaining < 0 ? 'linear-gradient(90deg,#dc2626,#f87171)':'linear-gradient(90deg,#2563eb,#22c55e)', borderRadius:999 }} />
+                            <div style={{ display:'flex', gap:6 }}>
+                              <button
+                                type="button"
+                                onClick={() => setSemaforoSelectedDayKey(projectDays[0]?.dateKey)}
+                                style={{ padding:'0.25rem 0.6rem', background:'#1e293b', border:'1px solid #334155', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
+                              >
+                                ⏮ Día 1
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSemaforoSelectedDayKey(todayKey)}
+                                style={{ padding:'0.25rem 0.6rem', background:'#1e3a8a', border:'1px solid #38bdf8', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
+                              >
+                                📍 HOY
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSemaforoSelectedDayKey(projectDays[projectDays.length - 1]?.dateKey)}
+                                style={{ padding:'0.25rem 0.6rem', background:'#1e293b', border:'1px solid #334155', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
+                              >
+                                ⏭ Día {totalDays}
+                              </button>
                             </div>
                           </div>
-                        )}
 
-                        {/* ── TIMELINE HORIZONTAL ── */}
-                        <div style={{ overflowX:'auto', paddingBottom:8 }}>
-                          <div style={{ minWidth: Math.max(700, nodes.length * 160), position:'relative' }}>
+                          {/* Contenedor horizontal scrollable de la línea de tiempo */}
+                          <div
+                            style={{
+                              position: 'relative',
+                              overflowX: 'auto',
+                              padding: '16px 10px',
+                              background: '#090d16',
+                              borderRadius: 12,
+                              border: '1px solid #1e293b',
+                              boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)',
+                              WebkitOverflowScrolling: 'touch'
+                            }}
+                          >
+                            <div style={{ position:'relative', width: timelineTrackWidth, height: 230 }}>
 
-                            {/* Fotos ARRIBA (etapas pares) */}
-                            <div style={{ display:'flex', alignItems:'flex-end', height:130, marginBottom:0 }}>
-                              {nodes.map((node, ni) => (
-                                <div key={ni} style={{ flex:'0 0 auto', width: Math.max(700, nodes.length*160)/nodes.length, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', paddingBottom:8 }}>
-                                  {node.type === 'stage' && ni % 2 === 0 && (
-                                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, width:'100%' }}>
-                                      {/* Fotos de esta etapa (arriba) */}
-                                      <div style={{ display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', maxWidth:140 }}>
-                                        {node.photos.slice(0,3).map((ph, pi) => (
-                                          <div key={pi} style={{ position:'relative' }}>
-                                            <a href={imageUrl(ph.url)} target="_blank" rel="noreferrer">
-                                              <img src={imageUrl(ph.url)} alt="" style={{ width:38, height:38, objectFit:'cover', borderRadius:6,
-                                                border:`2px solid ${ph.published ? '#22c55e' : node.color}66` }} />
-                                            </a>
-                                            <button type="button" title={ph.published ? 'Publicado al cliente – click para ocultar':'Publicar al cliente'}
-                                              onClick={() => togglePublish(node.idx, ph.url)}
-                                              style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%',
-                                                background: ph.published ? '#22c55e':'#475569', border:'1.5px solid #0f172a',
-                                                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.45rem', color:'#fff', fontWeight:900 }}>
-                                              {ph.published ? '✓' : '▶'}
-                                            </button>
-                                          </div>
-                                        ))}
-                                        {node.photos.length > 3 && <span style={{ fontSize:'0.55rem', color:'#64748b', alignSelf:'center' }}>+{node.photos.length-3}</span>}
-                                      </div>
-                                      {/* Upload arriba */}
-                                      <label style={{ cursor:'pointer', opacity:0.7 }}>
-                                        <input type="file" accept="image/*" style={{ display:'none' }}
-                                          onChange={e => e.target.files[0] && uploadDailyPhoto(e.target.files[0], node.idx)} />
-                                        <span style={{ fontSize:'0.55rem', color:'#64748b', background:'#1e293b', border:'1px dashed #475569', borderRadius:5, padding:'2px 5px' }}>
-                                          {semaforoUploadingStage === node.idx ? '⏳' : '+ foto'}
-                                        </span>
-                                      </label>
-                                    </div>
-                                  )}
-                                  {(node.type !== 'stage' || ni % 2 !== 0) && <div />}
-                                </div>
-                              ))}
-                            </div>
+                              {/* Línea horizontal central (fondo completo) */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: 60,
+                                  right: 60,
+                                  top: 110,
+                                  height: 6,
+                                  background: '#1e293b',
+                                  borderRadius: 999
+                                }}
+                              />
 
-                            {/* Línea central + nodos */}
-                            <div style={{ position:'relative', height:40, display:'flex', alignItems:'center' }}>
-                              {/* Línea horizontal */}
-                              <div style={{ position:'absolute', left:'5%', right:'5%', top:'50%', height:3,
-                                background:'linear-gradient(90deg,#1e3a5f,#334155,#1e3a5f)', borderRadius:999 }} />
-                              {nodes.map((node, ni) => {
-                                const x = `${(ni / Math.max(nodes.length-1,1)) * 90 + 5}%`;
-                                const dotColor = node.type==='start' ? '#3b82f6' :
-                                  node.done ? (node.color || '#16a34a') : node.active ? '#f59e0b' : '#334155';
+                              {/* Línea de progreso recorrida (relleno iluminado) */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: 60,
+                                  top: 110,
+                                  width: filledProgressWidth,
+                                  height: 6,
+                                  background: 'linear-gradient(90deg, #2563eb, #10b981)',
+                                  borderRadius: 999,
+                                  boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)'
+                                }}
+                              />
+
+                              {/* Render de cada día del proyecto (todas las rayas y fechas) */}
+                              {projectDays.map((d, idx) => {
+                                const x = 60 + idx * daySlotWidth;
+                                const isPast = d.dateKey < todayKey;
+                                const isToday = d.dateKey === todayKey;
+                                const isFuture = d.dateKey > todayKey;
+                                const isSelected = d.dateKey === activeDayKey;
+                                const dayAdvs = advancesByDate.get(d.dateKey) || [];
+                                const hasPhotos = dayAdvs.length > 0;
+                                const dayNum = d.dayNumber;
+
+                                // Alternar arriba / abajo y 2 niveles de altura para que nunca se encimen
+                                const isEven = dayNum % 2 === 0;
+                                // 2 niveles arriba: nivel 1 más alto (top: 10px), nivel 2 medio (top: 54px)
+                                const topPos = isEven
+                                  ? (dayNum % 4 === 0 ? 10 : 54)
+                                  : (dayNum % 4 === 1 ? 172 : 130);
+
                                 return (
-                                  <div key={ni} style={{ position:'absolute', left:x, transform:'translateX(-50%)', display:'flex', flexDirection:'column', alignItems:'center' }}>
-                                    <div style={{ width:20, height:20, borderRadius:'50%', background:dotColor,
-                                      border:`3px solid ${node.active ? '#fbbf24' : dotColor}`,
-                                      boxShadow: node.active ? '0 0 0 5px #fbbf2440' : node.done||node.type!=='stage' ? `0 0 0 3px ${dotColor}30`:'none',
-                                      display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>
-                                      {node.done && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
-                                      {node.active && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
+                                  <div
+                                    key={d.dateKey}
+                                    style={{
+                                      position: 'absolute',
+                                      left: x,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: daySlotWidth,
+                                      transform: 'translateX(-50%)',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => setSemaforoSelectedDayKey(d.dateKey)}
+                                    title={`Día ${dayNum} (${formatReadableDate(d.dateKey)}) · ${hasPhotos ? `${dayAdvs.length} foto(s)` : 'Sin fotos'}`}
+                                  >
+                                    {/* Raya vertical del día cruzando la línea horizontal */}
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        left: '50%',
+                                        top: 96,
+                                        width: isToday || isSelected ? 3 : 2,
+                                        height: 32,
+                                        transform: 'translateX(-50%)',
+                                        background: isToday
+                                          ? '#fbbf24'
+                                          : isSelected
+                                            ? '#38bdf8'
+                                            : hasPhotos
+                                              ? '#22c55e'
+                                              : isPast
+                                                ? '#3b82f6'
+                                                : '#334155',
+                                        boxShadow: isToday ? '0 0 8px #fbbf24' : isSelected ? '0 0 8px #38bdf8' : 'none',
+                                        borderRadius: 2,
+                                        zIndex: 1
+                                      }}
+                                    />
+
+                                    {/* Nódulo central en la raya */}
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        left: '50%',
+                                        top: 112,
+                                        width: isToday || isSelected ? 22 : 16,
+                                        height: isToday || isSelected ? 22 : 16,
+                                        transform: 'translate(-50%, -50%)',
+                                        borderRadius: '50%',
+                                        background: isToday
+                                          ? '#fbbf24'
+                                          : isSelected
+                                            ? '#0284c7'
+                                            : hasPhotos
+                                              ? '#16a34a'
+                                              : isPast
+                                                ? '#1e3a8a'
+                                                : '#1e293b',
+                                        border: `2px solid ${isToday ? '#fef08a' : isSelected ? '#38bdf8' : hasPhotos ? '#4ade80' : isPast ? '#60a5fa' : '#475569'}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.55rem',
+                                        color: '#ffffff',
+                                        fontWeight: 900,
+                                        boxShadow: isToday ? '0 0 10px rgba(251,191,36,0.8)' : isSelected ? '0 0 10px rgba(56,189,248,0.8)' : 'none',
+                                        zIndex: 2,
+                                        transition: 'transform 0.15s ease'
+                                      }}
+                                    >
+                                      {hasPhotos ? '📷' : isToday ? '🔥' : isPast ? '✓' : ''}
                                     </div>
-                                    {/* Fecha bajo el nódulo */}
-                                    {node.date && <span style={{ marginTop:4, fontSize:'0.55rem', color:'#64748b', whiteSpace:'nowrap' }}>
-                                      {node.date.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}
-                                    </span>}
+
+                                    {/* Etiqueta del Día y Fecha (EN LETRAS BLANCAS en 2 niveles) */}
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        left: '50%',
+                                        top: topPos,
+                                        transform: 'translateX(-50%)',
+                                        padding: '3px 6px',
+                                        background: isSelected
+                                          ? '#0369a1'
+                                          : isToday
+                                            ? '#78350f'
+                                            : hasPhotos
+                                              ? '#14532d'
+                                              : '#1e293b',
+                                        border: `1px solid ${isSelected ? '#38bdf8' : isToday ? '#fbbf24' : hasPhotos ? '#22c55e' : isPast ? '#475569' : '#334155'}`,
+                                        borderRadius: 6,
+                                        textAlign: 'center',
+                                        whiteSpace: 'nowrap',
+                                        boxShadow: isSelected ? '0 0 12px rgba(56,189,248,0.4)' : '0 2px 6px rgba(0,0,0,0.4)',
+                                        zIndex: 3
+                                      }}
+                                    >
+                                      {/* Día N en letra blanca pura */}
+                                      <div style={{ color: '#ffffff', fontWeight: 900, fontSize: '0.68rem', lineHeight: 1.1 }}>
+                                        Día {dayNum}
+                                      </div>
+                                      {/* Fecha en letra blanca legible */}
+                                      <div style={{ color: '#ffffff', opacity: 0.95, fontSize: '0.6rem', fontWeight: 700, marginTop: 1 }}>
+                                        {d.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                                      </div>
+                                      {/* Indicador de fotos si existen */}
+                                      {hasPhotos && (
+                                        <div style={{ color: '#86efac', fontSize: '0.55rem', fontWeight: 900, marginTop: 1 }}>
+                                          📷 {dayAdvs.length}
+                                        </div>
+                                      )}
+                                      {isToday && (
+                                        <div style={{ color: '#fde047', fontSize: '0.55rem', fontWeight: 900, marginTop: 1 }}>
+                                          HOY
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
-                            </div>
 
-                            {/* Nombre etapa + fotos ABAJO (etapas impares) */}
-                            <div style={{ display:'flex', alignItems:'flex-start', height:130, marginTop:0 }}>
-                              {nodes.map((node, ni) => (
-                                <div key={ni} style={{ flex:'0 0 auto', width: Math.max(700, nodes.length*160)/nodes.length, display:'flex', flexDirection:'column', alignItems:'center', paddingTop:8 }}>
-                                  {node.type === 'stage' && (
-                                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, width:'100%' }}>
-                                      <span style={{ fontSize:'0.62rem', fontWeight:800, textAlign:'center', color: node.done ? node.color : node.active ? '#fbbf24' : '#64748b',
-                                        lineHeight:1.2, maxWidth:120 }}>
-                                        {node.done ? '✓ ' : node.active ? '▶ ' : ''}{node.name}
-                                      </span>
-                                      {/* Fotos impares abajo */}
-                                      {ni % 2 !== 0 && (
-                                        <>
-                                          <div style={{ display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', maxWidth:140, marginTop:3 }}>
-                                            {node.photos.slice(0,3).map((ph, pi) => (
-                                              <div key={pi} style={{ position:'relative' }}>
-                                                <a href={imageUrl(ph.url)} target="_blank" rel="noreferrer">
-                                                  <img src={imageUrl(ph.url)} alt="" style={{ width:38, height:38, objectFit:'cover', borderRadius:6,
-                                                    border:`2px solid ${ph.published ? '#22c55e' : node.color}66` }} />
-                                                </a>
-                                                <button type="button" title={ph.published ? 'Publicado – click para ocultar':'Publicar al cliente'}
-                                                  onClick={() => togglePublish(node.idx, ph.url)}
-                                                  style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%',
-                                                    background: ph.published ? '#22c55e':'#475569', border:'1.5px solid #0f172a',
-                                                    cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.45rem', color:'#fff', fontWeight:900 }}>
-                                                  {ph.published ? '✓' : '▶'}
-                                                </button>
-                                              </div>
-                                            ))}
-                                            {node.photos.length > 3 && <span style={{ fontSize:'0.55rem', color:'#64748b', alignSelf:'center' }}>+{node.photos.length-3}</span>}
-                                          </div>
-                                          <label style={{ cursor:'pointer', opacity:0.7, marginTop:2 }}>
-                                            <input type="file" accept="image/*" style={{ display:'none' }}
-                                              onChange={e => e.target.files[0] && uploadDailyPhoto(e.target.files[0], node.idx)} />
-                                            <span style={{ fontSize:'0.55rem', color:'#64748b', background:'#1e293b', border:'1px dashed #475569', borderRadius:5, padding:'2px 5px' }}>
-                                              {semaforoUploadingStage === node.idx ? '⏳' : '+ foto'}
-                                            </span>
-                                          </label>
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-                                  {node.type !== 'stage' && (
-                                    <span style={{ fontSize:'0.6rem', color: node.color, fontWeight:800, textAlign:'center' }}>{node.label}</span>
-                                  )}
-                                </div>
-                              ))}
                             </div>
-
                           </div>
                         </div>
 
-                        {/* Leyenda de publicación */}
-                        <div style={{ marginTop:10, display:'flex', gap:12, flexWrap:'wrap', fontSize:'0.62rem', color:'#64748b' }}>
-                          <span>🟢 Borde verde = foto publicada al cliente</span>
-                          <span style={{ color:'#475569' }}>Botoncito ▶ = publicar | ✓ = despublicar</span>
+                        {/* ── SECCIÓN 2: CALENDARIO EXCLUSIVO DEL PROYECTO ── */}
+                        <div style={{ marginBottom: 24, padding: '1rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                            <div>
+                              <h4 style={{ margin: 0, color: '#ffffff', fontSize: '0.92rem', fontWeight: 900 }}>
+                                📅 Calendario exclusivo del proyecto (Días contratados: 1 al {totalDays})
+                              </h4>
+                              <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginTop: 2 }}>
+                                Solamente se muestran los días hábiles del proyecto. Observa los días agotados y el registro de fotos diario.
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: '0.68rem' }}>
+                              <span style={{ color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e293b', border: '1px solid #475569' }} /> Agotado
+                              </span>
+                              <span style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#78350f', border: '1px solid #fbbf24' }} /> HOY (En curso)
+                              </span>
+                              <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#0369a1', border: '1px solid #38bdf8' }} /> Seleccionado
+                              </span>
+                              <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#090d16', border: '1px solid #1e293b' }} /> Restante
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Semanas del proyecto */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {projectWeeks.map(w => (
+                              <div key={w.weekNum} style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: 10, padding: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid #1e293b' }}>
+                                  <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.72rem' }}>
+                                    🗓️ Semana {w.weekNum} · Días {w.days[0].dayNumber} al {w.days[w.days.length - 1].dayNumber}
+                                  </span>
+                                  <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>
+                                    {w.days[0].date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} – {w.days[w.days.length - 1].date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 150px), 1fr))', gap: 8 }}>
+                                  {w.days.map(d => {
+                                    const isPast = d.dateKey < todayKey;
+                                    const isToday = d.dateKey === todayKey;
+                                    const isFuture = d.dateKey > todayKey;
+                                    const isSelected = d.dateKey === activeDayKey;
+                                    const dayAdvs = advancesByDate.get(d.dateKey) || [];
+
+                                    return (
+                                      <button
+                                        key={d.dateKey}
+                                        type="button"
+                                        onClick={() => setSemaforoSelectedDayKey(d.dateKey)}
+                                        style={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'stretch',
+                                          textAlign: 'left',
+                                          padding: '8px 10px',
+                                          background: isSelected
+                                            ? '#0369a1'
+                                            : isToday
+                                              ? 'linear-gradient(135deg, #451a03 0%, #78350f 100%)'
+                                              : isPast
+                                                ? '#131e33'
+                                                : '#0d1322',
+                                          border: isSelected
+                                            ? '2px solid #38bdf8'
+                                            : isToday
+                                              ? '2px solid #fbbf24'
+                                              : dayAdvs.length > 0
+                                                ? '1px solid #16a34a'
+                                                : isPast
+                                                  ? '1px solid #1e293b'
+                                                  : '1px solid #151e2e',
+                                          borderRadius: 8,
+                                          cursor: 'pointer',
+                                          boxShadow: isSelected ? '0 0 14px rgba(56,189,248,0.4)' : isToday ? '0 0 12px rgba(251,191,36,0.3)' : 'none',
+                                          transition: 'transform 0.1s ease, border-color 0.1s ease'
+                                        }}
+                                      >
+                                        {/* Fila superior: Día y estado */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                          <strong style={{ color: '#ffffff', fontSize: '0.8rem', fontWeight: 900 }}>
+                                            Día {d.dayNumber}
+                                          </strong>
+                                          <span style={{
+                                            fontSize: '0.58rem',
+                                            fontWeight: 800,
+                                            padding: '1px 5px',
+                                            borderRadius: 4,
+                                            background: isToday ? '#fef08a' : isPast ? '#1e293b' : '#151e2e',
+                                            color: isToday ? '#78350f' : isPast ? '#94a3b8' : '#64748b'
+                                          }}>
+                                            {isToday ? '🔥 HOY' : isPast ? '✓ Agotado' : '⏳'}
+                                          </span>
+                                        </div>
+
+                                        {/* Fecha legible en blanco */}
+                                        <div style={{ color: '#ffffff', opacity: 0.9, fontSize: '0.67rem', fontWeight: 700, marginBottom: 6 }}>
+                                          {d.date.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                        </div>
+
+                                        {/* Fotos o estado del día */}
+                                        {dayAdvs.length > 0 ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
+                                            <div style={{ display: 'flex', gap: 2 }}>
+                                              {dayAdvs.slice(0, 2).map((adv, ai) => (
+                                                <img
+                                                  key={ai}
+                                                  src={imageUrl(adv.url)}
+                                                  alt=""
+                                                  style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4, border: '1px solid #22c55e' }}
+                                                />
+                                              ))}
+                                            </div>
+                                            <span style={{ color: '#86efac', fontSize: '0.62rem', fontWeight: 800 }}>
+                                              📷 {dayAdvs.length} foto{dayAdvs.length > 1 ? 's' : ''}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <div style={{ marginTop: 'auto', color: isToday ? '#fde047' : isPast ? '#64748b' : '#475569', fontSize: '0.62rem', fontStyle: 'italic' }}>
+                                            {isToday ? '+ Subir fotos de hoy' : isPast ? 'Sin fotos' : 'Programado'}
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
+
+                        {/* ── SECCIÓN 3: GESTOR DE FOTOS DEL DÍA SELECCIONADO ── */}
+                        <div style={{ padding: '1.1rem', background: '#0b1329', border: '2px solid #38bdf844', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                            <div>
+                              <div style={{ color: '#38bdf8', fontSize: '0.68rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                Registro fotográfico por día
+                              </div>
+                              <h4 style={{ margin: '2px 0 0', color: '#ffffff', fontSize: '1.05rem', fontWeight: 900 }}>
+                                📸 Día {activeDayObj?.dayNumber} de {totalDays} · {formatReadableDate(activeDayKey)}
+                              </h4>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <span style={{
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: 6,
+                                background: activeDayKey === todayKey ? '#78350f' : activeDayKey < todayKey ? '#1e293b' : '#0d1322',
+                                color: activeDayKey === todayKey ? '#fde047' : '#ffffff',
+                                border: '1px solid #334155',
+                                fontSize: '0.7rem',
+                                fontWeight: 800
+                              }}>
+                                {activeDayKey === todayKey ? '🔥 Día en curso (HOY)' : activeDayKey < todayKey ? '✓ Día agotado' : '⏳ Día futuro'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Galería de fotos registradas en este día */}
+                          <div style={{ marginBottom: 16 }}>
+                            <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 800, marginBottom: 8 }}>
+                              Fotos cargadas para este día ({activeDayAdvances.length}):
+                            </div>
+                            {activeDayAdvances.length === 0 ? (
+                              <div style={{ padding: '1.2rem', textAlign: 'center', background: '#090d16', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.75rem' }}>
+                                No hay fotos de avance registradas para el Día {activeDayObj?.dayNumber}. Usa el formulario abajo para subir fotos del taller.
+                              </div>
+                            ) : (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 10 }}>
+                                {activeDayAdvances.map(adv => (
+                                  <div
+                                    key={adv.id}
+                                    style={{
+                                      background: '#090d16',
+                                      border: `1px solid ${adv.published ? '#22c55e' : '#334155'}`,
+                                      borderRadius: 8,
+                                      padding: '8px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 6
+                                    }}
+                                  >
+                                    <div style={{ position: 'relative', width: '100%', height: 120, borderRadius: 6, overflow: 'hidden', background: '#000', cursor: 'pointer' }}
+                                      onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}
+                                    >
+                                      <img
+                                        src={imageUrl(adv.url)}
+                                        alt=""
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      />
+                                      <span style={{ position: 'absolute', bottom: 4, right: 4, padding: '2px 6px', background: 'rgba(0,0,0,0.7)', borderRadius: 4, color: '#fff', fontSize: '0.6rem' }}>
+                                        🔍 Ampliar
+                                      </span>
+                                    </div>
+
+                                    {/* Comentario */}
+                                    <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 600, minHeight: 28, wordBreak: 'break-word' }}>
+                                      {adv.comment || <span style={{ color: '#64748b', fontStyle: 'italic' }}>Sin comentarios</span>}
+                                    </div>
+
+                                    {/* Acciones */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #1e293b' }}>
+                                      <button
+                                        type="button"
+                                        title={adv.published ? 'Visible para el cliente. Clic para ocultar.' : 'Oculto al cliente. Clic para publicar.'}
+                                        onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
+                                        style={{
+                                          padding: '3px 7px',
+                                          borderRadius: 5,
+                                          background: adv.published ? '#14532d' : '#1e293b',
+                                          color: adv.published ? '#86efac' : '#94a3b8',
+                                          border: `1px solid ${adv.published ? '#22c55e' : '#475569'}`,
+                                          fontSize: '0.62rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        {adv.published ? '✓ Visible al cliente' : '👁️ Solo taller'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDailyAdvance(adv.id)}
+                                        style={{
+                                          padding: '3px 6px',
+                                          borderRadius: 5,
+                                          background: '#450a0a',
+                                          color: '#fca5a5',
+                                          border: '1px solid #dc2626',
+                                          fontSize: '0.62rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Formulario de subida de fotos para el día activo */}
+                          <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.9rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: 10 }}>
+                            <div style={{ color: '#ffffff', fontSize: '0.78rem', fontWeight: 900, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span>📤 Cargar nueva(s) foto(s) para el Día {activeDayObj?.dayNumber}</span>
+                              <span style={{ color: '#94a3b8', fontSize: '0.68rem', fontWeight: 600 }}>({formatReadableDate(activeDayKey)})</span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <label style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '0.45rem 0.9rem',
+                                  background: '#1e293b',
+                                  border: '1px dashed #38bdf8',
+                                  borderRadius: 8,
+                                  color: '#38bdf8',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer'
+                                }}>
+                                  <span>📷 Seleccionar fotos</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    style={{ display: 'none' }}
+                                    onChange={e => setSemaforoAdvanceFiles(Array.from(e.target.files || []))}
+                                  />
+                                </label>
+                                {semaforoAdvanceFiles.length > 0 && (
+                                  <span style={{ color: '#86efac', fontSize: '0.72rem', fontWeight: 800 }}>
+                                    ✓ {semaforoAdvanceFiles.length} foto(s) seleccionada(s)
+                                  </span>
+                                )}
+                              </div>
+
+                              <input
+                                type="text"
+                                placeholder="Comentarios de la foto o avance del día (ej. Armado de muebles, corte de tableros...)"
+                                value={semaforoAdvanceComment}
+                                onChange={e => setSemaforoAdvanceComment(e.target.value)}
+                                style={{
+                                  padding: '0.5rem 0.75rem',
+                                  background: '#1e293b',
+                                  border: '1px solid #334155',
+                                  borderRadius: 8,
+                                  color: '#ffffff',
+                                  fontSize: '0.78rem'
+                                }}
+                              />
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={semaforoAdvancePublished}
+                                    onChange={e => setSemaforoAdvancePublished(e.target.checked)}
+                                  />
+                                  <span>Visible para el cliente en su liga de seguimiento</span>
+                                </label>
+
+                                <button
+                                  type="submit"
+                                  disabled={semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0}
+                                  style={{
+                                    padding: '0.5rem 1.1rem',
+                                    background: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? '#334155' : '#2563eb',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: 8,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 900,
+                                    cursor: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? 'not-allowed' : 'pointer',
+                                    boxShadow: semaforoAdvanceFiles.length > 0 ? '0 4px 12px rgba(37,99,235,0.4)' : 'none'
+                                  }}
+                                >
+                                  {semaforoUploadingAdvance ? '⏳ Guardando...' : `Guardar avance en Día ${activeDayObj?.dayNumber}`}
+                                </button>
+                              </div>
+                            </div>
+                          </form>
+                        </div>
+
+                        {/* Lightbox visor grande */}
+                        {semaforoLightboxUrl && (
+                          <div
+                            style={{
+                              position: 'fixed',
+                              inset: 0,
+                              background: 'rgba(0,0,0,0.85)',
+                              zIndex: 99999,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '1rem',
+                              backdropFilter: 'blur(4px)'
+                            }}
+                            onClick={() => setSemaforoLightboxUrl(null)}
+                          >
+                            <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+                              <img
+                                src={semaforoLightboxUrl}
+                                alt="Evidencia ampliada"
+                                style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+                              />
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                                <a
+                                  href={semaforoLightboxUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: '#38bdf8', fontSize: '0.75rem', fontWeight: 800, textDecoration: 'none' }}
+                                >
+                                  🔗 Abrir en pestaña nueva
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setSemaforoLightboxUrl(null)}
+                                  style={{
+                                    padding: '0.35rem 0.8rem',
+                                    background: '#ef4444',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cerrar ×
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                       </div>
                     );
