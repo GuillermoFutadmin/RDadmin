@@ -979,12 +979,6 @@ function Pedidos() {
       const data = await res.json();
       const newPdfPath = data.pdf_path || (file.name.toLowerCase().endsWith('.pdf') ? data.image_path : selected.render_pdf_path);
       const newImgPath = data.image_path || selected.render_image_path;
-      setSelected(prev => ({
-        ...prev,
-        render_pdf_path: newPdfPath,
-        render_image_path: newImgPath,
-        render_applies: true
-      }));
       setProjects(prev => prev.map(p => p.id === selected.id ? {
         ...p,
         render_pdf_path: newPdfPath,
