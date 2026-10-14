@@ -263,6 +263,7 @@ function Pedidos() {
   const [semaforoUploadingAdvance, setSemaforoUploadingAdvance] = useState(false);
   const [semaforoLightboxUrl, setSemaforoLightboxUrl] = useState(null);
   const [uploadingRender, setUploadingRender] = useState(false);
+  const [renderUploadOk, setRenderUploadOk] = useState(false);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -991,6 +992,9 @@ function Pedidos() {
         render_applies: true
       } : p));
       setMessage('✅ Archivo de render cargado correctamente y listo para el machote.');
+      // Indicador visual de éxito en el botón
+      setRenderUploadOk(true);
+      setTimeout(() => setRenderUploadOk(false), 3000);
     } catch (err) {
       console.error(err);
       setMessage('❌ ' + (err.message || 'Error al subir archivo de render'));
@@ -2876,17 +2880,22 @@ function Pedidos() {
                     <label style={{
                       padding: '0.52rem 0.85rem',
                       borderRadius: 8,
-                      background: selected.render_pdf_path ? '#f1f5f9' : '#ea580c',
-                      color: selected.render_pdf_path ? '#334155' : '#fff',
-                      border: selected.render_pdf_path ? '1px solid #cbd5e1' : 'none',
+                      background: renderUploadOk ? '#16a34a' : (uploadingRender ? '#e2e8f0' : (selected.render_pdf_path ? '#f1f5f9' : '#ea580c')),
+                      color: renderUploadOk ? '#fff' : (selected.render_pdf_path ? '#334155' : '#fff'),
+                      border: renderUploadOk ? 'none' : (selected.render_pdf_path ? '1px solid #cbd5e1' : 'none'),
                       fontSize: '0.8rem',
                       fontWeight: 800,
                       cursor: uploadingRender ? 'wait' : 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 6
+                      gap: 6,
+                      transition: 'background 0.3s, color 0.3s'
                     }}>
-                      {uploadingRender ? '⏳ Subiendo...' : (selected.render_pdf_path ? '🔄 Reemplazar Render' : '＋ Cargar Render (PDF / Imagen)')}
+                      {uploadingRender
+                        ? '⏳ Subiendo...'
+                        : renderUploadOk
+                          ? '✅ Render cargado'
+                          : (selected.render_pdf_path ? '🔄 Reemplazar Render' : '＋ Cargar Render (PDF / Imagen)')}
                       <input
                         type="file"
                         accept=".pdf,image/*"
