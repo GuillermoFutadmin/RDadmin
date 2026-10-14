@@ -1103,7 +1103,7 @@ function Pedidos() {
                 </section>
               );
             })()}
-            {overviewStage === null ? (
+            {!showSemaforo && (overviewStage === null ? (
             <section aria-label="Calendario de producción" style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
                 <div>
@@ -1294,7 +1294,7 @@ function Pedidos() {
                   </div>
                 )}
               </section>
-            )}
+            ))}
           </>
         )}
       </section>
