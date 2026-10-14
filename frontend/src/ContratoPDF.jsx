@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 const API = import.meta.env.VITE_API_URL || '';
 import { FIRMA_ROGER_B64 } from './firmaRogerB64.js';
 import { SignaturePad } from './SignaturePad';
@@ -14,6 +14,49 @@ const getDateStr = () => {
   const d = new Date();
   return `${d.getDate()} de ${months[d.getMonth()]} del ${d.getFullYear()}`;
 };
+
+function ClientPortalAccessBox({ publicId, password }) {
+  return (
+    <div style={{
+      marginTop: '16px',
+      marginBottom: '10px',
+      padding: '12px 16px',
+      background: '#fffaf5',
+      border: '1.5px solid #fed7aa',
+      borderRadius: '8px',
+      pageBreakInside: 'avoid',
+      breakInside: 'avoid'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+        <span style={{ fontSize: '15px' }}>📲</span>
+        <strong style={{ fontSize: '12px', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Portal de Clientes — Consulta el avance de tu proyecto en tiempo real
+        </strong>
+      </div>
+      <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#7c2d12', lineHeight: '1.4' }}>
+        Accede a <strong>rdcarpinteria.com</strong> (opción <em>"Soy cliente"</em>) para ver las fotos del avance en taller, estatus y fechas de tu pedido:
+      </p>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ background: '#fff', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 14px' }}>
+          <span style={{ display: 'block', fontSize: '9px', fontWeight: '800', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            ID del Contrato
+          </span>
+          <span style={{ fontSize: '15px', fontWeight: '900', color: '#1e293b', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
+            {publicId || '—'}
+          </span>
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 14px' }}>
+          <span style={{ display: 'block', fontSize: '9px', fontWeight: '800', color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Contraseña de Acceso
+          </span>
+          <span style={{ fontSize: '15px', fontWeight: '900', color: '#ea580c', letterSpacing: '0.12em', fontFamily: 'monospace' }}>
+            {password || '—'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function DeliveryCalendar({ days, startDate, onDaysChange, editable = false }) {
   const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -246,6 +289,22 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
   const [repPhoto, setRepPhoto] = useState(prospect.contract_photo_rep || null);
   const [clientPhoto, setClientPhoto] = useState(prospect.contract_photo_client || null);
+  const [contractPassword, setContractPassword] = useState(prospect.contract_password || '');
+
+  useEffect(() => {
+    if (!prospect.contract_password) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let pwd = '';
+      for (let i = 0; i < 8; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      setContractPassword(pwd);
+      prospect.contract_password = pwd;
+      fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contract_password: pwd })
+      }).catch(err => console.error('Error auto-generating contract password', err));
+    }
+  }, [prospect]);
 
   const saveField = async (field, val) => {
     try {
@@ -492,6 +551,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             {obsItems.map((obs, i) => <li key={i}>{obs}</li>)}
           </ul>
         </div>
+
+        <ClientPortalAccessBox publicId={prospect.public_id} password={contractPassword || prospect.contract_password} />
       </div>
 
       {/* Hidden container exclusively for PDF export to render pure HTML blocks */}
@@ -565,6 +626,8 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             {obsItems.map((obs, i) => <li key={i} style={{ marginBottom: '4px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>{obs}</li>)}
           </ul>
         </div>
+
+        <ClientPortalAccessBox publicId={prospect.public_id} password={contractPassword || prospect.contract_password} />
 
         {/* Anexo de Evidencias (Only included if photos are captured) */}
         {(repPhoto || clientPhoto) && (
