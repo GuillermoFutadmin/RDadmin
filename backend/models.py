@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Date, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Date, Text, LargeBinary
 from database import Base
 import datetime
 
@@ -90,6 +90,7 @@ class Prospect(Base):
     render_total_price = Column(Float, nullable=True) # Estimación + Render
     render_image_path = Column(String, nullable=True) # Imagen del render cargada
     render_pdf_path = Column(String, nullable=True)      # PDF de la cotizacion de render
+    render_pdf_data = Column(LargeBinary, nullable=True) # Bytes del PDF almacenados directamente en BD
     render_delivery_time = Column(String, nullable=True) # Tiempo de entrega del render
     render_comments = Column(String, nullable=True)      # Comentarios / Observaciones
     quote_saludo = Column(String, nullable=True)

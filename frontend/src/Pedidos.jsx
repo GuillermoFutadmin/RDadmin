@@ -913,11 +913,14 @@ function Pedidos() {
   };
 
   const downloadRenderPdf = async () => {
-    if (!selected?.render_pdf_path) return;
+    if (!selected) return;
     try {
-      // Usar el proxy del backend para evitar el 401 de Cloudinary
       const response = await fetch(`${API}/api/prospects/${selected.id}/render-pdf`);
-      if (!response.ok) throw new Error(`No se pudo descargar el PDF de render (${response.status})`);
+      if (!response.ok) {
+        let errDetail = `No se pudo descargar el PDF (${response.status})`;
+        try { const j = await response.json(); if (j.detail) errDetail = j.detail; } catch {}
+        throw new Error(errDetail);
+      }
       const fileUrl = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
       link.href = fileUrl;
@@ -932,15 +935,17 @@ function Pedidos() {
   };
 
   const viewRenderPdf = async () => {
-    if (!selected?.render_pdf_path) return;
+    if (!selected) return;
     try {
-      // Fetch con auth token (el interceptor global lo agrega automáticamente)
       const response = await fetch(`${API}/api/prospects/${selected.id}/render-pdf`);
-      if (!response.ok) throw new Error(`Error al obtener el PDF (${response.status})`);
+      if (!response.ok) {
+        let errDetail = `Error al abrir el PDF (${response.status})`;
+        try { const j = await response.json(); if (j.detail) errDetail = j.detail; } catch {}
+        throw new Error(errDetail);
+      }
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, '_blank');
-      // Liberar el blob URL después de un momento para no acumular memoria
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (error) {
       setMessage(error.message || 'No se pudo abrir el PDF de render.');
@@ -950,12 +955,12 @@ function Pedidos() {
   const uploadRenderFile = async (file) => {
     if (!file || !selected) return;
 
-    // Validación de tamaño: Cloudinary plan gratuito permite máximo 10 MB por archivo
-    const MAX_MB = 10;
+    // Con almacenamiento en base de datos ya no hay límite estricto de 10 MB de Cloudinary
+    const MAX_MB = 45;
     const fileMB = file.size / (1024 * 1024);
     if (fileMB > MAX_MB) {
       setMessage(
-        `❌ El archivo pesa ${fileMB.toFixed(1)} MB y supera el límite de ${MAX_MB} MB de Cloudinary. ` +
+        `❌ El archivo pesa ${fileMB.toFixed(1)} MB y supera el límite de ${MAX_MB} MB. ` +
         `Por favor comprima el PDF (puede usar ilovepdf.com) y vuelva a intentarlo.`
       );
       return;

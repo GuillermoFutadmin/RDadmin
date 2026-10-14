@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -42,6 +42,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN render_total_price REAL;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_image_path VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_pdf_path VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN render_pdf_data BYTEA;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_delivery_time VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_comments VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN project_timeline VARCHAR;")
@@ -837,23 +838,44 @@ def debug_cloudinary():
 @app.post("/api/prospects/{prospect_id}/upload-render")
 async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
-    if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
+    if not db_prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
 
+    import io
     image_urls = []
     pdf_urls = []
     for file in files:
-        new_url = await upload_to_storage(file, "render")
+        contents = await file.read()
         filename_lower = (file.filename or "").lower()
         content_type = (file.content_type or "").lower()
-        if filename_lower.endswith(".pdf") or "pdf" in content_type:
-            pdf_urls.append(new_url)
+        is_pdf = filename_lower.endswith(".pdf") or "pdf" in content_type
+
+        if is_pdf:
+            # 1. Guardar los bytes del PDF directamente en PostgreSQL (BYTEA)
+            # Esto garantiza disponibilidad 100% permanente sin depender de restricciones de Cloudinary
+            db_prospect.render_pdf_data = contents
+            pdf_endpoint_url = f"/api/prospects/{prospect_id}/render-pdf"
+            pdf_urls.append(pdf_endpoint_url)
+
+            # Intentar también guardar en Cloudinary como respaldo si es posible
+            try:
+                temp_file = UploadFile(filename=file.filename, file=io.BytesIO(contents))
+                cloud_url = await upload_to_storage(temp_file, "render")
+                # Si sube bien a Cloudinary, mantenemos la referencia
+                db_prospect.render_pdf_path = cloud_url
+            except Exception as e:
+                print(f"[upload-render] Respaldo Cloudinary omitido (archivo guardado en BD): {e}")
+                db_prospect.render_pdf_path = pdf_endpoint_url
         else:
+            temp_file = UploadFile(filename=file.filename, file=io.BytesIO(contents))
+            new_url = await upload_to_storage(temp_file, "render")
             image_urls.append(new_url)
 
-    if pdf_urls:
+    if pdf_urls and not db_prospect.render_pdf_path:
         db_prospect.render_pdf_path = pdf_urls[-1]
     if image_urls:
         db_prospect.render_image_path = image_urls[-1]
+
     db_prospect.render_applies = True
     db_prospect.updated_at = datetime.utcnow()
     db.commit()
@@ -867,24 +889,35 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
 
 @app.get("/api/prospects/{prospect_id}/render-pdf")
 async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
-    """Proxifica el PDF del render para evitar restricciones de entrega de Cloudinary.
-
-    - PDFs nuevos (/raw/upload/): se sirven directamente sin restricción.
-    - PDFs antiguos (/image/upload/): se obtienen via private_download_url() que
-      pasa por api.cloudinary.com (ruta admin) y sí bypasea la restricción.
+    """Sirve el PDF del render.
+    
+    1. Si está guardado en PostgreSQL (render_pdf_data), se responde inmediatamente.
+    2. Si es archivo local (/uploads/...), se transmite directamente.
+    3. Si está en Cloudinary, se descarga y se respalda en la base de datos.
     """
-    import re, time
-    import httpx
-
     prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    # 1. Directo desde la base de datos (PostgreSQL BYTEA)
+    pdf_data = getattr(prospect, "render_pdf_data", None)
+    if pdf_data:
+        return Response(
+            content=bytes(pdf_data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+        )
+
     if not prospect.render_pdf_path:
         raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
     pdf_url = prospect.render_pdf_path
 
-    # ── Archivo local ──────────────────────────────────────────────────────────
+    # Si la URL apunta a este mismo endpoint pero no hay render_pdf_data
+    if pdf_url == f"/api/prospects/{prospect_id}/render-pdf":
+        raise HTTPException(status_code=404, detail="Render PDF no disponible. Por favor reemplace el render.")
+
+    # 2. Archivo local
     if pdf_url.startswith("/uploads/"):
         local_path = pdf_url.lstrip("/")
         if not os.path.exists(local_path):
@@ -898,74 +931,36 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
             headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
         )
 
-    # ── Cloudinary ─────────────────────────────────────────────────────────────
+    # 3. Cloudinary
     if "cloudinary.com" in pdf_url:
-        fetch_url = pdf_url
-
-        m = re.search(r'/(image|raw)/upload/(?:v\d+/)?(.+)', pdf_url)
-        if m:
-            res_type = m.group(1)    # "image" o "raw"
-            full_path = m.group(2)   # e.g. rdadmin/render_xxx.pdf
-
-        # Lista de URLs a intentar en orden:
-        # 1. URL directa (rápida, funciona si la entrega de PDFs está permitida o es raw)
-        # 2. URL firmada de descarga de la API de Cloudinary con type='upload'
-        urls_to_try = [pdf_url]
-
-        m = re.search(r'/(image|raw)/upload/(?:v\d+/)?(.+)', pdf_url)
-        if m:
-            res_type = m.group(1)
-            full_path = m.group(2)
-            try:
-                cfg = cloudinary.config()
-                if cfg.api_key and cfg.api_secret:
-                    filename = full_path.rsplit("/", 1)[-1]
-                    if "." in filename:
-                        public_id = full_path.rsplit(".", 1)[0]
-                        fmt = full_path.rsplit(".", 1)[1]
-                    else:
-                        public_id = full_path
-                        fmt = "pdf"
-                    admin_dl_url = cloudinary.utils.private_download_url(
-                        public_id,
-                        format=fmt,
-                        resource_type=res_type,
-                        type="upload",
-                        expires_at=int(time.time()) + 3600,
-                        attachment=False,
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                resp = await client.get(pdf_url)
+                if resp.status_code == 200:
+                    # Guardarlo en la base de datos para futuras consultas
+                    try:
+                        prospect.render_pdf_data = resp.content
+                        db.commit()
+                    except Exception as cache_err:
+                        print(f"[render-pdf] Error guardando cache en BD: {cache_err}")
+                    return Response(
+                        content=resp.content,
+                        media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
                     )
-                    urls_to_try.append(admin_dl_url)
-            except Exception as sign_err:
-                print(f"[render-pdf] Error generando URL de descarga firmada: {sign_err}")
-
-        last_status = 500
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            for url in urls_to_try:
-                try:
-                    resp = await client.get(url)
-                    if resp.status_code == 200:
-                        return StreamingResponse(
-                            iter([resp.content]),
-                            media_type="application/pdf",
-                            headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
-                        )
-                    last_status = resp.status_code
-                    print(f"[render-pdf] Intento con {url[:60]}... retornó {resp.status_code}")
-                except Exception as req_err:
-                    print(f"[render-pdf] Error solicitando {url[:60]}...: {req_err}")
+                print(f"[render-pdf] Cloudinary retornó {resp.status_code} al solicitar {pdf_url[:60]}...")
+        except Exception as exc:
+            print(f"[render-pdf] Error de red al solicitar Cloudinary: {exc}")
 
         raise HTTPException(
             status_code=502,
-            detail=(
-                f"No se pudo descargar el archivo de Cloudinary ({last_status}). "
-                "Cloudinary requiere activar 'Allow delivery of PDF and ZIP files' en su consola, "
-                "o reemplace el render con el botón Reemplazar Render."
-            )
+            detail="El archivo PDF anterior está restringido por Cloudinary. Por favor use el botón 'Reemplazar Render' para cargarlo directamente al sistema."
         )
 
     raise HTTPException(
-        status_code=502,
-        detail="URL de PDF no reconocida. Suba el render nuevamente."
+        status_code=404,
+        detail="PDF de render no encontrado. Suba el render nuevamente."
     )
 
 
