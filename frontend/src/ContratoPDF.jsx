@@ -34,7 +34,7 @@ function ClientPortalAccessBox({ publicId, password }) {
         </strong>
       </div>
       <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#7c2d12', lineHeight: '1.4' }}>
-        Accede a <strong>rdcarpinteria.com</strong> (opción <em>"Soy cliente"</em>) para ver las fotos del avance en taller, estatus y fechas de tu pedido:
+        Accede a <strong>futadmin.com.mx</strong> (opción <em>"Soy cliente"</em>) para ver las fotos del avance en taller, estatus y fechas de tu pedido:
       </p>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ background: '#fff', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 14px' }}>
