@@ -13,6 +13,7 @@ import auth
 from database import engine, get_db
 import cloudinary
 import cloudinary.uploader
+import cloudinary.utils
 
 # Cloudinary: el SDK lee CLOUDINARY_URL del entorno automáticamente al importar.
 # NO llamar cloudinary.config() cuando CLOUDINARY_URL ya está en el env —
@@ -464,11 +465,6 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
     # Leer contenido del archivo primero (importante para evitar stream ya consumido)
     contents = await file.read()
 
-    # Los PDFs en Cloudinary deben subirse como resource_type="raw" para que
-    # puedan entregarse públicamente sin 401 Unauthorized.
-    is_pdf = ext == ".pdf" or (file.content_type or "").lower() == "application/pdf"
-    resource_type = "raw" if is_pdf else "auto"
-
     # Si Cloudinary está configurado, subimos ahí
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
         try:
@@ -477,7 +473,7 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
                 io.BytesIO(contents),
                 public_id=unique_name,
                 folder="rdadmin",
-                resource_type=resource_type,
+                resource_type="auto",
             )
             return result.get("secure_url")
         except Exception as e:
@@ -857,11 +853,15 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
 @app.get("/api/prospects/{prospect_id}/render-pdf")
 async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
     """Proxifica el PDF del render para evitar el error 401 de Cloudinary.
-    
-    Cloudinary bloquea la descarga directa de PDFs subidos bajo image/upload.
-    Este endpoint los obtiene de forma autenticada (o desde disco) y los
-    entrega al navegador con el Content-Type correcto.
+
+    Cloudinary bloquea la descarga directa de PDFs entregados bajo image/upload.
+    Este endpoint genera una URL firmada (HMAC) con el SDK de Cloudinary para
+    obtener el archivo de forma autenticada y lo retransmite al navegador.
     """
+    import re, io
+    import httpx
+    import cloudinary.utils as cld_utils
+
     prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
@@ -870,7 +870,7 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
 
     pdf_url = prospect.render_pdf_path
 
-    # Archivo local en /uploads
+    # ── Archivo local ──────────────────────────────────────────────────────────
     if pdf_url.startswith("/uploads/"):
         local_path = pdf_url.lstrip("/")
         if not os.path.exists(local_path):
@@ -884,29 +884,65 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
             headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
         )
 
-    # Archivo en Cloudinary: convertir image/upload -> raw/upload si aplica
-    # (para PDFs ya subidos con resource_type incorrecto)
-    if "cloudinary.com" in pdf_url and "/image/upload/" in pdf_url:
-        pdf_url = pdf_url.replace("/image/upload/", "/raw/upload/")
+    # ── Cloudinary ─────────────────────────────────────────────────────────────
+    if "cloudinary.com" in pdf_url:
+        fetch_url = pdf_url  # URL que usaremos para el fetch
 
-    # Obtener el PDF remotamente y transmitirlo al cliente
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(pdf_url)
-            if resp.status_code != 200:
+        # Intentar generar URL firmada con el SDK (evita el 401 en image/upload)
+        try:
+            cfg = cloudinary.config()
+            if cfg.api_secret:
+                # Extraer resource_type y public_id del URL guardado.
+                # Formato:  https://res.cloudinary.com/<cloud>/<res_type>/upload/[v<n>/]<folder>/<file>[.ext]
+                m = re.search(r'/(image|raw)/upload/(?:v\d+/)?(.+)', pdf_url)
+                if m:
+                    res_type = m.group(1)          # "image" o "raw"
+                    full_path = m.group(2)          # e.g.  rdadmin/render_xxx.pdf
+                    filename = full_path.rsplit("/", 1)[-1]  # render_xxx.pdf
+                    if res_type == "image" and "." in filename:
+                        # Para image, el public_id NO lleva extensión
+                        public_id = full_path.rsplit(".", 1)[0]  # rdadmin/render_xxx
+                        fmt = full_path.rsplit(".", 1)[1]        # pdf
+                    else:
+                        public_id = full_path
+                        fmt = None
+
+                    signed, _ = cld_utils.cloudinary_url(
+                        public_id,
+                        resource_type=res_type,
+                        format=fmt,
+                        sign_url=True,
+                        secure=True,
+                    )
+                    if signed:
+                        fetch_url = signed
+                        print(f"[render-pdf] URL firmada generada para prospect {prospect_id}")
+        except Exception as sign_err:
+            print(f"[render-pdf] No se pudo firmar la URL: {sign_err}")
+
+        # Fetch del PDF (firmado o directo) y retransmisión al cliente
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                resp = await client.get(fetch_url)
+                if resp.status_code == 200:
+                    return StreamingResponse(
+                        iter([resp.content]),
+                        media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+                    )
                 raise HTTPException(
                     status_code=502,
-                    detail=f"No se pudo obtener el PDF ({resp.status_code}). Suba el render nuevamente."
+                    detail=(
+                        f"Cloudinary respondió {resp.status_code}. "
+                        "Suba el render nuevamente con el botón \"Reemplazar Render\"."
+                    )
                 )
-            content = resp.content
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail=f"Error de red al obtener el PDF: {exc}")
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"Error de red al obtener el PDF: {exc}")
 
-    return StreamingResponse(
-        iter([content]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+    raise HTTPException(
+        status_code=502,
+        detail="URL de PDF no reconocida. Suba el render nuevamente."
     )
 
 
