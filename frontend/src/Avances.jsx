@@ -124,6 +124,50 @@ export default function Avances() {
     return advancesByDate.get(selectedDateKey) || [];
   }, [advancesByDate, selectedDateKey]);
 
+  // Ciclo de vida del proyecto seleccionado (Prospecto -> Cliente -> Producción)
+  const projectLifecycle = useMemo(() => {
+    if (!selectedProject) return null;
+    const prod = parseJson(selectedProject.production_data, {});
+    const pProspectDate = selectedProject.capture_date
+      ? new Date(selectedProject.capture_date + 'T12:00:00')
+      : (selectedProject.created_at ? new Date(selectedProject.created_at) : null);
+    const pContractDate = selectedProject.contract_date
+      ? new Date(selectedProject.contract_date + 'T12:00:00')
+      : null;
+    const pProdStartDate = prod.started_at
+      ? new Date(prod.started_at + 'T12:00:00')
+      : (pContractDate || new Date());
+
+    let prospectDays = 0;
+    if (pProspectDate && pContractDate) {
+      prospectDays = Math.max(1, Math.round((pContractDate.getTime() - pProspectDate.getTime()) / (1000 * 60 * 60 * 24)));
+    } else if (pProspectDate) {
+      prospectDays = Math.max(1, Math.round((new Date().getTime() - pProspectDate.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    let clientPrepDays = 0;
+    if (pContractDate && pProdStartDate) {
+      clientPrepDays = Math.max(0, Math.round((pProdStartDate.getTime() - pContractDate.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    const prodDaysTotal = Number.parseInt(selectedProject.production_days, 10) || 30;
+    const elapsedProdDays = pProdStartDate
+      ? Math.max(0, Math.round((new Date().getTime() - pProdStartDate.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+    const totalLifecycleDays = (prospectDays || 0) + (clientPrepDays || 0) + elapsedProdDays;
+
+    return {
+      prospectDays,
+      pProspectDate,
+      pContractDate,
+      clientPrepDays,
+      pProdStartDate,
+      prodDaysTotal,
+      elapsedProdDays,
+      totalLifecycleDays
+    };
+  }, [selectedProject]);
+
   // Días del mes para el calendario (42 celdas: 6 semanas)
   const calendarDays = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -325,6 +369,117 @@ export default function Avances() {
           })}
         </div>
       </div>
+
+      {/* ── CICLO DE VIDA COMPLETO DEL PROYECTO SELECCIONADO ── */}
+      {projectLifecycle && (
+        <div style={{
+          marginBottom: '1.25rem',
+          padding: '0.9rem 1.1rem',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          borderRadius: 14,
+          border: '1px solid #334155',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Ciclo de Vida del Proyecto · {selectedProject?.name}
+              </div>
+              <div style={{ color: '#ffffff', fontSize: '0.95rem', fontWeight: 900, marginTop: 2 }}>
+                Línea de tiempo histórica y avance en carpintería
+              </div>
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '0.35rem 0.8rem',
+              background: '#090d16',
+              border: '1px solid #3b82f655',
+              borderRadius: 999
+            }}>
+              <span style={{ fontSize: '0.78rem' }}>⏱️</span>
+              <span style={{ color: '#38bdf8', fontSize: '0.75rem', fontWeight: 900 }}>
+                Total acumulado: {projectLifecycle.totalLifecycleDays} días
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+            {/* FASE 1: PROSPECTO */}
+            <div style={{
+              background: '#131b2e',
+              border: '1px solid #f59e0b55',
+              borderLeft: '4px solid #f59e0b',
+              borderRadius: 8,
+              padding: '0.6rem 0.85rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ color: '#fbbf24', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>
+                  🎯 Fase 1 · Prospecto
+                </span>
+                <span style={{ background: '#f59e0b22', color: '#fbbf24', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #f59e0b44' }}>
+                  {projectLifecycle.prospectDays} {projectLifecycle.prospectDays === 1 ? 'día' : 'días'}
+                </span>
+              </div>
+              <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                Captación & Cotización
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                {projectLifecycle.pProspectDate ? projectLifecycle.pProspectDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Captura'} ➔ {projectLifecycle.pContractDate ? projectLifecycle.pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Firma'}
+              </div>
+            </div>
+
+            {/* FASE 2: CLIENTE */}
+            <div style={{
+              background: '#131b2e',
+              border: '1px solid #38bdf855',
+              borderLeft: '4px solid #38bdf8',
+              borderRadius: 8,
+              padding: '0.6rem 0.85rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ color: '#38bdf8', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>
+                  ✍️ Fase 2 · Cliente
+                </span>
+                <span style={{ background: '#38bdf822', color: '#38bdf8', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #38bdf844' }}>
+                  {projectLifecycle.clientPrepDays} {projectLifecycle.clientPrepDays === 1 ? 'día' : 'días'}
+                </span>
+              </div>
+              <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                Firma & Preparación Taller
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                {projectLifecycle.pContractDate ? projectLifecycle.pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Contrato'} ➔ {projectLifecycle.pProdStartDate ? projectLifecycle.pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Taller'}
+              </div>
+            </div>
+
+            {/* FASE 3: PRODUCCIÓN */}
+            <div style={{
+              background: '#131b2e',
+              border: '1px solid #10b98155',
+              borderLeft: '4px solid #10b981',
+              borderRadius: 8,
+              padding: '0.6rem 0.85rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ color: '#34d399', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>
+                  🔨 Fase 3 · Producción
+                </span>
+                <span style={{ background: '#10b98122', color: '#34d399', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #10b98144' }}>
+                  {projectLifecycle.prodDaysTotal} días contratados
+                </span>
+              </div>
+              <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                {projectLifecycle.elapsedProdDays} días transcurridos en taller
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                Arranque: {projectLifecycle.pProdStartDate ? projectLifecycle.pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin inicio'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── CUERPO PRINCIPAL: 2 COLUMNAS (CALENDARIO + PANEL DE AVANCES) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.15fr) minmax(360px, 1.85fr)', gap: 18, alignItems: 'start' }}>

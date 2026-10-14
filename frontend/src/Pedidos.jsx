@@ -1343,15 +1343,34 @@ function Pedidos() {
                       });
                     }
 
-                    // Días transcurridos vs restantes
+                    // Días transcurridos vs restantes en producción
                     const totalDays = projectDays.length;
                     const elapsedDaysCount = projectDays.filter(d => d.dateKey < todayKey).length;
                     const remainingDaysCount = projectDays.filter(d => d.dateKey > todayKey).length;
 
-                    // Dimensiones para la línea horizontal de todos los días (e.g. 100 días)
-                    const daySlotWidth = 62;
-                    const timelineTrackWidth = Math.max(900, totalDays * daySlotWidth + 120);
-                    const filledProgressWidth = Math.min(timelineTrackWidth - 120, elapsedDaysCount * daySlotWidth);
+                    // Ciclo de vida completo del proyecto: Prospecto -> Cliente -> Producción
+                    const pProspectDate = calendarDate(sp.capture_date) || calendarDate(sp.created_at);
+                    const pContractDate = calendarDate(sp.contract_date);
+                    const pProdStartDate = sStartDate;
+                    const pDeadlineDate = ssched?.deadline || (projectDays[projectDays.length - 1]?.date) || null;
+
+                    // Días en Prospecto (desde captación hasta firma de contrato)
+                    let pProspectDays = 0;
+                    if (pProspectDate && pContractDate) {
+                      pProspectDays = Math.max(1, Math.round((pContractDate.getTime() - pProspectDate.getTime()) / (1000 * 60 * 60 * 24)));
+                    } else if (pProspectDate) {
+                      pProspectDays = Math.max(1, Math.round((new Date().getTime() - pProspectDate.getTime()) / (1000 * 60 * 60 * 24)));
+                    }
+
+                    // Días en Cliente / Pre-producción (desde firma de contrato hasta arranque en taller)
+                    let pClientPrepDays = 0;
+                    if (pContractDate && pProdStartDate) {
+                      const diff = Math.round((pProdStartDate.getTime() - pContractDate.getTime()) / (1000 * 60 * 60 * 24));
+                      pClientPrepDays = Math.max(0, diff);
+                    }
+
+                    // Total de días acumulados del proyecto en todas sus fases
+                    const pTotalLifecycleDays = (pProspectDays || 0) + (pClientPrepDays || 0) + elapsedDaysCount;
 
                     return (
                       <div style={{ marginTop:16, padding:'1.25rem', background:'linear-gradient(135deg,#0f172a,#1a2744)', border:`2px solid ${sem.color}44`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
@@ -1411,11 +1430,11 @@ function Pedidos() {
                             <div style={{ color:'#ffffff', fontSize:'1.1rem', fontWeight:900, marginTop:2 }}>{sp.name}</div>
                           </div>
                           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                            <span style={{ padding:'0.25rem 0.7rem', borderRadius:999, background:`${sem.color}22`, color:sem.color, fontSize:'0.72rem', fontWeight:800, border:`1px solid ${sem.color}55` }}>
+                            <span style={{ padding:'0.25rem 0.7rem', borderRadius999: true, background:`${sem.color}22`, color:sem.color, fontSize:'0.72rem', fontWeight:800, border:`1px solid ${sem.color}55`, borderRadius: 999 }}>
                               {sem.emoji} {sem.label}
                             </span>
                             <span style={{ color:'#cbd5e1', fontSize:'0.72rem', fontWeight:700 }}>
-                              {totalDays} días hábiles contratados · {elapsedDaysCount} días agotados
+                              {totalDays} días contratados · {elapsedDaysCount} agotados
                             </span>
                             <button type="button" onClick={() => { setSemaforoSelected(null); selectProductionProject(sp); }}
                               style={{ padding:'0.35rem 0.8rem', border:'1px solid #3b82f6', borderRadius:8, background:'#1d4ed8', color:'#fff', fontSize:'0.7rem', fontWeight:800, cursor:'pointer' }}>
@@ -1426,30 +1445,30 @@ function Pedidos() {
                           </div>
                         </div>
 
-                        {/* Barra de resumen */}
-                        <div style={{ display:'flex', gap:10, flexWrap:'wrap', padding:'0.6rem 0.85rem', background:'#0b1329', border:'1px solid #1e293b', borderRadius:10, marginBottom:18 }}>
-                          <span style={{ color:'#ffffff', fontSize:'0.72rem', fontWeight:700 }}>
-                            📅 <strong>Inicio:</strong> {sStartDate.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })}
+                        {/* Barra de resumen del ciclo de vida */}
+                        <div style={{ display:'flex', gap:10, flexWrap:'wrap', padding:'0.65rem 0.9rem', background:'#0b1329', border:'1px solid #1e293b', borderRadius:10, marginBottom:18, alignItems:'center' }}>
+                          <span style={{ color:'#f59e0b', fontSize:'0.72rem', fontWeight:800 }}>
+                            🎯 <strong>Prospecto:</strong> {pProspectDays} {pProspectDays === 1 ? 'día' : 'días'}
                           </span>
-                          <span style={{ color:'#94a3b8' }}>·</span>
-                          <span style={{ color:'#ffffff', fontSize:'0.72rem', fontWeight:700 }}>
-                            🏁 <strong>Compromiso:</strong> {ssched?.deadline ? ssched.deadline.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' }) : 'Calculando...'}
-                          </span>
-                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#475569' }}>·</span>
                           <span style={{ color:'#38bdf8', fontSize:'0.72rem', fontWeight:800 }}>
-                            ⏳ {elapsedDaysCount} días agotados
+                            ✍️ <strong>Cliente:</strong> {pClientPrepDays} {pClientPrepDays === 1 ? 'día' : 'días'}
                           </span>
-                          <span style={{ color:'#94a3b8' }}>·</span>
-                          <span style={{ color:'#22c55e', fontSize:'0.72rem', fontWeight:800 }}>
-                            🟢 {remainingDaysCount} días restantes
+                          <span style={{ color:'#475569' }}>·</span>
+                          <span style={{ color:'#10b981', fontSize:'0.72rem', fontWeight:800 }}>
+                            🔨 <strong>Producción:</strong> {elapsedDaysCount} de {totalDays} días ({remainingDaysCount} rest.)
                           </span>
-                          <span style={{ color:'#94a3b8' }}>·</span>
+                          <span style={{ color:'#475569' }}>·</span>
+                          <span style={{ color:'#ffffff', fontSize:'0.72rem', fontWeight:800, background:'#1e293b', padding:'3px 8px', borderRadius:6, border:'1px solid #334155' }}>
+                            ⏱️ <strong>Total acumulado:</strong> {pTotalLifecycleDays} días
+                          </span>
+                          <span style={{ color:'#475569' }}>·</span>
                           <span style={{ color:'#fbbf24', fontSize:'0.72rem', fontWeight:800 }}>
-                            📸 {dailyAdvances.length} fotos de avance
+                            📸 {dailyAdvances.length} fotos
                           </span>
                         </div>
 
-                        {/* ── SECCIÓN 1: BARRA DE PROGRESO COMPACTA (sin scroll horizontal) ── */}
+                        {/* ── SECCIÓN 1: CICLO DE VIDA Y LÍNEA DE TIEMPO COMPACTA ── */}
                         {(() => {
                           const pct = totalDays > 0 ? Math.min(100, Math.round((elapsedDaysCount / totalDays) * 100)) : 0;
                           // Milestones: día 1, 25%, 50%, 75%, hoy, último día
@@ -1464,9 +1483,85 @@ function Pedidos() {
 
                           return (
                             <div style={{ marginBottom: 20, padding: '0.9rem 1rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: 12 }}>
+                              
+                              {/* ── TARJETAS DEL CICLO DE VIDA COMPLETO (PROSPECTO ➔ CLIENTE ➔ PRODUCCIÓN) ── */}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginBottom: 14 }}>
+                                {/* FASE 1: PROSPECTO */}
+                                <div style={{
+                                  background: '#131b2e',
+                                  border: '1px solid #f59e0b55',
+                                  borderLeft: '4px solid #f59e0b',
+                                  borderRadius: 8,
+                                  padding: '0.6rem 0.8rem'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                    <span style={{ color: '#fbbf24', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                      🎯 Fase 1 · Prospecto
+                                    </span>
+                                    <span style={{ background: '#f59e0b22', color: '#fbbf24', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #f59e0b44' }}>
+                                      {pProspectDays} {pProspectDays === 1 ? 'día' : 'días'}
+                                    </span>
+                                  </div>
+                                  <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                                    Captación & Cotización
+                                  </div>
+                                  <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                                    {pProspectDate ? pProspectDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Captura'} ➔ {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Firma contrato'}
+                                  </div>
+                                </div>
+
+                                {/* FASE 2: CLIENTE / FORMALIZACIÓN */}
+                                <div style={{
+                                  background: '#131b2e',
+                                  border: '1px solid #38bdf855',
+                                  borderLeft: '4px solid #38bdf8',
+                                  borderRadius: 8,
+                                  padding: '0.6rem 0.8rem'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                    <span style={{ color: '#38bdf8', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                      ✍️ Fase 2 · Cliente
+                                    </span>
+                                    <span style={{ background: '#38bdf822', color: '#38bdf8', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #38bdf844' }}>
+                                      {pClientPrepDays} {pClientPrepDays === 1 ? 'día' : 'días'}
+                                    </span>
+                                  </div>
+                                  <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                                    Firma & Preparación Taller
+                                  </div>
+                                  <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                                    {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Contrato'} ➔ {pProdStartDate ? pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Inicio taller'}
+                                  </div>
+                                </div>
+
+                                {/* FASE 3: PRODUCCIÓN EN TALLER */}
+                                <div style={{
+                                  background: '#131b2e',
+                                  border: '1px solid #10b98155',
+                                  borderLeft: '4px solid #10b981',
+                                  borderRadius: 8,
+                                  padding: '0.6rem 0.8rem'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                    <span style={{ color: '#34d399', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                      🔨 Fase 3 · Producción
+                                    </span>
+                                    <span style={{ background: '#10b98122', color: '#34d399', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: 4, border: '1px solid #10b98144' }}>
+                                      {totalDays} días contratados
+                                    </span>
+                                  </div>
+                                  <div style={{ color: '#ffffff', fontSize: '0.74rem', fontWeight: 700 }}>
+                                    {elapsedDaysCount} agotados · {remainingDaysCount} restantes
+                                  </div>
+                                  <div style={{ color: '#94a3b8', fontSize: '0.62rem', marginTop: 3 }}>
+                                    {pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })} ➔ {pDeadlineDate ? pDeadlineDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Compromiso'}
+                                  </div>
+                                </div>
+                              </div>
+
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                 <h4 style={{ margin: 0, color: '#ffffff', fontSize: '0.82rem', fontWeight: 900 }}>
-                                  📏 Línea de tiempo · {totalDays} días contratados
+                                  📏 Producción en Taller · {totalDays} días hábiles contratados
                                 </h4>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                   <button type="button" onClick={() => setSemaforoSelectedDayKey(projectDays[0]?.dateKey)}
