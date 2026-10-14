@@ -477,8 +477,18 @@ async def upload_to_storage(file: UploadFile, prefix: str) -> str:
             )
             return result.get("secure_url")
         except Exception as e:
-            print(f"Error subiendo a Cloudinary: {e}")
-            raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
+            err_str = str(e)
+            print(f"Error subiendo a Cloudinary: {err_str}")
+            # Cloudinary rechaza archivos mayores a 10 MB en el plan gratuito
+            if "File size too large" in err_str or "10485760" in err_str or "Maximum is" in err_str:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        "El archivo es demasiado grande para Cloudinary (límite: 10 MB). "
+                        "Comprima el PDF en ilovepdf.com y vuelva a intentarlo."
+                    )
+                )
+            raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {err_str}")
 
     # Fallback: guardar en disco local (carpeta /uploads)
     save_path = os.path.join(UPLOAD_DIR, unique_name)

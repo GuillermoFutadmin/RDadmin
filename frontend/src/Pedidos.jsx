@@ -948,6 +948,18 @@ function Pedidos() {
 
   const uploadRenderFile = async (file) => {
     if (!file || !selected) return;
+
+    // Validación de tamaño: Cloudinary plan gratuito permite máximo 10 MB por archivo
+    const MAX_MB = 10;
+    const fileMB = file.size / (1024 * 1024);
+    if (fileMB > MAX_MB) {
+      setMessage(
+        `❌ El archivo pesa ${fileMB.toFixed(1)} MB y supera el límite de ${MAX_MB} MB de Cloudinary. ` +
+        `Por favor comprima el PDF (puede usar ilovepdf.com) y vuelva a intentarlo.`
+      );
+      return;
+    }
+
     setUploadingRender(true);
     setMessage('');
     try {
@@ -957,7 +969,12 @@ function Pedidos() {
         method: 'POST',
         body: fd
       });
-      if (!res.ok) throw new Error('Error al subir archivo de render');
+      if (!res.ok) {
+        // Intentar leer el mensaje de error del servidor
+        let detail = 'Error al subir archivo de render';
+        try { const json = await res.json(); detail = json.detail || detail; } catch {}
+        throw new Error(detail);
+      }
       const data = await res.json();
       const newPdfPath = data.pdf_path || (file.name.toLowerCase().endsWith('.pdf') ? data.image_path : selected.render_pdf_path);
       const newImgPath = data.image_path || selected.render_image_path;
@@ -976,7 +993,7 @@ function Pedidos() {
       setMessage('✅ Archivo de render cargado correctamente y listo para el machote.');
     } catch (err) {
       console.error(err);
-      setMessage('❌ Error al subir archivo de render: ' + (err.message || ''));
+      setMessage('❌ ' + (err.message || 'Error al subir archivo de render'));
     } finally {
       setUploadingRender(false);
     }
