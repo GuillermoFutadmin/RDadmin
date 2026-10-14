@@ -3376,6 +3376,7 @@ function Prospects() {
   const [filterStatus,    setFilterStatus]    = useState('');
   const [filterMaterial,  setFilterMaterial]  = useState('');
   const [filterType,      setFilterType]      = useState('');
+  const [sortBy,          setSortBy]          = useState('capture'); // 'capture' | 'updated'
   const [showPapelera,    setShowPapelera]    = useState(false);
 
   const fetchProspects = () => {
@@ -3491,7 +3492,50 @@ function Prospects() {
         const materialOptions = [...new Set(prospects.flatMap(p => [p.material_type, p.material_type_2]).filter(Boolean))];
         const typeOptions     = [...new Set(prospects.map(p => p.project_type).filter(Boolean))];
         const hasFilters = txt || filterStatus || filterMaterial || filterType;
-        const clearFilters = () => { setFilterText(''); setFilterStatus(''); setFilterMaterial(''); setFilterType(''); };
+        const clearFilters = () => { setFilterText(''); setFilterStatus(''); setFilterMaterial(''); setFilterType(''); setSortBy('capture'); };
+
+        const formatDateTime = (val) => {
+          if (!val) return '-';
+          try {
+            const s = String(val);
+            const withZ = s.endsWith('Z') ? s : (s.includes('T') ? s + 'Z' : s);
+            const d = new Date(withZ);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleString('es-MX', {
+              timeZone: 'America/Tijuana',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+          } catch (e) {
+            return String(val);
+          }
+        };
+
+        const sortedFiltered = [...filtered].sort((a, b) => {
+          const parseTime = (dateVal) => {
+            if (!dateVal) return 0;
+            const s = String(dateVal);
+            const withZ = s.endsWith('Z') ? s : (s.includes('T') ? s + 'Z' : s);
+            const t = new Date(withZ).getTime();
+            return isNaN(t) ? 0 : t;
+          };
+
+          if (sortBy === 'updated') {
+            const tB = parseTime(b.updated_at || b.capture_date);
+            const tA = parseTime(a.updated_at || a.capture_date);
+            if (tB !== tA) return tB - tA;
+            return (b.id || 0) - (a.id || 0);
+          } else {
+            const tB = parseTime(b.capture_date);
+            const tA = parseTime(a.capture_date);
+            if (tB !== tA) return tB - tA;
+            return (b.id || 0) - (a.id || 0);
+          }
+        });
 
         return (
           <>
@@ -3579,8 +3623,18 @@ function Prospects() {
                     {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                {(txt || filterType) && (
-                  <button onClick={() => { setFilterText(''); setFilterMaterial(''); setFilterType(''); }}
+
+                <div style={{ flex: '1 1 170px', minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '4px' }}>Ordenar por</label>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                    style={{ width: '100%', padding: '7px 8px', borderRadius: '7px', border: '1px solid #cbd5e1', fontSize: '0.87rem', cursor: 'pointer', background: '#fff', fontWeight: '600', color: '#1e293b' }}>
+                    <option value="capture">🕒 Último registro</option>
+                    <option value="updated">✏️ Últimos con cambios</option>
+                  </select>
+                </div>
+
+                {(txt || filterType || sortBy !== 'capture') && (
+                  <button onClick={() => { setFilterText(''); setFilterMaterial(''); setFilterType(''); setSortBy('capture'); }}
                     style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '7px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
                     ✕ Limpiar
                   </button>
@@ -3588,15 +3642,57 @@ function Prospects() {
               </div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.77rem', color: '#94a3b8' }}>
                 {(txt || filterStatus || filterType)
-                  ? `Mostrando ${filtered.length} de ${prospects.length} prospectos`
+                  ? `Mostrando ${sortedFiltered.length} de ${prospects.length} prospectos`
                   : `${prospects.length} prospecto${prospects.length !== 1 ? 's' : ''} en total`}
               </div>
             </div>
 
             {/* ── TABLA ── */}
             <div className="card">
-              <h3 style={{ marginBottom: '1rem', fontSize: '1rem', color: '#555' }}>Catálogo de Prospectos</h3>
-              {filtered.length === 0 ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#555' }}>Catálogo de Prospectos</h3>
+                <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', padding: '3px', borderRadius: '8px', gap: '3px', border: '1px solid #e2e8f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('capture')}
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: sortBy === 'capture' ? 'white' : 'transparent',
+                      color: sortBy === 'capture' ? '#1e293b' : '#64748b',
+                      boxShadow: sortBy === 'capture' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      transition: 'all 0.15s ease',
+                      display: 'flex', alignItems: 'center', gap: '5px'
+                    }}
+                  >
+                    <span>🕒</span> Último registro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('updated')}
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: sortBy === 'updated' ? 'white' : 'transparent',
+                      color: sortBy === 'updated' ? '#0f766e' : '#64748b',
+                      boxShadow: sortBy === 'updated' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      transition: 'all 0.15s ease',
+                      display: 'flex', alignItems: 'center', gap: '5px'
+                    }}
+                  >
+                    <span>✏️</span> Últimos con cambios
+                  </button>
+                </div>
+              </div>
+              {sortedFiltered.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#94a3b8' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🔍</div>
                   <p style={{ margin: 0 }}>{prospects.length === 0 ? 'No hay prospectos registrados aún.' : 'Ningún prospecto coincide con los filtros.'}</p>
@@ -3612,7 +3708,7 @@ function Prospects() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #eee', textAlign: 'left', background: '#fafafa' }}>
-                        {['ID','Nombre','Proyecto','Contacto','Captura','Inicio','Material','Estado','Acciones'].map((h, i) => (
+                        {['ID','Nombre','Proyecto','Contacto', sortBy === 'updated' ? 'Último Cambio' : 'Captura', 'Inicio','Material','Estado','Acciones'].map((h, i) => (
                           <th key={h} style={{
                             padding: '0.6rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '700',
                             ...(h === 'Nombre' ? { position: 'sticky', left: 0, background: '#fafafa', zIndex: 2, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}),
@@ -3622,7 +3718,7 @@ function Prospects() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map(p => (
+                      {sortedFiltered.map(p => (
                         <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0', transition: 'background 0.1s' }}
                           onMouseEnter={e => { e.currentTarget.style.background = '#fffbf7'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
@@ -3637,7 +3733,32 @@ function Prospects() {
                             {p.project_type || '-'}
                           </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.contact_info || '-'}</td>
-                          <td style={{ padding: '0.6rem', fontSize: '0.85rem', color: '#64748b' }}>{p.capture_date ? new Date(p.capture_date + (p.capture_date.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', { timeZone: 'America/Tijuana', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}</td>
+                          <td style={{ padding: '0.6rem', fontSize: '0.85rem' }}>
+                            {sortBy === 'updated' ? (
+                              <div>
+                                <div style={{ fontWeight: '700', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '0.8rem' }}>✏️</span>
+                                  <span>{formatDateTime(p.updated_at || p.capture_date)}</span>
+                                </div>
+                                {p.updated_at && p.capture_date && Math.abs(new Date(p.updated_at).getTime() - new Date(p.capture_date).getTime()) > 60000 && (
+                                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
+                                    Reg: {formatDateTime(p.capture_date)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ color: '#475569', fontWeight: '500' }}>
+                                  {formatDateTime(p.capture_date)}
+                                </div>
+                                {p.updated_at && p.capture_date && Math.abs(new Date(p.updated_at).getTime() - new Date(p.capture_date).getTime()) > 60000 && (
+                                  <div style={{ fontSize: '0.72rem', color: '#0f766e', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <span>✏️</span> {formatDateTime(p.updated_at)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.start_date || '-'}</td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.material_type_2 ? `${p.material_type} + ${p.material_type_2}` : (p.material_type || '-')}</td>
                           <td style={{ padding: '0.6rem' }}>

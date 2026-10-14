@@ -49,6 +49,8 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_rep VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_client VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN other_projects VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN updated_at TIMESTAMP;")
+    safe_alter("UPDATE prospects SET updated_at = capture_date WHERE updated_at IS NULL;")
     safe_alter("ALTER TABLE users ADD COLUMN photo_path VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
@@ -144,6 +146,10 @@ if os.path.exists(FRONTEND_DIST):
     def serve_react_app():
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"), headers={"Cache-Control": "no-cache"})
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 
 class ProspectCreate(BaseModel):
     name: Optional[str] = None
@@ -190,6 +196,7 @@ class ProspectCreate(BaseModel):
     production_days: Optional[int] = None
     public_id: Optional[str] = None
     capture_date: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     countertop_type: Optional[str] = None
     inhabited_house: Optional[str] = None
     how_found: Optional[str] = None
@@ -357,12 +364,12 @@ HEAVY_PROSPECT_FIELDS = (
 @app.get("/api/prospects", response_model=List[ProspectResponse])
 def get_prospects(light: bool = False, db: Session = Depends(get_db)):
     if not light:
-        return db.query(models.Prospect).all()
+        return db.query(models.Prospect).order_by(models.Prospect.capture_date.desc().nullslast(), models.Prospect.id.desc()).all()
     # Modo ligero: no se leen de la BD los campos pesados; estimation_data se
     # sustituye por un marcador para que los botones sigan sabiendo si existe.
     cols = [c for c in models.Prospect.__table__.columns if c.name not in HEAVY_PROSPECT_FIELDS]
     has_est = models.Prospect.estimation_data.isnot(None).label("_has_estimation")
-    rows = db.query(*cols, has_est).all()
+    rows = db.query(*cols, has_est).order_by(models.Prospect.capture_date.desc().nullslast(), models.Prospect.id.desc()).all()
     result = []
     for row in rows:
         data = dict(row._mapping)
@@ -391,7 +398,9 @@ def generate_public_id():
 def create_prospect(prospect: ProspectCreate, db: Session = Depends(get_db)):
     db_prospect = models.Prospect(**prospect.dict())
     db_prospect.public_id = generate_public_id()
-    db_prospect.capture_date = datetime.utcnow()
+    now = datetime.utcnow()
+    db_prospect.capture_date = now
+    db_prospect.updated_at = now
     db.add(db_prospect)
     db.commit()
     db.refresh(db_prospect)
@@ -405,11 +414,12 @@ def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = De
         raise HTTPException(status_code=404, detail="Prospect not found")
     for key, value in prospect.dict(exclude_unset=True).items():
         # Prevent overriding read-only fields on update if they happen to be in the payload
-        if key not in ['id', 'public_id', 'capture_date']:
+        if key not in ['id', 'public_id', 'capture_date', 'updated_at']:
             if key == 'estimation_data' and isinstance(value, str) and 'data:image' in value:
                 # Las fotos y croquis nuevos se guardan en Cloudinary; si fallan, se conserva el base64.
                 value, _, _ = imagestore.externalize_json(value, prospect_id)
             setattr(db_prospect, key, value)
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return db_prospect
@@ -515,6 +525,7 @@ async def upload_production_evidence(
     photos = stages[stage_index].setdefault("photos", [])
     photos.append({"url": image_url, "uploaded_at": datetime.utcnow().isoformat() + "Z"})
     prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
     db.commit()
     return {"image_path": image_url, "production_data": prospect.production_data}
 
@@ -526,6 +537,7 @@ async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db
 
     new_url = await upload_to_storage(file, "design")
     db_prospect.design_image_path = new_url
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.design_image_path}
@@ -541,6 +553,7 @@ async def upload_space_image(prospect_id: int, files: List[UploadFile] = File(..
         urls.append(new_url)
         
     db_prospect.space_image_path = ",".join(urls)
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.space_image_path}
@@ -558,6 +571,7 @@ async def upload_reference_image(prospect_id: int, files: List[UploadFile] = Fil
     db_prospect.reference_image_path = ",".join(urls)
     if not db_prospect.design_image_path and urls:
         db_prospect.design_image_path = urls[0]
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.reference_image_path}
@@ -571,6 +585,7 @@ async def upload_quote_image(prospect_id: int, index: int, file: UploadFile = Fi
     new_url = await upload_to_storage(file, f"quote_{index}")
     attr_name = f"quote_image_{index}"
     setattr(db_prospect, attr_name, new_url)
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": getattr(db_prospect, attr_name)}
@@ -602,6 +617,7 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
         urls.append(new_url)
 
     db_prospect.render_image_path = ",".join(urls)
+    db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.render_image_path}

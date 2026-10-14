@@ -76,6 +76,7 @@ class Prospect(Base):
     production_days = Column(Integer, nullable=True)
     public_id = Column(String, unique=True, index=True, nullable=True)
     capture_date = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     status = Column(String, default="New")
     has_quote = Column(Boolean, default=False)
     is_contract = Column(Boolean, default=False)   # passed to Contratos

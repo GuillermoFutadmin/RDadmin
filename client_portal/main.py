@@ -42,6 +42,10 @@ _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTE
 
 app = FastAPI(title="RDadmin Client Portal")
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
