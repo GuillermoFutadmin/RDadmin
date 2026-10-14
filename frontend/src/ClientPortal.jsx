@@ -97,8 +97,13 @@ export default function ClientPortal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginCredentials)
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'No se pudo validar el acceso.');
+      let result = null;
+      try {
+        result = await response.json();
+      } catch {
+        throw new Error(response.status >= 500 ? 'El servidor del portal de clientes no pudo procesar la solicitud en este momento. Intenta nuevamente.' : `Error de comunicación (${response.status})`);
+      }
+      if (!response.ok) throw new Error(result?.detail || 'No se pudo validar el acceso.');
       setCredentials(loginCredentials);
       setProject(result);
       setPassword('');
