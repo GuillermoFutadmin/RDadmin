@@ -239,7 +239,8 @@ function Pedidos() {
   const [supplierForMaterial, setSupplierForMaterial] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
   const [showSemaforo, setShowSemaforo] = useState(false);
-  const [semaforoModal, setSemaforoModal] = useState(null);
+  const [semaforoSelected, setSemaforoSelected] = useState(null);
+  const [semaforoUploadingStage, setSemaforoUploadingStage] = useState(null);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -863,219 +864,8 @@ function Pedidos() {
     );
   }
 
-  /* ── MODAL SEMÁFORO ── */
-  const SemaforoProjectModal = ({ project, onClose }) => {
-    const prod = normalizeProduction(project.production_data);
-    const stgs = Array.isArray(prod.stages) ? prod.stages : [];
-    const schedule = projectSchedules.get(project.id);
-    const sem = (() => {
-      const SEMAFORO_ETAPAS = ['Render y materiales','Preparación','Producción iniciada','Avance 1','Avance 2 / revisión','Entrega'];
-      const currentStageIdx = productionStageIndex(project);
-      const isDelivered = project.status === 'ENTREGADO';
-      if (isDelivered) return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '✅', label: 'Entregado' };
-      if (!schedule) return { color: '#78716c', bg: '#fafaf9', border: '#d6d3d1', emoji: '⚪', label: 'Sin cronograma' };
-      const { daysRemaining } = schedule;
-      const stageDiff = currentStageIdx - schedule.expectedStage;
-      if (daysRemaining < 0 || stageDiff < -1) return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', emoji: '🔴', label: stageDiff < -1 ? `Atrasado ${Math.abs(stageDiff)} etapa(s)` : `${Math.abs(daysRemaining)} día(s) vencido(s)` };
-      if (stageDiff < 0 || daysRemaining <= 3) return { color: '#d97706', bg: '#fffbeb', border: '#fde68a', emoji: '🟡', label: daysRemaining <= 3 && daysRemaining >= 0 ? `${daysRemaining} día(s) restante(s)` : 'Ligeramente atrás' };
-      return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '🟢', label: `${daysRemaining} día(s) restante(s)` };
-    })();
-    const currentStageIdx = productionStageIndex(project);
-    const startDate = schedule?.startDate;
-    const deadline = schedule?.deadline;
-    const totalW = startDate && deadline ? Math.max(1, deadline - startDate) : 1;
-    const nowMs = scheduleNow.getTime();
-
-    const stageColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
-
-    return (
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Detalle de ${project.name}`}
-        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(10,15,28,0.72)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '1rem',
-          backdropFilter: 'blur(4px)'
-        }}
-      >
-        <div style={{
-          width: '100%', maxWidth: 780, maxHeight: '90vh',
-          background: 'linear-gradient(160deg,#0f172a 0%,#1e293b 100%)',
-          border: `2px solid ${sem.color}`,
-          borderRadius: 20, overflowY: 'auto',
-          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px ${sem.color}44`
-        }}>
-
-          {/* Header */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, padding:'1.25rem 1.5rem 0.75rem', borderBottom:'1px solid #334155' }}>
-            <div>
-              <div style={{ color:'#94a3b8', fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:4 }}>
-                {project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}
-              </div>
-              <h2 style={{ margin:0, color:'#f1f5f9', fontSize:'1.3rem', fontWeight:800 }}>{project.name || 'Cliente'}</h2>
-              <div style={{ marginTop:6, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                <span style={{ padding:'0.28rem 0.75rem', borderRadius:999, background:sem.bg, color:sem.color, fontSize:'0.75rem', fontWeight:800, border:`1px solid ${sem.border}` }}>
-                  {sem.emoji} {sem.label}
-                </span>
-                {schedule && (
-                  <span style={{ color:'#64748b', fontSize:'0.72rem' }}>
-                    {schedule.elapsedDays}d hábiles transcurridos de {schedule.plannedDays}d planeados
-                  </span>
-                )}
-              </div>
-            </div>
-            <button type="button" onClick={onClose} aria-label="Cerrar"
-              style={{ flexShrink:0, width:34, height:34, display:'inline-flex', alignItems:'center', justifyContent:'center',
-                border:'1px solid #334155', borderRadius:10, background:'#1e293b', color:'#94a3b8', fontSize:'1.1rem', cursor:'pointer' }}>
-              ✕
-            </button>
-          </div>
-
-          <div style={{ padding:'1.25rem 1.5rem' }}>
-
-            {/* ── LÍNEA DE TIEMPO ── */}
-            <div style={{ marginBottom:'1.5rem' }}>
-              <div style={{ color:'#94a3b8', fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:10 }}>Línea de tiempo del proyecto</div>
-
-              {/* Barra de progreso global */}
-              {schedule && (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.68rem', color:'#64748b', marginBottom:5 }}>
-                    <span>📅 {schedule.startDate.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
-                    <span style={{ color: schedule.daysRemaining < 0 ? '#ef4444' : '#22c55e' }}>🏁 {schedule.deadline.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
-                  </div>
-                  <div style={{ position:'relative', height:12, background:'#1e3a5f', borderRadius:999, overflow:'hidden' }}>
-                    <div style={{
-                      position:'absolute', left:0, top:0, height:'100%',
-                      width:`${schedule.timeProgress}%`,
-                      background: schedule.daysRemaining < 0 ? 'linear-gradient(90deg,#dc2626,#f87171)' : 'linear-gradient(90deg,#2563eb,#22c55e)',
-                      borderRadius:999, transition:'width 0.4s ease'
-                    }} />
-                    {/* Marcador de hoy */}
-                    <div style={{ position:'absolute', top:0, left:`${Math.min(schedule.timeProgress,100)}%`, height:'100%', width:2, background:'#fff', opacity:0.8 }} />
-                  </div>
-                  <div style={{ textAlign:'right', fontSize:'0.65rem', color:'#64748b', marginTop:3 }}>{schedule.timeProgress}% del tiempo transcurrido</div>
-                </div>
-              )}
-
-              {/* Etapas como timeline vertical */}
-              <div style={{ position:'relative', paddingLeft:28 }}>
-                {/* Línea vertical */}
-                <div style={{ position:'absolute', left:10, top:8, bottom:8, width:2, background:'#334155', borderRadius:999 }} />
-
-                {STAGE_NAMES.map((stageName, idx) => {
-                  const stg = stgs[idx] || {};
-                  const done = idx < currentStageIdx || project.status === 'ENTREGADO';
-                  const active = idx === currentStageIdx && project.status !== 'ENTREGADO';
-                  const pending = !done && !active;
-                  const photos = collectImageUrls(stg.photos);
-                  const dotColor = done ? stageColors[idx] : active ? '#f59e0b' : '#334155';
-                  const enteredDate = stg.entered_at ? new Date(stg.entered_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}) : null;
-
-                  return (
-                    <div key={stageName} style={{ position:'relative', marginBottom: idx < STAGE_NAMES.length-1 ? 20 : 0 }}>
-                      {/* Dot */}
-                      <div style={{
-                        position:'absolute', left:-22, top:2,
-                        width:16, height:16, borderRadius:'50%',
-                        background: dotColor,
-                        border:`2px solid ${active ? '#fbbf24' : done ? dotColor : '#475569'}`,
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        boxShadow: active ? `0 0 0 4px #fbbf2440` : done ? `0 0 0 3px ${dotColor}30` : 'none'
-                      }}>
-                        {done && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
-                        {active && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
-                      </div>
-
-                      {/* Contenido */}
-                      <div style={{
-                        padding:'0.6rem 0.75rem',
-                        background: active ? '#1e3a5f' : done ? '#1a2a1a' : '#1a1f2e',
-                        border:`1px solid ${active ? '#3b82f6' : done ? stageColors[idx]+'44' : '#334155'}`,
-                        borderRadius:10
-                      }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                          <span style={{ color: done ? stageColors[idx] : active ? '#fbbf24' : '#64748b', fontSize:'0.76rem', fontWeight:800 }}>
-                            {done ? '✓' : active ? '▶' : `${idx+1}.`} {stageName}
-                          </span>
-                          {enteredDate && <span style={{ color:'#64748b', fontSize:'0.65rem' }}>{enteredDate}</span>}
-                          {!enteredDate && pending && <span style={{ color:'#475569', fontSize:'0.65rem' }}>Pendiente</span>}
-                        </div>
-
-                        {stg.note && (
-                          <div style={{ marginTop:5, color:'#94a3b8', fontSize:'0.68rem', fontStyle:'italic', lineHeight:1.4 }}>💬 {stg.note}</div>
-                        )}
-
-                        {/* Fotos de la etapa */}
-                        {photos.length > 0 && (
-                          <div style={{ marginTop:8, display:'flex', gap:6, flexWrap:'wrap' }}>
-                            {photos.map((url, photoIdx) => (
-                              <a key={photoIdx} href={imageUrl(url)} target="_blank" rel="noreferrer"
-                                style={{ display:'block', flexShrink:0 }}>
-                                <img
-                                  src={imageUrl(url)}
-                                  alt={`${stageName} foto ${photoIdx+1}`}
-                                  style={{
-                                    width:72, height:72,
-                                    objectFit:'cover', borderRadius:8,
-                                    border:`2px solid ${stageColors[idx]}66`,
-                                    transition:'transform 0.15s ease',
-                                    cursor:'pointer'
-                                  }}
-                                  onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
-                                  onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Entrega final */}
-                {project.status === 'ENTREGADO' && prod.delivered_at && (
-                  <div style={{ position:'relative', marginTop:20 }}>
-                    <div style={{ position:'absolute', left:-22, top:2, width:16, height:16, borderRadius:'50%', background:'#16a34a', border:'2px solid #16a34a', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 0 4px #16a34a30' }}>
-                      <span style={{ color:'#fff', fontSize:'0.55rem', fontWeight:900 }}>✅</span>
-                    </div>
-                    <div style={{ padding:'0.6rem 0.75rem', background:'#14532d22', border:'1px solid #16a34a55', borderRadius:10 }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ color:'#22c55e', fontSize:'0.76rem', fontWeight:800 }}>✅ Proyecto entregado</span>
-                        <span style={{ color:'#64748b', fontSize:'0.65rem' }}>{new Date(prod.delivered_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Footer acciones */}
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', paddingTop:'1rem', borderTop:'1px solid #334155', flexWrap:'wrap' }}>
-              <button type="button" onClick={onClose}
-                style={{ padding:'0.55rem 1rem', border:'1px solid #334155', borderRadius:9, background:'transparent', color:'#94a3b8', fontWeight:700, cursor:'pointer' }}>
-                Cerrar
-              </button>
-              <button type="button" onClick={() => { onClose(); selectProductionProject(project); }}
-                style={{ padding:'0.55rem 1rem', border:'1px solid #3b82f6', borderRadius:9, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:'pointer' }}>
-                📋 Ver ficha completa
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
-    <>
-      {semaforoModal && <SemaforoProjectModal project={semaforoModal} onClose={() => setSemaforoModal(null)} />}
     <main style={{ padding: 'clamp(0.8rem, 2vw, 1.6rem)', color: '#1e293b' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
@@ -1246,7 +1036,8 @@ function Pedidos() {
                             key={project.id}
                             type="button"
                             id={`semaforo-cliente-${project.id}`}
-                            onClick={() => setSemaforoModal(project)}
+                            onClick={() => setSemaforoSelected(p => p?.id === project.id ? null : project)}
+                            aria-pressed={semaforoSelected?.id === project.id}
                             style={{
                               display: 'flex', flexDirection: 'column', gap: 8,
                               padding: '0.85rem 1rem',
@@ -1313,6 +1104,258 @@ function Pedidos() {
                       })}
                     </div>
                   )}
+
+                  {/* ── PANEL INLINE HORIZONTAL ── */}
+                  {semaforoSelected && (() => {
+                    const sp = projects.find(p => p.id === semaforoSelected.id) || semaforoSelected;
+                    const sprod = normalizeProduction(sp.production_data);
+                    const sstgs = Array.isArray(sprod.stages) ? sprod.stages : [];
+                    const ssched = projectSchedules.get(sp.id);
+                    const scIdx = productionStageIndex(sp);
+                    const stageColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
+                    const getSem = (proj) => {
+                      const sc = projectSchedules.get(proj.id);
+                      const ci = productionStageIndex(proj);
+                      if (proj.status === 'ENTREGADO') return { color:'#16a34a', emoji:'✅', label:'Entregado' };
+                      if (!sc) return { color:'#78716c', emoji:'⚪', label:'Sin cronograma' };
+                      const diff = ci - sc.expectedStage;
+                      if (sc.daysRemaining < 0 || diff < -1) return { color:'#dc2626', emoji:'🔴', label: diff < -1 ? `${Math.abs(diff)} etapa(s) atrás` : `${Math.abs(sc.daysRemaining)}d vencido` };
+                      if (diff < 0 || sc.daysRemaining <= 3) return { color:'#d97706', emoji:'🟡', label:`${sc.daysRemaining}d restantes` };
+                      return { color:'#16a34a', emoji:'🟢', label:`${sc.daysRemaining}d restantes` };
+                    };
+                    const sem = getSem(sp);
+
+                    const uploadDailyPhoto = async (file, stageIdx) => {
+                      if (!file) return;
+                      setSemaforoUploadingStage(stageIdx);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/production-evidence/${stageIdx}`, { method:'POST', body:fd });
+                        if (!res.ok) throw new Error('No se pudo subir');
+                        const result = await res.json();
+                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: result.production_data } : p));
+                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: result.production_data } : prev);
+                      } catch(e) { setMessage(e.message); }
+                      finally { setSemaforoUploadingStage(null); }
+                    };
+
+                    const togglePublish = async (stageIdx, photoUrl) => {
+                      const stg = sstgs[stageIdx] || {};
+                      const photos = Array.isArray(stg.photos) ? stg.photos : [];
+                      const nextPhotos = photos.map(p => {
+                        const u = typeof p === 'string' ? p : p.url;
+                        if (u !== photoUrl) return p;
+                        if (typeof p === 'string') return { url: p, published: true };
+                        return { ...p, published: !p.published };
+                      });
+                      const nextStgs = sstgs.map((s, i) => i === stageIdx ? { ...s, photos: nextPhotos } : s);
+                      const nextProd = { ...sprod, stages: nextStgs };
+                      try {
+                        const res = await fetch(`${API}/api/prospects/${sp.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ production_data: JSON.stringify(nextProd) })
+                        });
+                        if (!res.ok) throw new Error('No se pudo actualizar');
+                        const updated = await res.json();
+                        setProjects(cur => cur.map(p => p.id === updated.id ? updated : p));
+                        setSemaforoSelected(prev => prev?.id === updated.id ? updated : prev);
+                      } catch(e) { setMessage(e.message); }
+                    };
+
+                    // Recopilar todos los nodos de la línea de tiempo
+                    const nodes = [
+                      { type:'start', date: ssched?.startDate, label:'Inicio', color:'#3b82f6' },
+                      ...STAGE_NAMES.map((name, idx) => {
+                        const stg = sstgs[idx] || {};
+                        const photos = Array.isArray(stg.photos)
+                          ? stg.photos.map(p => typeof p === 'string' ? { url: p, published: false } : p)
+                          : [];
+                        return { type:'stage', idx, name, stg, photos, color: stageColors[idx],
+                          done: idx < scIdx || sp.status === 'ENTREGADO',
+                          active: idx === scIdx && sp.status !== 'ENTREGADO',
+                          date: stg.entered_at ? new Date(stg.entered_at) : null };
+                      }),
+                      ...(sp.status === 'ENTREGADO' && sprod.delivered_at
+                        ? [{ type:'end', date: new Date(sprod.delivered_at), label:'Entregado', color:'#16a34a' }]
+                        : ssched ? [{ type:'deadline', date: ssched.deadline, label:'Deadline', color: ssched.daysRemaining < 0 ? '#ef4444' : '#64748b' }] : []
+                      )
+                    ];
+
+                    return (
+                      <div style={{ marginTop:16, padding:'1.25rem', background:'linear-gradient(135deg,#0f172a,#1a2744)', border:`2px solid ${sem.color}44`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
+
+                        {/* Header del panel */}
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:16 }}>
+                          <div>
+                            <div style={{ color:'#94a3b8', fontSize:'0.65rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.1em' }}>
+                              {sp.project_type || 'Proyecto'} · {sp.public_id || `ID ${sp.id}`}
+                            </div>
+                            <div style={{ color:'#f1f5f9', fontSize:'1rem', fontWeight:800, marginTop:2 }}>{sp.name}</div>
+                          </div>
+                          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                            <span style={{ padding:'0.25rem 0.7rem', borderRadius:999, background:`${sem.color}22`, color:sem.color, fontSize:'0.72rem', fontWeight:800, border:`1px solid ${sem.color}55` }}>
+                              {sem.emoji} {sem.label}
+                            </span>
+                            {ssched && <span style={{ color:'#64748b', fontSize:'0.68rem' }}>{ssched.elapsedDays}d / {ssched.plannedDays}d hábiles · {ssched.timeProgress}%</span>}
+                            <button type="button" onClick={() => { setSemaforoSelected(null); selectProductionProject(sp); }}
+                              style={{ padding:'0.35rem 0.8rem', border:'1px solid #3b82f6', borderRadius:8, background:'#1d4ed8', color:'#fff', fontSize:'0.7rem', fontWeight:800, cursor:'pointer' }}>
+                              📋 Ficha completa
+                            </button>
+                            <button type="button" onClick={() => setSemaforoSelected(null)}
+                              style={{ width:28, height:28, border:'1px solid #334155', borderRadius:8, background:'#1e293b', color:'#94a3b8', cursor:'pointer', fontSize:'0.9rem' }}>×</button>
+                          </div>
+                        </div>
+
+                        {/* Barra de progreso */}
+                        {ssched && (
+                          <div style={{ marginBottom:20 }}>
+                            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.65rem', color:'#64748b', marginBottom:4 }}>
+                              <span>📅 {ssched.startDate.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</span>
+                              <span style={{ color: ssched.daysRemaining < 0 ? '#ef4444':'#22c55e' }}>🏁 {ssched.deadline.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
+                            </div>
+                            <div style={{ position:'relative', height:8, background:'#1e3a5f', borderRadius:999, overflow:'hidden' }}>
+                              <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${ssched.timeProgress}%`,
+                                background: ssched.daysRemaining < 0 ? 'linear-gradient(90deg,#dc2626,#f87171)':'linear-gradient(90deg,#2563eb,#22c55e)', borderRadius:999 }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── TIMELINE HORIZONTAL ── */}
+                        <div style={{ overflowX:'auto', paddingBottom:8 }}>
+                          <div style={{ minWidth: Math.max(700, nodes.length * 160), position:'relative' }}>
+
+                            {/* Fotos ARRIBA (etapas pares) */}
+                            <div style={{ display:'flex', alignItems:'flex-end', height:130, marginBottom:0 }}>
+                              {nodes.map((node, ni) => (
+                                <div key={ni} style={{ flex:'0 0 auto', width: Math.max(700, nodes.length*160)/nodes.length, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', paddingBottom:8 }}>
+                                  {node.type === 'stage' && ni % 2 === 0 && (
+                                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, width:'100%' }}>
+                                      {/* Fotos de esta etapa (arriba) */}
+                                      <div style={{ display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', maxWidth:140 }}>
+                                        {node.photos.slice(0,3).map((ph, pi) => (
+                                          <div key={pi} style={{ position:'relative' }}>
+                                            <a href={imageUrl(ph.url)} target="_blank" rel="noreferrer">
+                                              <img src={imageUrl(ph.url)} alt="" style={{ width:38, height:38, objectFit:'cover', borderRadius:6,
+                                                border:`2px solid ${ph.published ? '#22c55e' : node.color}66` }} />
+                                            </a>
+                                            <button type="button" title={ph.published ? 'Publicado al cliente – click para ocultar':'Publicar al cliente'}
+                                              onClick={() => togglePublish(node.idx, ph.url)}
+                                              style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%',
+                                                background: ph.published ? '#22c55e':'#475569', border:'1.5px solid #0f172a',
+                                                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.45rem', color:'#fff', fontWeight:900 }}>
+                                              {ph.published ? '✓' : '▶'}
+                                            </button>
+                                          </div>
+                                        ))}
+                                        {node.photos.length > 3 && <span style={{ fontSize:'0.55rem', color:'#64748b', alignSelf:'center' }}>+{node.photos.length-3}</span>}
+                                      </div>
+                                      {/* Upload arriba */}
+                                      <label style={{ cursor:'pointer', opacity:0.7 }}>
+                                        <input type="file" accept="image/*" style={{ display:'none' }}
+                                          onChange={e => e.target.files[0] && uploadDailyPhoto(e.target.files[0], node.idx)} />
+                                        <span style={{ fontSize:'0.55rem', color:'#64748b', background:'#1e293b', border:'1px dashed #475569', borderRadius:5, padding:'2px 5px' }}>
+                                          {semaforoUploadingStage === node.idx ? '⏳' : '+ foto'}
+                                        </span>
+                                      </label>
+                                    </div>
+                                  )}
+                                  {(node.type !== 'stage' || ni % 2 !== 0) && <div />}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Línea central + nodos */}
+                            <div style={{ position:'relative', height:40, display:'flex', alignItems:'center' }}>
+                              {/* Línea horizontal */}
+                              <div style={{ position:'absolute', left:'5%', right:'5%', top:'50%', height:3,
+                                background:'linear-gradient(90deg,#1e3a5f,#334155,#1e3a5f)', borderRadius:999 }} />
+                              {nodes.map((node, ni) => {
+                                const x = `${(ni / Math.max(nodes.length-1,1)) * 90 + 5}%`;
+                                const dotColor = node.type==='start' ? '#3b82f6' : node.type==='end' ? '#16a34a' :
+                                  node.type==='deadline' ? node.color :
+                                  node.done ? node.color : node.active ? '#f59e0b' : '#334155';
+                                return (
+                                  <div key={ni} style={{ position:'absolute', left:x, transform:'translateX(-50%)', display:'flex', flexDirection:'column', alignItems:'center' }}>
+                                    <div style={{ width:20, height:20, borderRadius:'50%', background:dotColor,
+                                      border:`3px solid ${node.active ? '#fbbf24' : dotColor}`,
+                                      boxShadow: node.active ? '0 0 0 5px #fbbf2440' : node.done||node.type!=='stage' ? `0 0 0 3px ${dotColor}30`:'none',
+                                      display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>
+                                      {(node.done || node.type==='end') && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
+                                      {node.active && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
+                                    </div>
+                                    {/* Fecha bajo el nódulo */}
+                                    {node.date && <span style={{ marginTop:4, fontSize:'0.55rem', color:'#64748b', whiteSpace:'nowrap' }}>
+                                      {node.date.toLocaleDateString('es-MX',{day:'numeric',month:'short'})}
+                                    </span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Nombre etapa + fotos ABAJO (etapas impares) */}
+                            <div style={{ display:'flex', alignItems:'flex-start', height:130, marginTop:0 }}>
+                              {nodes.map((node, ni) => (
+                                <div key={ni} style={{ flex:'0 0 auto', width: Math.max(700, nodes.length*160)/nodes.length, display:'flex', flexDirection:'column', alignItems:'center', paddingTop:8 }}>
+                                  {node.type === 'stage' && (
+                                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, width:'100%' }}>
+                                      <span style={{ fontSize:'0.62rem', fontWeight:800, textAlign:'center', color: node.done ? node.color : node.active ? '#fbbf24' : '#64748b',
+                                        lineHeight:1.2, maxWidth:120 }}>
+                                        {node.done ? '✓ ' : node.active ? '▶ ' : ''}{node.name}
+                                      </span>
+                                      {/* Fotos impares abajo */}
+                                      {ni % 2 !== 0 && (
+                                        <>
+                                          <div style={{ display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', maxWidth:140, marginTop:3 }}>
+                                            {node.photos.slice(0,3).map((ph, pi) => (
+                                              <div key={pi} style={{ position:'relative' }}>
+                                                <a href={imageUrl(ph.url)} target="_blank" rel="noreferrer">
+                                                  <img src={imageUrl(ph.url)} alt="" style={{ width:38, height:38, objectFit:'cover', borderRadius:6,
+                                                    border:`2px solid ${ph.published ? '#22c55e' : node.color}66` }} />
+                                                </a>
+                                                <button type="button" title={ph.published ? 'Publicado – click para ocultar':'Publicar al cliente'}
+                                                  onClick={() => togglePublish(node.idx, ph.url)}
+                                                  style={{ position:'absolute', top:-4, right:-4, width:14, height:14, borderRadius:'50%',
+                                                    background: ph.published ? '#22c55e':'#475569', border:'1.5px solid #0f172a',
+                                                    cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.45rem', color:'#fff', fontWeight:900 }}>
+                                                  {ph.published ? '✓' : '▶'}
+                                                </button>
+                                              </div>
+                                            ))}
+                                            {node.photos.length > 3 && <span style={{ fontSize:'0.55rem', color:'#64748b', alignSelf:'center' }}>+{node.photos.length-3}</span>}
+                                          </div>
+                                          <label style={{ cursor:'pointer', opacity:0.7, marginTop:2 }}>
+                                            <input type="file" accept="image/*" style={{ display:'none' }}
+                                              onChange={e => e.target.files[0] && uploadDailyPhoto(e.target.files[0], node.idx)} />
+                                            <span style={{ fontSize:'0.55rem', color:'#64748b', background:'#1e293b', border:'1px dashed #475569', borderRadius:5, padding:'2px 5px' }}>
+                                              {semaforoUploadingStage === node.idx ? '⏳' : '+ foto'}
+                                            </span>
+                                          </label>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                  {node.type !== 'stage' && (
+                                    <span style={{ fontSize:'0.6rem', color: node.color, fontWeight:800, textAlign:'center' }}>{node.label}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                          </div>
+                        </div>
+
+                        {/* Leyenda de publicación */}
+                        <div style={{ marginTop:10, display:'flex', gap:12, flexWrap:'wrap', fontSize:'0.62rem', color:'#64748b' }}>
+                          <span>🟢 Borde verde = foto publicada al cliente</span>
+                          <span style={{ color:'#475569' }}>Botoncito ▶ = publicar | ✓ = despublicar</span>
+                        </div>
+
+                      </div>
+                    );
+                  })()}
+
                 </section>
               );
             })()}
@@ -2079,7 +2122,6 @@ function Pedidos() {
         </div>
       )}
     </main>
-    </>
   );
 }
 
