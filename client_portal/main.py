@@ -138,6 +138,28 @@ def client_project(prospect):
             ],
         })
 
+    raw_daily = production.get("daily_advances") if isinstance(production.get("daily_advances"), list) else []
+    public_daily = []
+    for adv in raw_daily:
+        if not isinstance(adv, dict):
+            continue
+        # Sólo incluir fotos que el taller marcó para ver el cliente (published es True o no es False)
+        if adv.get("published") is False:
+            continue
+        photo_url = safe_photo_url(adv.get("url"))
+        if not photo_url:
+            continue
+        public_daily.append({
+            "id": adv.get("id"),
+            "url": photo_url,
+            "date": adv.get("date"),
+            "comment": adv.get("comment") if isinstance(adv.get("comment"), str) else "",
+            "created_at": adv.get("created_at"),
+        })
+
+    # Ordenar las fotos diarias por fecha descendente
+    public_daily.sort(key=lambda a: (a.get("date") or "", a.get("created_at") or ""), reverse=True)
+
     current_stage = production.get("current_stage", 0)
     if not isinstance(current_stage, int) or isinstance(current_stage, bool):
         current_stage = 0
@@ -165,11 +187,13 @@ def client_project(prospect):
         "is_contract": bool(_g("is_contract")),
         "has_quote": bool(_g("has_quote")),
         "valuation_data": bool(_g("valuation_data")),
+        "production_days": _g("production_days") or production.get("planned_days"),
         "production_data": {
             "started_at": production.get("started_at"),
             "delivered_at": production.get("delivered_at"),
             "current_stage": current_stage,
             "stages": public_stages,
+            "daily_advances": public_daily,
         } if has_production else None,
     }
 
@@ -186,9 +210,15 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "id, public_id, contract_password, name, project_type, project_type_other, "
             "other_projects, restoration_details, quote_description, project_priorities, "
             "expectations, capture_date, contract_date, delivery_date, status, is_contract, "
-            "has_quote, valuation_data, production_data"
+            "has_quote, valuation_data, production_data, production_days"
         )
         cols_base = (
+            "id, public_id, contract_password, name, project_type, project_type_other, "
+            "restoration_details, quote_description, project_priorities, expectations, "
+            "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
+            "valuation_data, production_data, production_days"
+        )
+        cols_fallback = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
             "restoration_details, quote_description, project_priorities, expectations, "
             "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
@@ -200,7 +230,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             sql = f"SELECT {cols_all} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
             row = db.execute(text(sql), {"pid": public_id, "pwd": password}).mappings().first()
         except Exception as e1:
-            logger.warning("Query con other_projects falló (%s), intentando cols_base", e1)
+            logger.warning("Query con other_projects y production_days falló (%s), intentando cols_base", e1)
             try:
                 db.rollback()
             except Exception:
@@ -209,8 +239,17 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
                 sql2 = f"SELECT {cols_base} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
                 row = db.execute(text(sql2), {"pid": public_id, "pwd": password}).mappings().first()
             except Exception as e2:
-                logger.error("Error consultando prospectos en client portal: %s", e2)
-                raise HTTPException(status_code=500, detail="Error de conexión a la base de datos al validar el acceso.")
+                logger.warning("Query con cols_base falló (%s), intentando cols_fallback", e2)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                try:
+                    sql3 = f"SELECT {cols_fallback} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
+                    row = db.execute(text(sql3), {"pid": public_id, "pwd": password}).mappings().first()
+                except Exception as e3:
+                    logger.error("Error consultando prospectos en client portal: %s", e3)
+                    raise HTTPException(status_code=500, detail="Error de conexión a la base de datos al validar el acceso.")
 
         if not row:
             raise HTTPException(status_code=401, detail="ID o contraseña incorrectos")

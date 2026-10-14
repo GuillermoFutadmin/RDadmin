@@ -113,6 +113,7 @@ const safePhotoUrl = (photo) => {
 export default function ProjectTracking({ prospect, compact = false, showEvidence = false, requestDetails = [] }) {
   const [selectedStage, setSelectedStage] = useState(null);
   const [expandedPhotoIndex, setExpandedPhotoIndex] = useState(null);
+  const [dailyLightboxIndex, setDailyLightboxIndex] = useState(null);
 
   const progress = getProjectTrackingProgress(prospect);
   const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
@@ -127,6 +128,43 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
           : index === 5 ? production.delivered_at
             : null
   }));
+
+  // Ciclo de vida y línea de tiempo para el cliente
+  const parseDateKey = (val) => {
+    if (!val) return null;
+    const d = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)
+      ? new Date(`${val}T12:00:00`)
+      : new Date(val);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const pProspectDate = parseDateKey(prospect.capture_date || prospect.created_at);
+  const pContractDate = parseDateKey(prospect.contract_date);
+  const pProdStartDate = parseDateKey(production.started_at) || pContractDate;
+  const pPlannedDays = Number.parseInt(prospect.production_days, 10) || 30;
+  const pDeliveryDate = parseDateKey(prospect.delivery_date) || parseDateKey(production.delivered_at);
+
+  let pProspectDays = 0;
+  if (pProspectDate && pContractDate) {
+    pProspectDays = Math.max(1, Math.round((pContractDate - pProspectDate) / (1000 * 60 * 60 * 24)));
+  } else if (pProspectDate) {
+    pProspectDays = Math.max(1, Math.round((new Date() - pProspectDate) / (1000 * 60 * 60 * 24)));
+  }
+
+  let pClientPrepDays = 0;
+  if (pContractDate && pProdStartDate) {
+    pClientPrepDays = Math.max(0, Math.round((pProdStartDate - pContractDate) / (1000 * 60 * 60 * 24)));
+  }
+
+  let pElapsedProdDays = 0;
+  if (pProdStartDate) {
+    pElapsedProdDays = Math.max(0, Math.round((new Date() - pProdStartDate) / (1000 * 60 * 60 * 24)));
+  }
+  const pRemainingProdDays = Math.max(0, pPlannedDays - pElapsedProdDays);
+  const pProdPct = Math.min(100, Math.round((pElapsedProdDays / pPlannedDays) * 100));
+  const pTotalDays = (pProspectDays || 0) + (pClientPrepDays || 0) + pElapsedProdDays;
+
+  const dailyPublished = (production.daily_advances || []).filter(a => a.published !== false);
 
   return (
     <section style={{
@@ -163,7 +201,71 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
 
       {!compact && (
         <>
-          <div style={{ height: 6, overflow: 'hidden', background: '#e9eef5', borderRadius: 999, marginTop: 13 }}>
+          {/* ── LÍNEA DE TIEMPO DEL CLIENTE (PROSPECTO ➔ CLIENTE ➔ PRODUCCIÓN) ── */}
+          <div style={{ marginTop: 14, padding: '0.85rem 1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <strong style={{ color: '#0f172a', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>⏱️</span> Línea de Tiempo de tu Proyecto
+              </strong>
+              <span style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 800, background: '#e0f2fe', padding: '2px 8px', borderRadius: 6 }}>
+                Total acumulado: {pTotalDays} días
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 10 }}>
+              {/* Fase 1: Prospecto */}
+              <div style={{ background: '#fff', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#b45309' }}>🎯 Prospecto</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: 4 }}>
+                    {pProspectDays} {pProspectDays === 1 ? 'día' : 'días'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                  {pProspectDate ? pProspectDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Captura'} ➔ {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Firma'}
+                </div>
+              </div>
+
+              {/* Fase 2: Cliente */}
+              <div style={{ background: '#fff', border: '1px solid #bae6fd', borderLeft: '4px solid #0284c7', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#0369a1' }}>✍️ Cliente</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#e0f2fe', color: '#075985', padding: '1px 5px', borderRadius: 4 }}>
+                    {pClientPrepDays} {pClientPrepDays === 1 ? 'día' : 'días'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                  {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Firma'} ➔ {pProdStartDate ? pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Taller'}
+                </div>
+              </div>
+
+              {/* Fase 3: Producción */}
+              <div style={{ background: '#fff', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#15803d' }}>🔨 Producción</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: 4 }}>
+                    {pElapsedProdDays} / {pPlannedDays} días
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                  {pRemainingProdDays > 0 ? `${pRemainingProdDays} días restantes` : 'Etapa de entrega'}
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de progreso de producción */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.64rem', color: '#64748b', marginBottom: 3 }}>
+                <span>Avance en taller: {pElapsedProdDays} días transcurridos</span>
+                <strong style={{ color: '#16a34a' }}>{pProdPct}%</strong>
+              </div>
+              <div style={{ height: 6, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pProdPct}%`, background: 'linear-gradient(90deg, #3b82f6, #16a34a)', borderRadius: 999, transition: 'width 0.4s' }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height: 6, overflow: 'hidden', background: '#e9eef5', borderRadius: 999, marginTop: 14 }}>
             <div style={{ height: '100%', width: `${completion}%`, background: delivered ? '#16a34a' : '#2563eb', borderRadius: 999, transition: 'width 0.2s ease' }} />
           </div>
           <div style={{ display: 'flex', overflowX: 'auto', padding: '14px 2px 5px', gap: 0 }}>
@@ -587,32 +689,209 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             </div>
           )}
 
-          {/* Bitácora de fotos de avance en taller publicadas al cliente */}
-          {(() => {
-            const dailyPublished = (production.daily_advances || []).filter(a => a.published !== false);
-            if (!dailyPublished.length) return null;
-            return (
-              <div style={{ marginTop: 12, padding: '0.85rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 11 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: '0.9rem' }}>📸</span>
-                  <strong style={{ color: '#166534', fontSize: '0.82rem' }}>Bitácora de fotos en taller ({dailyPublished.length})</strong>
+          {/* ── BITÁCORA DE FOTOS DE AVANCE EN TALLER (PUBLICADAS AL CLIENTE) ── */}
+          <div style={{
+            marginTop: 18,
+            padding: '1.1rem',
+            background: '#ffffff',
+            border: '1px solid #bbf7d0',
+            borderRadius: 14,
+            boxShadow: '0 4px 16px rgba(22, 101, 52, 0.06)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+              <div>
+                <div style={{ color: '#166534', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Bitácora de Fabricación
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
-                  {dailyPublished.map((adv, i) => (
-                    <div key={adv.id || i} style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', border: '1px solid #dcfce7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                      <a href={adv.url} target="_blank" rel="noreferrer" title="Clic para ampliar">
-                        <img src={adv.url} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
-                      </a>
-                      <div style={{ padding: '4px 6px' }}>
-                        <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#166534', display: 'block' }}>{adv.date}</span>
-                        {adv.comment && <span style={{ fontSize: '0.66rem', color: '#334155', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adv.comment}</span>}
+                <h3 style={{ margin: '0.2rem 0 0', color: '#14532d', fontSize: '1.05rem', fontWeight: 800 }}>
+                  📸 Avances Fotográficos de tu Mueble en Taller
+                </h3>
+                <p style={{ margin: '3px 0 0', color: '#475569', fontSize: '0.78rem' }}>
+                  Fotografías reales capturadas por el equipo de carpintería durante el corte, ensamble y acabado.
+                </p>
+              </div>
+              {dailyPublished.length > 0 && (
+                <span style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 999,
+                  background: '#dcfce7',
+                  color: '#15803d',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  border: '1px solid #86efac'
+                }}>
+                  {dailyPublished.length} {dailyPublished.length === 1 ? 'fotografía registrada' : 'fotografías registradas'}
+                </span>
+              )}
+            </div>
+
+            {dailyPublished.length === 0 ? (
+              <div style={{
+                padding: '2rem 1.5rem',
+                textAlign: 'center',
+                background: '#f8fafc',
+                border: '1px dashed #cbd5e1',
+                borderRadius: 10,
+                color: '#64748b'
+              }}>
+                <span style={{ fontSize: '1.8rem', display: 'block', marginBottom: 6 }}>🪵</span>
+                <strong style={{ display: 'block', color: '#1e293b', fontSize: '0.88rem' }}>
+                  Fotografías en preparación
+                </strong>
+                <span style={{ fontSize: '0.76rem', marginTop: 4, display: 'inline-block', maxWidth: 420 }}>
+                  El equipo de carpintería subirá aquí fotos del progreso real de tu mueble conforme avance en las estaciones de trabajo de taller.
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 12 }}>
+                {dailyPublished.map((adv, idx) => (
+                  <div
+                    key={adv.id || idx}
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setDailyLightboxIndex(idx)}
+                      style={{
+                        position: 'relative',
+                        padding: 0,
+                        border: 'none',
+                        background: '#000',
+                        cursor: 'pointer',
+                        width: '100%',
+                        aspectRatio: '4 / 3',
+                        overflow: 'hidden',
+                        display: 'block'
+                      }}
+                      title="Clic para ampliar en alta definición"
+                    >
+                      <img
+                        src={adv.url}
+                        alt={adv.comment || 'Avance de carpintería'}
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                      <span style={{
+                        position: 'absolute', bottom: 6, right: 6,
+                        background: 'rgba(15, 23, 42, 0.75)', color: '#ffffff',
+                        fontSize: '0.65rem', fontWeight: 800, padding: '2px 7px',
+                        borderRadius: 6, backdropFilter: 'blur(4px)'
+                      }}>
+                        🔍 Ampliar
+                      </span>
+                    </button>
+                    <div style={{ padding: '0.55rem 0.65rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                        <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>
+                          📅 {adv.date}
+                        </span>
                       </div>
+                      {adv.comment ? (
+                        <p style={{ margin: 0, fontSize: '0.74rem', color: '#1e293b', lineHeight: 1.35, wordBreak: 'break-word' }}>
+                          {adv.comment}
+                        </p>
+                      ) : (
+                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Avance de producción</span>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Lightbox / Visor de pantalla completa para el cliente */}
+            {dailyLightboxIndex !== null && dailyPublished[dailyLightboxIndex] && (
+              <div
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 9999,
+                  background: 'rgba(2, 6, 23, 0.92)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '1rem', backdropFilter: 'blur(6px)'
+                }}
+                onClick={() => setDailyLightboxIndex(null)}
+              >
+                <div
+                  style={{
+                    position: 'relative', maxWidth: 'min(92vw, 900px)', maxHeight: '88vh',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    background: '#0f172a', borderRadius: 14, overflow: 'hidden',
+                    border: '1px solid #334155', boxShadow: '0 12px 40px rgba(0,0,0,0.6)'
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 1rem', background: '#090d16', color: '#fff', borderBottom: '1px solid #1e293b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '0.85rem' }}>📷</span>
+                      <strong style={{ fontSize: '0.82rem' }}>
+                        Avance · {dailyPublished[dailyLightboxIndex].date}
+                      </strong>
+                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                        ({dailyLightboxIndex + 1} de {dailyPublished.length})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDailyLightboxIndex(null)}
+                      style={{ background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: 6, padding: '3px 9px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 800 }}
+                    >
+                      ✕ Cerrar
+                    </button>
+                  </div>
+
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020617', width: '100%', maxHeight: '68vh' }}>
+                    <img
+                      src={dailyPublished[dailyLightboxIndex].url}
+                      alt=""
+                      style={{ maxWidth: '100%', maxHeight: '68vh', objectFit: 'contain', display: 'block' }}
+                    />
+                    {dailyPublished.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setDailyLightboxIndex((dailyLightboxIndex - 1 + dailyPublished.length) % dailyPublished.length)}
+                          style={{
+                            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                            width: 38, height: 38, borderRadius: '50%', background: 'rgba(15,23,42,0.8)',
+                            color: '#fff', border: '1px solid #475569', fontSize: '1.3rem', cursor: 'pointer',
+                            display: 'grid', placeItems: 'center'
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDailyLightboxIndex((dailyLightboxIndex + 1) % dailyPublished.length)}
+                          style={{
+                            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                            width: 38, height: 38, borderRadius: '50%', background: 'rgba(15,23,42,0.8)',
+                            color: '#fff', border: '1px solid #475569', fontSize: '1.3rem', cursor: 'pointer',
+                            display: 'grid', placeItems: 'center'
+                          }}
+                        >
+                          ›
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {dailyPublished[dailyLightboxIndex].comment && (
+                    <div style={{ width: '100%', padding: '0.65rem 1rem', background: '#090d16', color: '#e2e8f0', fontSize: '0.78rem', borderTop: '1px solid #1e293b' }}>
+                      💬 {dailyPublished[dailyLightboxIndex].comment}
+                    </div>
+                  )}
                 </div>
               </div>
-            );
-          })()}
+            )}
+          </div>
 
           {prospect.delivery_date && !delivered && (
             <div style={{ marginTop: 8, color: '#475569', fontSize: '0.75rem' }}>

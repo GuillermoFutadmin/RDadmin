@@ -1894,82 +1894,240 @@ function Pedidos() {
                                       <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: 2 }}>{formatReadableDate(activeDayKey)}</div>
                                     )}
                                     {activeDayKey && (
-                                      <span style={{
-                                        display: 'inline-block', marginTop: 6,
-                                        padding: '2px 8px', borderRadius: 5,
-                                        background: activeDayKey === todayKey ? '#78350f' : activeDayKey < todayKey ? '#1e293b' : '#0d1322',
-                                        color: activeDayKey === todayKey ? '#fde047' : '#ffffff',
-                                        border: '1px solid #334155', fontSize: '0.65rem', fontWeight: 800
-                                      }}>
-                                        {activeDayKey === todayKey ? '🔥 Día en curso (HOY)' : activeDayKey < todayKey ? '✓ Día agotado' : '⏳ Día futuro'}
-                                      </span>
+                                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
+                                        <span style={{
+                                          padding: '2px 8px', borderRadius: 5,
+                                          background: activeDayKey === todayKey ? '#78350f' : activeDayKey < todayKey ? '#1e293b' : '#0d1322',
+                                          color: activeDayKey === todayKey ? '#fde047' : '#ffffff',
+                                          border: '1px solid #334155', fontSize: '0.65rem', fontWeight: 800
+                                        }}>
+                                          {activeDayKey === todayKey ? '🔥 Día en curso (HOY)' : activeDayKey < todayKey ? '✓ Día agotado' : '⏳ Día futuro'}
+                                        </span>
+                                        {activeDayAdvances.length > 0 && (
+                                          <>
+                                            <span style={{ fontSize: '0.62rem', padding: '2px 6px', borderRadius: 4, background: '#052e16', color: '#86efac', border: '1px solid #166534', fontWeight: 800 }}>
+                                              👁️ {activeDayAdvances.filter(a => a.published !== false).length} para cliente
+                                            </span>
+                                            {activeDayAdvances.some(a => a.published === false) && (
+                                              <span style={{ fontSize: '0.62rem', padding: '2px 6px', borderRadius: 4, background: '#451a03', color: '#fdba74', border: '1px solid #9a3412', fontWeight: 800 }}>
+                                                🔒 {activeDayAdvances.filter(a => a.published === false).length} taller
+                                              </span>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
 
-                                  {/* Galería de fotos del día */}
+                                  {/* Galería de fotos del día con control de visibilidad */}
                                   {!activeDayKey ? (
                                     <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#475569', fontSize: '0.75rem' }}>
                                       👆 Selecciona un día del calendario para ver o subir fotos
                                     </div>
                                   ) : activeDayAdvances.length === 0 ? (
                                     <div style={{ padding: '1rem', textAlign: 'center', background: '#0b1329', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.72rem', marginBottom: 12 }}>
-                                      Sin fotos para el Día {activeDayObj?.dayNumber}. Usa el formulario abajo.
+                                      Sin fotos para el Día {activeDayObj?.dayNumber}. Arrastra o selecciona fotos abajo.
                                     </div>
                                   ) : (
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 90px), 1fr))', gap: 6, marginBottom: 12 }}>
-                                      {activeDayAdvances.map(adv => (
-                                        <div key={adv.id} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', border: `1px solid ${adv.published ? '#22c55e' : '#334155'}` }}>
-                                          <div style={{ position: 'relative', paddingTop: '75%', background: '#000', cursor: 'pointer' }}
-                                            onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}>
-                                            <img src={imageUrl(adv.url)} alt=""
-                                              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            <span style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '1px 4px', borderRadius: 3 }}>🔍</span>
-                                          </div>
-                                          {adv.comment && (
-                                            <div style={{ padding: '3px 5px', background: '#0b1329', color: '#ffffff', fontSize: '0.58rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
-                                              {adv.comment}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 115px), 1fr))', gap: 8, marginBottom: 12 }}>
+                                      {activeDayAdvances.map(adv => {
+                                        const isPub = adv.published !== false;
+                                        return (
+                                          <div key={adv.id} style={{
+                                            position: 'relative',
+                                            borderRadius: 8,
+                                            overflow: 'hidden',
+                                            border: `2px solid ${isPub ? '#22c55e' : '#f59e0b'}`,
+                                            background: '#070c18',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            boxShadow: isPub ? '0 0 8px rgba(34,197,94,0.15)' : 'none'
+                                          }}>
+                                            {/* Foto */}
+                                            <div style={{ position: 'relative', paddingTop: '80%', background: '#000', cursor: 'pointer' }}
+                                              onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}>
+                                              <img src={imageUrl(adv.url)} alt=""
+                                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                              
+                                              {/* Badge superior de estado */}
+                                              <span style={{
+                                                position: 'absolute', top: 3, left: 3,
+                                                background: isPub ? 'rgba(21,128,61,0.92)' : 'rgba(180,83,9,0.92)',
+                                                color: '#ffffff', fontSize: '0.55rem', fontWeight: 900,
+                                                padding: '1px 5px', borderRadius: 4, backdropFilter: 'blur(3px)'
+                                              }}>
+                                                {isPub ? '👁️ Cliente' : '🔒 Taller'}
+                                              </span>
+
+                                              <span style={{
+                                                position: 'absolute', bottom: 3, right: 3,
+                                                background: 'rgba(0,0,0,0.75)', color: '#fff',
+                                                fontSize: '0.5rem', padding: '1px 4px', borderRadius: 3
+                                              }}>🔍</span>
                                             </div>
-                                          )}
-                                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 4px', background: '#07090f', borderTop: '1px solid #1e293b' }}>
-                                            <button type="button" onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
-                                              title={adv.published ? 'Visible cliente' : 'Solo taller'}
-                                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: adv.published ? '#22c55e' : '#64748b' }}>
-                                              {adv.published ? '✓' : '👁️'}
-                                            </button>
-                                            <button type="button" onClick={() => handleDeleteDailyAdvance(adv.id)}
-                                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: '#ef4444' }}>🗑️</button>
+
+                                            {/* Comentario */}
+                                            {adv.comment && (
+                                              <div style={{ padding: '3px 5px', background: '#0b1329', color: '#ffffff', fontSize: '0.58rem', lineHeight: 1.25, wordBreak: 'break-word', borderBottom: '1px solid #1e293b' }}>
+                                                {adv.comment}
+                                              </div>
+                                            )}
+
+                                            {/* Controles de visibilidad foto por foto */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px', background: '#020617' }}>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
+                                                style={{
+                                                  background: isPub ? '#166534' : '#334155',
+                                                  border: 'none', borderRadius: 4,
+                                                  color: '#ffffff', cursor: 'pointer',
+                                                  fontSize: '0.58rem', fontWeight: 800,
+                                                  padding: '2px 5px'
+                                                }}
+                                                title={isPub ? 'Clic para ocultar al cliente' : 'Clic para mostrar al cliente'}
+                                              >
+                                                {isPub ? '✓ Visible' : '🔒 Privada'}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDeleteDailyAdvance(adv.id)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: '#ef4444', padding: '0 2px' }}
+                                                title="Eliminar foto"
+                                              >
+                                                🗑️
+                                              </button>
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
 
-                                  {/* Formulario subida */}
+                                  {/* Formulario subida con Drag & Drop y previsualización */}
                                   {activeDayKey && (
                                     <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.75rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 8 }}>
-                                      <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 900, marginBottom: 8 }}>📤 Cargar fotos – Día {activeDayObj?.dayNumber}</div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.35rem 0.7rem', background: '#1e293b', border: '1px dashed #38bdf8', borderRadius: 7, color: '#38bdf8', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>
-                                          📷 Seleccionar fotos
-                                          <input type="file" accept="image/*" multiple style={{ display: 'none' }}
-                                            onChange={e => setSemaforoAdvanceFiles(Array.from(e.target.files || []))} />
-                                        </label>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 900 }}>
+                                          📤 Agregar fotos – Día {activeDayObj?.dayNumber}
+                                        </div>
                                         {semaforoAdvanceFiles.length > 0 && (
-                                          <span style={{ color: '#86efac', fontSize: '0.68rem', fontWeight: 800 }}>✓ {semaforoAdvanceFiles.length} foto(s)</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setSemaforoAdvanceFiles([])}
+                                            style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.62rem', cursor: 'pointer', fontWeight: 700 }}
+                                          >
+                                            Limpiar selección
+                                          </button>
                                         )}
-                                        <input type="text" placeholder="Comentario del avance..."
+                                      </div>
+
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {/* Dropzone interactiva */}
+                                        <label
+                                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                                          onDrop={e => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                              const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                                              setSemaforoAdvanceFiles(prev => [...prev, ...dropped]);
+                                            }
+                                          }}
+                                          style={{
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                            gap: 4, padding: '0.75rem',
+                                            background: '#131b2e', border: '2px dashed #38bdf8',
+                                            borderRadius: 8, cursor: 'pointer', textAlign: 'center',
+                                            transition: 'border-color 0.2s'
+                                          }}
+                                        >
+                                          <span style={{ fontSize: '1.2rem' }}>📷</span>
+                                          <strong style={{ color: '#38bdf8', fontSize: '0.72rem' }}>
+                                            Arrastra fotos aquí o haz clic para seleccionar
+                                          </strong>
+                                          <span style={{ color: '#94a3b8', fontSize: '0.6rem' }}>
+                                            Puedes subir múltiples fotos de carpintería
+                                          </span>
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            style={{ display: 'none' }}
+                                            onChange={e => {
+                                              const files = Array.from(e.target.files || []);
+                                              setSemaforoAdvanceFiles(prev => [...prev, ...files]);
+                                            }}
+                                          />
+                                        </label>
+
+                                        {/* Previsualización de fotos antes de guardar */}
+                                        {semaforoAdvanceFiles.length > 0 && (
+                                          <div style={{ padding: '0.5rem', background: '#070a14', borderRadius: 7, border: '1px solid #1e293b' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                                              <span style={{ color: '#86efac', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                {semaforoAdvanceFiles.length} foto(s) lista(s) para subir:
+                                              </span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+                                              {semaforoAdvanceFiles.map((f, fi) => (
+                                                <div key={fi} style={{ position: 'relative', width: 48, height: 48, borderRadius: 5, overflow: 'hidden', flex: 'none', border: '1px solid #38bdf8' }}>
+                                                  <img
+                                                    src={URL.createObjectURL(f)}
+                                                    alt=""
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                  />
+                                                  <button
+                                                    type="button"
+                                                    onClick={(ev) => {
+                                                      ev.preventDefault();
+                                                      setSemaforoAdvanceFiles(cur => cur.filter((_, idx) => idx !== fi));
+                                                    }}
+                                                    style={{
+                                                      position: 'absolute', top: 0, right: 0,
+                                                      background: 'rgba(239,68,68,0.9)', color: '#fff',
+                                                      border: 'none', width: 14, height: 14, fontSize: '0.55rem',
+                                                      display: 'grid', placeItems: 'center', cursor: 'pointer'
+                                                    }}
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <input
+                                          type="text"
+                                          placeholder="Nota o descripción del avance en taller..."
                                           value={semaforoAdvanceComment}
                                           onChange={e => setSemaforoAdvanceComment(e.target.value)}
-                                          style={{ padding: '0.4rem 0.6rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 7, color: '#ffffff', fontSize: '0.72rem' }} />
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#cbd5e1', fontSize: '0.68rem', cursor: 'pointer' }}>
-                                            <input type="checkbox" checked={semaforoAdvancePublished} onChange={e => setSemaforoAdvancePublished(e.target.checked)} />
-                                            Visible al cliente
+                                          style={{ padding: '0.45rem 0.65rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 7, color: '#ffffff', fontSize: '0.72rem' }}
+                                        />
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, paddingTop: 2 }}>
+                                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#cbd5e1', fontSize: '0.7rem', cursor: 'pointer' }}>
+                                            <input
+                                              type="checkbox"
+                                              checked={semaforoAdvancePublished}
+                                              onChange={e => setSemaforoAdvancePublished(e.target.checked)}
+                                            />
+                                            <span>
+                                              {semaforoAdvancePublished ? '👁️ Publicar al cliente' : '🔒 Solo para taller'}
+                                            </span>
                                           </label>
-                                          <button type="submit"
+                                          <button
+                                            type="submit"
                                             disabled={semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0}
-                                            style={{ padding: '0.4rem 0.9rem', background: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? '#334155' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: '0.7rem', fontWeight: 900, cursor: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? 'not-allowed' : 'pointer' }}>
-                                            {semaforoUploadingAdvance ? '⏳ Guardando...' : 'Guardar'}
+                                            style={{
+                                              padding: '0.45rem 1rem',
+                                              background: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? '#334155' : '#2563eb',
+                                              color: '#fff', border: 'none', borderRadius: 7, fontSize: '0.72rem', fontWeight: 900,
+                                              cursor: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? 'not-allowed' : 'pointer'
+                                            }}
+                                          >
+                                            {semaforoUploadingAdvance ? '⏳ Guardando...' : `Subir ${semaforoAdvanceFiles.length > 0 ? `(${semaforoAdvanceFiles.length})` : ''}`}
                                           </button>
                                         </div>
                                       </div>

@@ -681,11 +681,40 @@ export default function Avances() {
                   <span>📷 Tomar foto o elegir de galería</span>
                 </label>
                 {advanceFiles.length > 0 && (
-                  <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
-                    ✓ {advanceFiles.length} foto(s) seleccionada(s)
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAdvanceFiles([])}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                  >
+                    ✕ Limpiar selección ({advanceFiles.length})
+                  </button>
                 )}
               </div>
+              {advanceFiles.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 8, paddingBottom: 4 }}>
+                  {advanceFiles.map((f, fi) => (
+                    <div key={fi} style={{ position: 'relative', width: 52, height: 52, borderRadius: 6, overflow: 'hidden', flex: 'none', border: '1.5px solid #3b82f6' }}>
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAdvanceFiles(cur => cur.filter((_, idx) => idx !== fi))}
+                        style={{
+                          position: 'absolute', top: 0, right: 0,
+                          background: 'rgba(239,68,68,0.9)', color: '#fff',
+                          border: 'none', width: 16, height: 16, fontSize: '0.6rem',
+                          display: 'grid', placeItems: 'center', cursor: 'pointer'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Campo de Comentarios */}
