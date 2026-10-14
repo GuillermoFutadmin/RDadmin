@@ -265,37 +265,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             </div>
           </div>
 
-          <div style={{ height: 6, overflow: 'hidden', background: '#e9eef5', borderRadius: 999, marginTop: 14 }}>
-            <div style={{ height: '100%', width: `${completion}%`, background: delivered ? '#16a34a' : '#2563eb', borderRadius: 999, transition: 'width 0.2s ease' }} />
-          </div>
-          <div style={{ display: 'flex', overflowX: 'auto', padding: '14px 2px 5px', gap: 0 }}>
-            {stages.map((stage, index) => {
-              const color = stage.complete ? '#16a34a' : stage.current ? '#2563eb' : '#94a3b8';
-              return (
-                <div key={stage.label} style={{ display: 'flex', alignItems: 'flex-start', minWidth: 138, flex: '1 0 138px' }}>
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <div style={{
-                      display: 'grid', placeItems: 'center', width: 36, height: 36, borderRadius: '50%',
-                      color: stage.complete || stage.current ? '#fff' : '#64748b',
-                      background: stage.complete ? '#16a34a' : stage.current ? '#2563eb' : '#f1f5f9',
-                      border: `2px solid ${color}`, fontSize: '0.95rem', flex: 'none'
-                    }}>
-                      {stage.complete ? '✓' : stage.icon}
-                    </div>
-                    <span style={{ color: stage.current ? '#1d4ed8' : stage.complete ? '#166534' : '#64748b', fontSize: '0.72rem', fontWeight: stage.current ? 800 : 700, lineHeight: 1.25, marginTop: 6 }}>
-                      {stage.label}
-                    </span>
-                    <span style={{ minHeight: 15, color: '#94a3b8', fontSize: '0.63rem', marginTop: 3 }}>
-                      {formatDate(stage.date) || (stage.current ? 'Etapa actual' : stage.complete ? 'Completada' : 'Pendiente')}
-                    </span>
-                  </div>
-                  {index < stages.length - 1 && (
-                    <div aria-hidden="true" style={{ width: 18, flex: 'none', height: 2, marginTop: 17, background: index < currentIndex || delivered ? '#86efac' : '#e2e8f0' }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+
 
           {showEvidence && productionStages.length > 0 && (() => {
             const activeStage = selectedStage ?? currentProductionStage;
