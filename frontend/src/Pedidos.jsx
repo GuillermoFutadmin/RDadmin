@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ContratoDetail, getMeasureSections } from './Contratos';
 import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
+import { convertPdfToImageUrls } from './pdfUtils';
 
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
@@ -757,6 +758,63 @@ function Pedidos() {
           image.style.cssText = 'display:block;max-width:100%;max-height:250mm;object-fit:contain;margin:5mm auto;page-break-inside:avoid;break-inside:avoid';
         }
       });
+
+      // Adjuntar páginas del PDF de render al final del machote de trabajo
+      if (selected.render_pdf_path) {
+        try {
+          setMessage('Procesando planos y hojas del PDF de render...');
+          const pdfUrl = imageUrl(selected.render_pdf_path);
+          const renderPages = await convertPdfToImageUrls(pdfUrl);
+          if (renderPages && renderPages.length > 0) {
+            const renderAnnex = document.createElement('div');
+            renderAnnex.className = 'production-pdf-render-annex';
+            renderPages.forEach(p => {
+              const pageContainer = document.createElement('div');
+              pageContainer.className = 'production-pdf-new-page';
+              pageContainer.style.cssText = 'page-break-before: always; break-before: page; margin-top: 10mm;';
+              pageContainer.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 3mm; margin-bottom: 5mm;">
+                  <h2 style="margin:0; font-size:16px; color:#1d4f91; font-weight:bold;">
+                    Plano / Render del proyecto — Producción
+                  </h2>
+                  <span style="font-size:11px; color:#64748b; font-weight:bold;">
+                    Hoja ${p.pageNum} de ${p.totalPages}
+                  </span>
+                </div>
+                <div style="display:flex; justify-content:center; align-items:center; min-height:225mm; padding: 2mm 0;">
+                  <img src="${p.dataUrl}" alt="Render Hoja ${p.pageNum}" style="display:block; max-width:100%; max-height:235mm; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
+                </div>
+              `;
+              renderAnnex.appendChild(pageContainer);
+            });
+            content.appendChild(renderAnnex);
+          }
+        } catch (pdfErr) {
+          console.error('Error adjuntando páginas de render PDF al machote:', pdfErr);
+        }
+      } else if (selected.render_image_path) {
+        const renderAnnex = document.createElement('div');
+        renderAnnex.className = 'production-pdf-render-annex';
+        const pageContainer = document.createElement('div');
+        pageContainer.className = 'production-pdf-new-page';
+        pageContainer.style.cssText = 'page-break-before: always; break-before: page; margin-top: 10mm;';
+        pageContainer.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 3mm; margin-bottom: 5mm;">
+            <h2 style="margin:0; font-size:16px; color:#1d4f91; font-weight:bold;">
+              Render Oficial del proyecto — Producción
+            </h2>
+            <span style="font-size:11px; color:#64748b; font-weight:bold;">
+              Hoja de render
+            </span>
+          </div>
+          <div style="display:flex; justify-content:center; align-items:center; min-height:225mm; padding: 2mm 0;">
+            <img src="${imageUrl(selected.render_image_path)}" alt="Render Oficial" style="display:block; max-width:100%; max-height:235mm; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
+          </div>
+        `;
+        renderAnnex.appendChild(pageContainer);
+        content.appendChild(renderAnnex);
+      }
+
       printWindow.document.open();
       printWindow.document.write(`<!doctype html>
         <html lang="es">
