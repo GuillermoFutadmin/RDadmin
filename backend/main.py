@@ -5,7 +5,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import models, os, shutil, uuid
 import imagestore
 import auth
@@ -397,9 +397,24 @@ def generate_public_id():
 
 @app.post("/api/prospects", response_model=ProspectResponse)
 def create_prospect(prospect: ProspectCreate, db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    # Protección anti-duplicados por doble clic: si se creó un prospecto con el mismo nombre y contacto en los últimos 20 segundos, retornar el existente
+    if prospect.name and prospect.contact_info:
+        recent_duplicate = (
+            db.query(models.Prospect)
+            .filter(
+                models.Prospect.name == prospect.name.strip(),
+                models.Prospect.contact_info == prospect.contact_info.strip(),
+                models.Prospect.capture_date >= now - timedelta(seconds=20)
+            )
+            .order_by(models.Prospect.id.desc())
+            .first()
+        )
+        if recent_duplicate:
+            return recent_duplicate
+
     db_prospect = models.Prospect(**prospect.dict())
     db_prospect.public_id = generate_public_id()
-    now = datetime.utcnow()
     db_prospect.capture_date = now
     db_prospect.updated_at = now
     db.add(db_prospect)

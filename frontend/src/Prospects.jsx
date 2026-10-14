@@ -1705,9 +1705,17 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
       setRefImagePreview(prev => [...(prev || []), ...previews]);
     }
   };
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await onSave(formData, { spaceImageFile, refImageFile }, editingId);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSave(formData, { spaceImageFile, refImageFile }, editingId);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -2875,10 +2883,36 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
         </div>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <button type="submit" style={{ flex: 1, backgroundColor: 'var(--accent)', color: 'white', padding: '0.9rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
-            {editingId ? 'Guardar Cambios' : 'Guardar Prospecto'}
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              flex: 1,
+              backgroundColor: submitting ? '#9ca3af' : 'var(--accent)',
+              color: 'white',
+              padding: '0.9rem',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              opacity: submitting ? 0.75 : 1
+            }}
+          >
+            {submitting ? '⏳ Guardando...' : (editingId ? 'Guardar Cambios' : 'Guardar Prospecto')}
           </button>
-          <button type="button" onClick={onCancel} style={{ padding: '0.9rem 1.5rem', backgroundColor: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Volver</button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={onCancel}
+            style={{ padding: '0.9rem 1.5rem', backgroundColor: '#eee', color: '#333', border: 'none', borderRadius: '8px', cursor: submitting ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: submitting ? 0.6 : 1 }}
+          >
+            Volver
+          </button>
         </div>
       </form>
     </div>
@@ -3392,35 +3426,45 @@ function Prospects() {
   useEffect(() => { fetchProspects(); }, []);
   useAutoRefresh(fetchProspects);
 
-  const handleSave = async (formData, imageFiles, editingId) => {
-    const payload = formToPayload(formData);
-    // Solo al crear un prospecto nuevo le asignamos estado 'Prospecto'
-    if (!editingId) {
-      payload.status = 'Prospecto';
-    }
-    const url = editingId ? `${API}/api/prospects/${editingId}` : `${API}/api/prospects`;
-    const method = editingId ? 'PUT' : 'POST';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const saved = await res.json();
-    
-    // Upload space image
-    if (imageFiles?.spaceImageFile && imageFiles.spaceImageFile.length > 0) {
-      const fd = new FormData();
-      imageFiles.spaceImageFile.forEach(f => fd.append('files', f));
-      await fetch(`${API}/api/prospects/${saved.id}/upload-space-image`, { method: 'POST', body: fd });
-    }
-    
-    // Upload reference image
-    if (imageFiles?.refImageFile && imageFiles.refImageFile.length > 0) {
-      const fd = new FormData();
-      imageFiles.refImageFile.forEach(f => fd.append('files', f));
-      await fetch(`${API}/api/prospects/${saved.id}/upload-reference-image`, { method: 'POST', body: fd });
-    }
+  const isSavingRef = useRef(false);
 
-    fetchProspects();
-    setView('list');
-    setSelectedProspect(null);
-    setPrintProspectData(saved);
+  const handleSave = async (formData, imageFiles, editingId) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    try {
+      const payload = formToPayload(formData);
+      // Solo al crear un prospecto nuevo le asignamos estado 'Prospecto'
+      if (!editingId) {
+        payload.status = 'Prospecto';
+      }
+      const url = editingId ? `${API}/api/prospects/${editingId}` : `${API}/api/prospects`;
+      const method = editingId ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const saved = await res.json();
+      
+      // Upload space image
+      if (imageFiles?.spaceImageFile && imageFiles.spaceImageFile.length > 0) {
+        const fd = new FormData();
+        imageFiles.spaceImageFile.forEach(f => fd.append('files', f));
+        await fetch(`${API}/api/prospects/${saved.id}/upload-space-image`, { method: 'POST', body: fd });
+      }
+      
+      // Upload reference image
+      if (imageFiles?.refImageFile && imageFiles.refImageFile.length > 0) {
+        const fd = new FormData();
+        imageFiles.refImageFile.forEach(f => fd.append('files', f));
+        await fetch(`${API}/api/prospects/${saved.id}/upload-reference-image`, { method: 'POST', body: fd });
+      }
+
+      await fetchProspects();
+      setView('list');
+      setSelectedProspect(null);
+      setPrintProspectData(saved);
+    } catch (err) {
+      console.error('Error guardando prospecto:', err);
+    } finally {
+      isSavingRef.current = false;
+    }
   };
 
   const handleDelete = async (id) => {
