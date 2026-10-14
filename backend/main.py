@@ -817,16 +817,30 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not db_prospect: raise HTTPException(status_code=404, detail="Prospect not found")
 
-    urls = []
+    image_urls = []
+    pdf_urls = []
     for file in files:
         new_url = await upload_to_storage(file, "render")
-        urls.append(new_url)
+        filename_lower = (file.filename or "").lower()
+        content_type = (file.content_type or "").lower()
+        if filename_lower.endswith(".pdf") or "pdf" in content_type:
+            pdf_urls.append(new_url)
+        else:
+            image_urls.append(new_url)
 
-    db_prospect.render_image_path = ",".join(urls)
+    if pdf_urls:
+        db_prospect.render_pdf_path = pdf_urls[-1]
+    if image_urls:
+        db_prospect.render_image_path = image_urls[-1]
+    db_prospect.render_applies = True
     db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)
-    return {"image_path": db_prospect.render_image_path}
+    return {
+        "image_path": db_prospect.render_image_path,
+        "pdf_path": db_prospect.render_pdf_path,
+        "render_applies": db_prospect.render_applies
+    }
 
 @app.post("/api/users/{user_id}/upload-photo")
 async def upload_user_photo(user_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):

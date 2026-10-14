@@ -262,6 +262,7 @@ function Pedidos() {
   const [semaforoAdvancePublished, setSemaforoAdvancePublished] = useState(true);
   const [semaforoUploadingAdvance, setSemaforoUploadingAdvance] = useState(false);
   const [semaforoLightboxUrl, setSemaforoLightboxUrl] = useState(null);
+  const [uploadingRender, setUploadingRender] = useState(false);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -925,6 +926,42 @@ function Pedidos() {
       window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
     } catch (error) {
       setMessage(error.message || 'No se pudo descargar el PDF de render.');
+    }
+  };
+
+  const uploadRenderFile = async (file) => {
+    if (!file || !selected) return;
+    setUploadingRender(true);
+    setMessage('');
+    try {
+      const fd = new FormData();
+      fd.append('files', file);
+      const res = await fetch(`${API}/api/prospects/${selected.id}/upload-render`, {
+        method: 'POST',
+        body: fd
+      });
+      if (!res.ok) throw new Error('Error al subir archivo de render');
+      const data = await res.json();
+      const newPdfPath = data.pdf_path || (file.name.toLowerCase().endsWith('.pdf') ? data.image_path : selected.render_pdf_path);
+      const newImgPath = data.image_path || selected.render_image_path;
+      setSelected(prev => ({
+        ...prev,
+        render_pdf_path: newPdfPath,
+        render_image_path: newImgPath,
+        render_applies: true
+      }));
+      setProjects(prev => prev.map(p => p.id === selected.id ? {
+        ...p,
+        render_pdf_path: newPdfPath,
+        render_image_path: newImgPath,
+        render_applies: true
+      } : p));
+      setMessage('✅ Archivo de render cargado correctamente y listo para el machote.');
+    } catch (err) {
+      console.error(err);
+      setMessage('❌ Error al subir archivo de render: ' + (err.message || ''));
+    } finally {
+      setUploadingRender(false);
     }
   };
 
@@ -2766,11 +2803,70 @@ function Pedidos() {
               </div>
             </details>}
 
-            {activeStage === 0 && selected.render_pdf_path && (
-              <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '0.9rem 1rem', marginBottom: 14 }}>
-                <strong style={{ color: '#334155', fontSize: '0.85rem' }}>PDF de render disponible</strong>
-                <a href={imageUrl(selected.render_pdf_path)} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.75rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>Ver PDF</a>
-                <button type="button" onClick={downloadRenderPdf} style={{ padding: '0.5rem 0.75rem', border: 0, borderRadius: 8, background: '#1d4ed8', color: '#fff', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}>Descargar PDF</button>
+            {activeStage === 0 && (
+              <section style={{
+                background: '#fff',
+                border: selected.render_pdf_path ? '1px solid #bfdbfe' : '1.5px dashed #f97316',
+                borderRadius: 14,
+                padding: '0.9rem 1.15rem',
+                marginBottom: 14,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: '1.5rem' }}>🎨</span>
+                    <div>
+                      <strong style={{ display: 'block', color: '#1e3a5f', fontSize: '0.92rem' }}>
+                        {selected.render_pdf_path ? 'PDF de Render / Planos disponible' : 'Cargar Render del proyecto'}
+                      </strong>
+                      <span style={{ display: 'block', marginTop: 2, color: '#64748b', fontSize: '0.78rem' }}>
+                        {selected.render_pdf_path
+                          ? 'Este archivo se adjunta automáticamente al final del Machote de Producción.'
+                          : 'Si en contrato no se cargó render, puedes subir aquí el PDF o imagen para incluirlo en el machote.'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {selected.render_pdf_path && (
+                      <>
+                        <a href={imageUrl(selected.render_pdf_path)} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>
+                          Ver PDF
+                        </a>
+                        <button type="button" onClick={downloadRenderPdf} style={{ padding: '0.5rem 0.8rem', border: 0, borderRadius: 8, background: '#1d4ed8', color: '#fff', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}>
+                          Descargar PDF
+                        </button>
+                      </>
+                    )}
+
+                    <label style={{
+                      padding: '0.52rem 0.85rem',
+                      borderRadius: 8,
+                      background: selected.render_pdf_path ? '#f1f5f9' : '#ea580c',
+                      color: selected.render_pdf_path ? '#334155' : '#fff',
+                      border: selected.render_pdf_path ? '1px solid #cbd5e1' : 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      cursor: uploadingRender ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}>
+                      {uploadingRender ? '⏳ Subiendo...' : (selected.render_pdf_path ? '🔄 Reemplazar Render' : '＋ Cargar Render (PDF / Imagen)')}
+                      <input
+                        type="file"
+                        accept=".pdf,image/*"
+                        disabled={uploadingRender}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadRenderFile(file);
+                          e.target.value = '';
+                        }}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
+                </div>
               </section>
             )}
 
