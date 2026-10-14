@@ -930,6 +930,22 @@ function Pedidos() {
     }
   };
 
+  const viewRenderPdf = async () => {
+    if (!selected?.render_pdf_path) return;
+    try {
+      // Fetch con auth token (el interceptor global lo agrega automáticamente)
+      const response = await fetch(`${API}/api/prospects/${selected.id}/render-pdf`);
+      if (!response.ok) throw new Error(`Error al obtener el PDF (${response.status})`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      // Liberar el blob URL después de un momento para no acumular memoria
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (error) {
+      setMessage(error.message || 'No se pudo abrir el PDF de render.');
+    }
+  };
+
   const uploadRenderFile = async (file) => {
     if (!file || !selected) return;
     setUploadingRender(true);
@@ -2831,9 +2847,9 @@ function Pedidos() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     {selected.render_pdf_path && (
                       <>
-                        <a href={`${API}/api/prospects/${selected.id}/render-pdf`} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>
+                        <button type="button" onClick={viewRenderPdf} style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', border: '1px solid #bfdbfe' }}>
                           Ver PDF
-                        </a>
+                        </button>
                         <button type="button" onClick={downloadRenderPdf} style={{ padding: '0.5rem 0.8rem', border: 0, borderRadius: 8, background: '#1d4ed8', color: '#fff', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}>
                           Descargar PDF
                         </button>
