@@ -241,6 +241,15 @@ function Pedidos() {
   const [showSemaforo, setShowSemaforo] = useState(false);
   const [semaforoSelected, setSemaforoSelected] = useState(null);
   const [semaforoUploadingStage, setSemaforoUploadingStage] = useState(null);
+  const [weekPhotoUploading, setWeekPhotoUploading] = useState(false);
+  const [weekPhotoMessage, setWeekPhotoMessage] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const startOfYear = new Date(year, 0, 1);
+    const week = Math.ceil(((today - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  });
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -1165,23 +1174,74 @@ function Pedidos() {
                     };
 
                     // Recopilar todos los nodos de la línea de tiempo
+                    const lastIdx = STAGE_NAMES.length - 1; // 5: 'Entrega del proyecto'
+                    const isDelivered = sp.status === 'ENTREGADO';
+                    const lastStg = sstgs[lastIdx] || {};
+                    const lastPhotos = Array.isArray(lastStg.photos)
+                      ? lastStg.photos.map(p => typeof p === 'string' ? { url: p, published: false } : p)
+                      : [];
+
                     const nodes = [
                       { type:'start', date: ssched?.startDate, label:'Inicio', color:'#3b82f6' },
-                      ...STAGE_NAMES.map((name, idx) => {
+                      ...STAGE_NAMES.slice(0, lastIdx).map((name, idx) => {
                         const stg = sstgs[idx] || {};
                         const photos = Array.isArray(stg.photos)
                           ? stg.photos.map(p => typeof p === 'string' ? { url: p, published: false } : p)
                           : [];
                         return { type:'stage', idx, name, stg, photos, color: stageColors[idx],
-                          done: idx < scIdx || sp.status === 'ENTREGADO',
-                          active: idx === scIdx && sp.status !== 'ENTREGADO',
+                          done: idx < scIdx || isDelivered,
+                          active: idx === scIdx && !isDelivered,
                           date: stg.entered_at ? new Date(stg.entered_at) : null };
                       }),
-                      ...(sp.status === 'ENTREGADO' && sprod.delivered_at
-                        ? [{ type:'end', date: new Date(sprod.delivered_at), label:'Entregado', color:'#16a34a' }]
-                        : ssched ? [{ type:'deadline', date: ssched.deadline, label:'Deadline', color: ssched.daysRemaining < 0 ? '#ef4444' : '#64748b' }] : []
-                      )
+                      {
+                        type: 'stage',
+                        idx: lastIdx,
+                        name: isDelivered ? 'Entregado' : STAGE_NAMES[lastIdx],
+                        stg: lastStg,
+                        photos: lastPhotos,
+                        color: isDelivered ? '#16a34a' : (ssched && ssched.daysRemaining < 0 ? '#ef4444' : stageColors[lastIdx]),
+                        done: isDelivered,
+                        active: scIdx === lastIdx && !isDelivered,
+                        date: isDelivered && sprod.delivered_at
+                          ? new Date(sprod.delivered_at)
+                          : (ssched?.deadline ? new Date(ssched.deadline) : (lastStg.entered_at ? new Date(lastStg.entered_at) : null))
+                      }
                     ];
+
+                    const togglePublishWeekPhoto = async (photo) => {
+                      const targetId = photo.id || photo.url;
+                      try {
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/week-photos/${encodeURIComponent(targetId)}/publish`, {
+                          method: 'PUT'
+                        });
+                        if (!res.ok) throw new Error('No se pudo actualizar');
+                        const result = await res.json();
+                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: result.production_data } : p));
+                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: result.production_data } : prev);
+                      } catch (err) {
+                        setWeekPhotoMessage('❌ ' + err.message);
+                      }
+                    };
+
+                    const deleteWeekPhotoClient = async (photo) => {
+                      if (!window.confirm('¿Deseas eliminar esta foto semanal?')) return;
+                      const targetId = photo.id || photo.url;
+                      try {
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/week-photos/${encodeURIComponent(targetId)}`, {
+                          method: 'DELETE'
+                        });
+                        if (!res.ok) throw new Error('No se pudo eliminar');
+                        const result = await res.json();
+                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: result.production_data } : p));
+                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: result.production_data } : prev);
+                        setWeekPhotoMessage('Foto eliminada');
+                      } catch (err) {
+                        setWeekPhotoMessage('❌ ' + err.message);
+                      }
+                    };
+
+                    const allWeekPhotos = Array.isArray(sprod.week_photos) ? sprod.week_photos : [];
+                    const distinctWeeks = [...new Set(allWeekPhotos.map(p => p.week).filter(Boolean))];
 
                     return (
                       <div style={{ marginTop:16, padding:'1.25rem', background:'linear-gradient(135deg,#0f172a,#1a2744)', border:`2px solid ${sem.color}44`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
@@ -1273,16 +1333,15 @@ function Pedidos() {
                                 background:'linear-gradient(90deg,#1e3a5f,#334155,#1e3a5f)', borderRadius:999 }} />
                               {nodes.map((node, ni) => {
                                 const x = `${(ni / Math.max(nodes.length-1,1)) * 90 + 5}%`;
-                                const dotColor = node.type==='start' ? '#3b82f6' : node.type==='end' ? '#16a34a' :
-                                  node.type==='deadline' ? node.color :
-                                  node.done ? node.color : node.active ? '#f59e0b' : '#334155';
+                                const dotColor = node.type==='start' ? '#3b82f6' :
+                                  node.done ? (node.color || '#16a34a') : node.active ? '#f59e0b' : '#334155';
                                 return (
                                   <div key={ni} style={{ position:'absolute', left:x, transform:'translateX(-50%)', display:'flex', flexDirection:'column', alignItems:'center' }}>
                                     <div style={{ width:20, height:20, borderRadius:'50%', background:dotColor,
                                       border:`3px solid ${node.active ? '#fbbf24' : dotColor}`,
                                       boxShadow: node.active ? '0 0 0 5px #fbbf2440' : node.done||node.type!=='stage' ? `0 0 0 3px ${dotColor}30`:'none',
                                       display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>
-                                      {(node.done || node.type==='end') && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
+                                      {node.done && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
                                       {node.active && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
                                     </div>
                                     {/* Fecha bajo el nódulo */}
@@ -1350,6 +1409,142 @@ function Pedidos() {
                         <div style={{ marginTop:10, display:'flex', gap:12, flexWrap:'wrap', fontSize:'0.62rem', color:'#64748b' }}>
                           <span>🟢 Borde verde = foto publicada al cliente</span>
                           <span style={{ color:'#475569' }}>Botoncito ▶ = publicar | ✓ = despublicar</span>
+                        </div>
+
+                        {/* ── FOTOS POR SEMANA ── */}
+                        <div style={{ marginTop:18, padding:'1.1rem', background:'#090f1d', border:'1px solid #1e3a5f', borderRadius:12 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:12 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                              <span style={{ fontSize:'1rem' }}>📅</span>
+                              <div>
+                                <div style={{ color:'#f1f5f9', fontSize:'0.82rem', fontWeight:800 }}>Fotos de avance por semana</div>
+                                <div style={{ color:'#64748b', fontSize:'0.65rem' }}>Organiza y sube la evidencia fotográfica de cada semana de trabajo</div>
+                              </div>
+                            </div>
+                            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                              <label style={{ color:'#94a3b8', fontSize:'0.68rem', fontWeight:700 }}>Semana actual/elegida:</label>
+                              <input
+                                type="week"
+                                value={selectedWeek}
+                                onChange={e => { setSelectedWeek(e.target.value); setWeekPhotoMessage(''); }}
+                                style={{ background:'#1e293b', border:'1px solid #334155', borderRadius:7, color:'#e2e8f0', fontSize:'0.72rem', padding:'0.3rem 0.6rem', cursor:'pointer' }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Píldoras de semanas con fotos */}
+                          {distinctWeeks.length > 0 && (
+                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:12, paddingBottom:8, borderBottom:'1px solid #1e293b' }}>
+                              <span style={{ color:'#64748b', fontSize:'0.65rem', fontWeight:700 }}>Semanas registradas:</span>
+                              {distinctWeeks.map(wk => {
+                                const count = allWeekPhotos.filter(p => p.week === wk).length;
+                                const isSel = wk === selectedWeek;
+                                return (
+                                  <button
+                                    key={wk}
+                                    type="button"
+                                    onClick={() => setSelectedWeek(wk)}
+                                    style={{
+                                      padding: '0.2rem 0.55rem',
+                                      borderRadius: 999,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      background: isSel ? '#2563eb' : '#1e293b',
+                                      color: isSel ? '#fff' : '#94a3b8',
+                                      border: `1px solid ${isSel ? '#3b82f6' : '#334155'}`
+                                    }}
+                                  >
+                                    {wk} ({count})
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Galería de fotos de la semana seleccionada */}
+                          {(() => {
+                            const currentWeekPhotos = allWeekPhotos.filter(wp => wp.week === selectedWeek);
+                            return (
+                              <div>
+                                {currentWeekPhotos.length > 0 ? (
+                                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(90px, 1fr))', gap:8, marginBottom:12 }}>
+                                    {currentWeekPhotos.map((wp, wi) => {
+                                      const isPub = wp.published !== false;
+                                      return (
+                                        <div key={wp.id || wi} style={{ position:'relative', borderRadius:8, overflow:'hidden', background:'#020617', border:`2px solid ${isPub ? '#22c55e':'#475569'}`, boxShadow:'0 2px 8px rgba(0,0,0,0.3)' }}>
+                                          <a href={imageUrl(wp.url)} target="_blank" rel="noreferrer" title="Clic para ampliar en pestaña nueva">
+                                            <img src={imageUrl(wp.url)} alt={`Foto ${wi+1} semana ${selectedWeek}`} style={{ width:'100%', height:75, objectFit:'cover', display:'block' }} />
+                                          </a>
+                                          <div style={{ position:'absolute', top:2, right:2, display:'flex', gap:2 }}>
+                                            <button
+                                              type="button"
+                                              title={isPub ? 'Publicada al cliente - Clic para ocultar' : 'Oculta al cliente - Clic para publicar'}
+                                              onClick={() => togglePublishWeekPhoto(wp)}
+                                              style={{ width:18, height:18, borderRadius:'50%', background: isPub ? '#22c55e':'#475569', border:'1.5px solid #0f172a', color:'#fff', fontSize:'0.55rem', fontWeight:900, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                              {isPub ? '✓' : '▶'}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              title="Eliminar foto"
+                                              onClick={() => deleteWeekPhotoClient(wp)}
+                                              style={{ width:18, height:18, borderRadius:'50%', background:'#ef4444', border:'1.5px solid #0f172a', color:'#fff', fontSize:'0.55rem', fontWeight:900, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                              ×
+                                            </button>
+                                          </div>
+                                          <div style={{ padding:'2px 4px', background:'rgba(15,23,42,0.85)', fontSize:'0.55rem', color:'#94a3b8', display:'flex', justifyContent:'space-between' }}>
+                                            <span>#{wi+1}</span>
+                                            <span style={{ color: isPub ? '#4ade80':'#94a3b8' }}>{isPub ? 'Cliente' : 'Interna'}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div style={{ padding:'1rem', textAlign:'center', color:'#64748b', fontSize:'0.72rem', background:'#0f172a', borderRadius:8, marginBottom:10, border:'1px dashed #334155' }}>
+                                    No hay fotos registradas para <strong>{selectedWeek}</strong>. Puedes cargar una o varias fotos abajo.
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Botón de carga */}
+                          <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                            <label style={{ display:'inline-flex', alignItems:'center', gap:6, cursor: weekPhotoUploading ? 'not-allowed':'pointer',
+                              padding:'0.45rem 1rem', background:'#1d4ed8', borderRadius:8, border:'1px solid #3b82f6',
+                              color:'#ffffff', fontSize:'0.74rem', fontWeight:800, opacity: weekPhotoUploading ? 0.6:1, boxShadow:'0 2px 8px rgba(37,99,235,0.3)' }}>
+                              <input type="file" accept="image/*" multiple style={{ display:'none' }} disabled={weekPhotoUploading}
+                                onChange={async (e) => {
+                                  const files = Array.from(e.target.files);
+                                  if (!files.length) return;
+                                  setWeekPhotoUploading(true);
+                                  setWeekPhotoMessage('');
+                                  try {
+                                    for (const file of files) {
+                                      const fd = new FormData();
+                                      fd.append('file', file);
+                                      fd.append('week', selectedWeek);
+                                      const res = await fetch(`${API}/api/prospects/${sp.id}/week-photos`, { method:'POST', body:fd });
+                                      if (!res.ok) throw new Error('Error al subir foto');
+                                      const result = await res.json();
+                                      setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: result.production_data } : p));
+                                      setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: result.production_data } : prev);
+                                    }
+                                    setWeekPhotoMessage(`✅ ${files.length} foto${files.length > 1 ? 's' : ''} cargada${files.length > 1 ? 's' : ''} correctamente para ${selectedWeek}`);
+                                  } catch(err) {
+                                    setWeekPhotoMessage('❌ ' + err.message);
+                                  } finally {
+                                    setWeekPhotoUploading(false);
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                              {weekPhotoUploading ? '⏳ Subiendo fotos...' : '📷 Cargar fotos de esta semana'}
+                            </label>
+                            {weekPhotoMessage && <span style={{ fontSize:'0.7rem', fontWeight:700, color: weekPhotoMessage.startsWith('✅') ? '#4ade80':'#f87171' }}>{weekPhotoMessage}</span>}
+                          </div>
+
                         </div>
 
                       </div>

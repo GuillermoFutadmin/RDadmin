@@ -531,6 +531,91 @@ async def upload_production_evidence(
     return {"image_path": image_url, "production_data": prospect.production_data}
 
 
+@app.post("/api/prospects/{prospect_id}/week-photos")
+async def upload_week_photo(
+    prospect_id: int,
+    week: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image evidence is allowed")
+
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    image_url = await upload_to_storage(file, f"week_{prospect_id}_{week}")
+    week_photos = production.setdefault("week_photos", [])
+    photo_entry = {
+        "id": str(uuid.uuid4()),
+        "url": image_url,
+        "week": week.strip(),
+        "uploaded_at": datetime.utcnow().isoformat() + "Z",
+        "published": True
+    }
+    week_photos.append(photo_entry)
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"photo": photo_entry, "production_data": prospect.production_data}
+
+
+@app.delete("/api/prospects/{prospect_id}/week-photos/{photo_id}")
+def delete_week_photo(prospect_id: int, photo_id: str, db: Session = Depends(get_db)):
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    week_photos = production.get("week_photos", [])
+    production["week_photos"] = [p for p in week_photos if str(p.get("id")) != photo_id and p.get("url") != photo_id]
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Foto eliminada", "production_data": prospect.production_data}
+
+
+@app.put("/api/prospects/{prospect_id}/week-photos/{photo_id}/publish")
+def toggle_publish_week_photo(prospect_id: int, photo_id: str, db: Session = Depends(get_db)):
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospect not found")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    week_photos = production.get("week_photos", [])
+    for p in week_photos:
+        if str(p.get("id")) == photo_id or p.get("url") == photo_id:
+            p["published"] = not p.get("published", True)
+
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"production_data": prospect.production_data}
+
+
 @app.post("/api/prospects/{prospect_id}/upload-image")
 async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
