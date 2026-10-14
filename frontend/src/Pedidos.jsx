@@ -239,6 +239,7 @@ function Pedidos() {
   const [supplierForMaterial, setSupplierForMaterial] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
   const [showSemaforo, setShowSemaforo] = useState(false);
+  const [semaforoModal, setSemaforoModal] = useState(null);
 
   const refresh = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -862,7 +863,219 @@ function Pedidos() {
     );
   }
 
+  /* ── MODAL SEMÁFORO ── */
+  const SemaforoProjectModal = ({ project, onClose }) => {
+    const prod = normalizeProduction(project.production_data);
+    const stgs = Array.isArray(prod.stages) ? prod.stages : [];
+    const schedule = projectSchedules.get(project.id);
+    const sem = (() => {
+      const SEMAFORO_ETAPAS = ['Render y materiales','Preparación','Producción iniciada','Avance 1','Avance 2 / revisión','Entrega'];
+      const currentStageIdx = productionStageIndex(project);
+      const isDelivered = project.status === 'ENTREGADO';
+      if (isDelivered) return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '✅', label: 'Entregado' };
+      if (!schedule) return { color: '#78716c', bg: '#fafaf9', border: '#d6d3d1', emoji: '⚪', label: 'Sin cronograma' };
+      const { daysRemaining } = schedule;
+      const stageDiff = currentStageIdx - schedule.expectedStage;
+      if (daysRemaining < 0 || stageDiff < -1) return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', emoji: '🔴', label: stageDiff < -1 ? `Atrasado ${Math.abs(stageDiff)} etapa(s)` : `${Math.abs(daysRemaining)} día(s) vencido(s)` };
+      if (stageDiff < 0 || daysRemaining <= 3) return { color: '#d97706', bg: '#fffbeb', border: '#fde68a', emoji: '🟡', label: daysRemaining <= 3 && daysRemaining >= 0 ? `${daysRemaining} día(s) restante(s)` : 'Ligeramente atrás' };
+      return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '🟢', label: `${daysRemaining} día(s) restante(s)` };
+    })();
+    const currentStageIdx = productionStageIndex(project);
+    const startDate = schedule?.startDate;
+    const deadline = schedule?.deadline;
+    const totalW = startDate && deadline ? Math.max(1, deadline - startDate) : 1;
+    const nowMs = scheduleNow.getTime();
+
+    const stageColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
+
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Detalle de ${project.name}`}
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(10,15,28,0.72)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem',
+          backdropFilter: 'blur(4px)'
+        }}
+      >
+        <div style={{
+          width: '100%', maxWidth: 780, maxHeight: '90vh',
+          background: 'linear-gradient(160deg,#0f172a 0%,#1e293b 100%)',
+          border: `2px solid ${sem.color}`,
+          borderRadius: 20, overflowY: 'auto',
+          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px ${sem.color}44`
+        }}>
+
+          {/* Header */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, padding:'1.25rem 1.5rem 0.75rem', borderBottom:'1px solid #334155' }}>
+            <div>
+              <div style={{ color:'#94a3b8', fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:4 }}>
+                {project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}
+              </div>
+              <h2 style={{ margin:0, color:'#f1f5f9', fontSize:'1.3rem', fontWeight:800 }}>{project.name || 'Cliente'}</h2>
+              <div style={{ marginTop:6, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                <span style={{ padding:'0.28rem 0.75rem', borderRadius:999, background:sem.bg, color:sem.color, fontSize:'0.75rem', fontWeight:800, border:`1px solid ${sem.border}` }}>
+                  {sem.emoji} {sem.label}
+                </span>
+                {schedule && (
+                  <span style={{ color:'#64748b', fontSize:'0.72rem' }}>
+                    {schedule.elapsedDays}d hábiles transcurridos de {schedule.plannedDays}d planeados
+                  </span>
+                )}
+              </div>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Cerrar"
+              style={{ flexShrink:0, width:34, height:34, display:'inline-flex', alignItems:'center', justifyContent:'center',
+                border:'1px solid #334155', borderRadius:10, background:'#1e293b', color:'#94a3b8', fontSize:'1.1rem', cursor:'pointer' }}>
+              ✕
+            </button>
+          </div>
+
+          <div style={{ padding:'1.25rem 1.5rem' }}>
+
+            {/* ── LÍNEA DE TIEMPO ── */}
+            <div style={{ marginBottom:'1.5rem' }}>
+              <div style={{ color:'#94a3b8', fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:10 }}>Línea de tiempo del proyecto</div>
+
+              {/* Barra de progreso global */}
+              {schedule && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.68rem', color:'#64748b', marginBottom:5 }}>
+                    <span>📅 {schedule.startDate.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
+                    <span style={{ color: schedule.daysRemaining < 0 ? '#ef4444' : '#22c55e' }}>🏁 {schedule.deadline.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
+                  </div>
+                  <div style={{ position:'relative', height:12, background:'#1e3a5f', borderRadius:999, overflow:'hidden' }}>
+                    <div style={{
+                      position:'absolute', left:0, top:0, height:'100%',
+                      width:`${schedule.timeProgress}%`,
+                      background: schedule.daysRemaining < 0 ? 'linear-gradient(90deg,#dc2626,#f87171)' : 'linear-gradient(90deg,#2563eb,#22c55e)',
+                      borderRadius:999, transition:'width 0.4s ease'
+                    }} />
+                    {/* Marcador de hoy */}
+                    <div style={{ position:'absolute', top:0, left:`${Math.min(schedule.timeProgress,100)}%`, height:'100%', width:2, background:'#fff', opacity:0.8 }} />
+                  </div>
+                  <div style={{ textAlign:'right', fontSize:'0.65rem', color:'#64748b', marginTop:3 }}>{schedule.timeProgress}% del tiempo transcurrido</div>
+                </div>
+              )}
+
+              {/* Etapas como timeline vertical */}
+              <div style={{ position:'relative', paddingLeft:28 }}>
+                {/* Línea vertical */}
+                <div style={{ position:'absolute', left:10, top:8, bottom:8, width:2, background:'#334155', borderRadius:999 }} />
+
+                {STAGE_NAMES.map((stageName, idx) => {
+                  const stg = stgs[idx] || {};
+                  const done = idx < currentStageIdx || project.status === 'ENTREGADO';
+                  const active = idx === currentStageIdx && project.status !== 'ENTREGADO';
+                  const pending = !done && !active;
+                  const photos = collectImageUrls(stg.photos);
+                  const dotColor = done ? stageColors[idx] : active ? '#f59e0b' : '#334155';
+                  const enteredDate = stg.entered_at ? new Date(stg.entered_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}) : null;
+
+                  return (
+                    <div key={stageName} style={{ position:'relative', marginBottom: idx < STAGE_NAMES.length-1 ? 20 : 0 }}>
+                      {/* Dot */}
+                      <div style={{
+                        position:'absolute', left:-22, top:2,
+                        width:16, height:16, borderRadius:'50%',
+                        background: dotColor,
+                        border:`2px solid ${active ? '#fbbf24' : done ? dotColor : '#475569'}`,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        boxShadow: active ? `0 0 0 4px #fbbf2440` : done ? `0 0 0 3px ${dotColor}30` : 'none'
+                      }}>
+                        {done && <span style={{ color:'#fff', fontSize:'0.5rem', fontWeight:900 }}>✓</span>}
+                        {active && <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff', display:'block' }} />}
+                      </div>
+
+                      {/* Contenido */}
+                      <div style={{
+                        padding:'0.6rem 0.75rem',
+                        background: active ? '#1e3a5f' : done ? '#1a2a1a' : '#1a1f2e',
+                        border:`1px solid ${active ? '#3b82f6' : done ? stageColors[idx]+'44' : '#334155'}`,
+                        borderRadius:10
+                      }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                          <span style={{ color: done ? stageColors[idx] : active ? '#fbbf24' : '#64748b', fontSize:'0.76rem', fontWeight:800 }}>
+                            {done ? '✓' : active ? '▶' : `${idx+1}.`} {stageName}
+                          </span>
+                          {enteredDate && <span style={{ color:'#64748b', fontSize:'0.65rem' }}>{enteredDate}</span>}
+                          {!enteredDate && pending && <span style={{ color:'#475569', fontSize:'0.65rem' }}>Pendiente</span>}
+                        </div>
+
+                        {stg.note && (
+                          <div style={{ marginTop:5, color:'#94a3b8', fontSize:'0.68rem', fontStyle:'italic', lineHeight:1.4 }}>💬 {stg.note}</div>
+                        )}
+
+                        {/* Fotos de la etapa */}
+                        {photos.length > 0 && (
+                          <div style={{ marginTop:8, display:'flex', gap:6, flexWrap:'wrap' }}>
+                            {photos.map((url, photoIdx) => (
+                              <a key={photoIdx} href={imageUrl(url)} target="_blank" rel="noreferrer"
+                                style={{ display:'block', flexShrink:0 }}>
+                                <img
+                                  src={imageUrl(url)}
+                                  alt={`${stageName} foto ${photoIdx+1}`}
+                                  style={{
+                                    width:72, height:72,
+                                    objectFit:'cover', borderRadius:8,
+                                    border:`2px solid ${stageColors[idx]}66`,
+                                    transition:'transform 0.15s ease',
+                                    cursor:'pointer'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.transform='scale(1.08)'}
+                                  onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Entrega final */}
+                {project.status === 'ENTREGADO' && prod.delivered_at && (
+                  <div style={{ position:'relative', marginTop:20 }}>
+                    <div style={{ position:'absolute', left:-22, top:2, width:16, height:16, borderRadius:'50%', background:'#16a34a', border:'2px solid #16a34a', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 0 4px #16a34a30' }}>
+                      <span style={{ color:'#fff', fontSize:'0.55rem', fontWeight:900 }}>✅</span>
+                    </div>
+                    <div style={{ padding:'0.6rem 0.75rem', background:'#14532d22', border:'1px solid #16a34a55', borderRadius:10 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <span style={{ color:'#22c55e', fontSize:'0.76rem', fontWeight:800 }}>✅ Proyecto entregado</span>
+                        <span style={{ color:'#64748b', fontSize:'0.65rem' }}>{new Date(prod.delivered_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer acciones */}
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', paddingTop:'1rem', borderTop:'1px solid #334155', flexWrap:'wrap' }}>
+              <button type="button" onClick={onClose}
+                style={{ padding:'0.55rem 1rem', border:'1px solid #334155', borderRadius:9, background:'transparent', color:'#94a3b8', fontWeight:700, cursor:'pointer' }}>
+                Cerrar
+              </button>
+              <button type="button" onClick={() => { onClose(); selectProductionProject(project); }}
+                style={{ padding:'0.55rem 1rem', border:'1px solid #3b82f6', borderRadius:9, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:'pointer' }}>
+                📋 Ver ficha completa
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
+    <>
+      {semaforoModal && <SemaforoProjectModal project={semaforoModal} onClose={() => setSemaforoModal(null)} />}
     <main style={{ padding: 'clamp(0.8rem, 2vw, 1.6rem)', color: '#1e293b' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
@@ -1033,7 +1246,7 @@ function Pedidos() {
                             key={project.id}
                             type="button"
                             id={`semaforo-cliente-${project.id}`}
-                            onClick={() => selectProductionProject(project)}
+                            onClick={() => setSemaforoModal(project)}
                             style={{
                               display: 'flex', flexDirection: 'column', gap: 8,
                               padding: '0.85rem 1rem',
@@ -1866,6 +2079,7 @@ function Pedidos() {
         </div>
       )}
     </main>
+    </>
   );
 }
 
