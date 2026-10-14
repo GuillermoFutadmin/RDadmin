@@ -1449,554 +1449,444 @@ function Pedidos() {
                           </span>
                         </div>
 
-                        {/* ── SECCIÓN 1: LÍNEA DE TIEMPO CON TODOS LOS DÍAS (N RAYAS EN 2 NIVELES) ── */}
-                        <div style={{ marginBottom: 24 }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8, marginBottom:8 }}>
-                            <div>
-                              <h4 style={{ margin:0, color:'#ffffff', fontSize:'0.88rem', fontWeight:900 }}>
-                                📏 Línea de tiempo diaria completa ({totalDays} días contratados)
-                              </h4>
-                              <span style={{ color:'#94a3b8', fontSize:'0.67rem' }}>
-                                Rayas de cada uno de los días con fechas en letras blancas alternadas (arriba y abajo en 2 niveles para evitar encimarse). Haz clic en cualquier día para ver sus fotos.
-                              </span>
-                            </div>
-                            <div style={{ display:'flex', gap:6 }}>
-                              <button
-                                type="button"
-                                onClick={() => setSemaforoSelectedDayKey(projectDays[0]?.dateKey)}
-                                style={{ padding:'0.25rem 0.6rem', background:'#1e293b', border:'1px solid #334155', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
-                              >
-                                ⏮ Día 1
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSemaforoSelectedDayKey(todayKey)}
-                                style={{ padding:'0.25rem 0.6rem', background:'#1e3a8a', border:'1px solid #38bdf8', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
-                              >
-                                📍 HOY
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSemaforoSelectedDayKey(projectDays[projectDays.length - 1]?.dateKey)}
-                                style={{ padding:'0.25rem 0.6rem', background:'#1e293b', border:'1px solid #334155', borderRadius:6, color:'#ffffff', fontSize:'0.65rem', fontWeight:800, cursor:'pointer' }}
-                              >
-                                ⏭ Día {totalDays}
-                              </button>
-                            </div>
-                          </div>
+                        {/* ── SECCIÓN 1: BARRA DE PROGRESO COMPACTA (sin scroll horizontal) ── */}
+                        {(() => {
+                          const pct = totalDays > 0 ? Math.min(100, Math.round((elapsedDaysCount / totalDays) * 100)) : 0;
+                          // Milestones: día 1, 25%, 50%, 75%, hoy, último día
+                          const milestoneIndices = [
+                            0,
+                            Math.round(totalDays * 0.25) - 1,
+                            Math.round(totalDays * 0.5) - 1,
+                            Math.round(totalDays * 0.75) - 1,
+                            totalDays - 1,
+                          ].filter((v, i, a) => v >= 0 && v < totalDays && a.indexOf(v) === i);
+                          const todayIdx = projectDays.findIndex(d => d.dateKey === todayKey);
 
-                          {/* Contenedor horizontal scrollable de la línea de tiempo */}
-                          <div
-                            style={{
-                              position: 'relative',
-                              overflowX: 'auto',
-                              padding: '16px 10px',
-                              background: '#090d16',
-                              borderRadius: 12,
-                              border: '1px solid #1e293b',
-                              boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)',
-                              WebkitOverflowScrolling: 'touch'
-                            }}
-                          >
-                            <div style={{ position:'relative', width: timelineTrackWidth, height: 230 }}>
+                          return (
+                            <div style={{ marginBottom: 20, padding: '0.9rem 1rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                <h4 style={{ margin: 0, color: '#ffffff', fontSize: '0.82rem', fontWeight: 900 }}>
+                                  📏 Línea de tiempo · {totalDays} días contratados
+                                </h4>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" onClick={() => setSemaforoSelectedDayKey(projectDays[0]?.dateKey)}
+                                    style={{ padding:'0.2rem 0.5rem', background:'#1e293b', border:'1px solid #334155', borderRadius:5, color:'#fff', fontSize:'0.62rem', fontWeight:800, cursor:'pointer' }}>
+                                    ⏮ Día 1
+                                  </button>
+                                  <button type="button" onClick={() => setSemaforoSelectedDayKey(todayKey)}
+                                    style={{ padding:'0.2rem 0.5rem', background:'#1e3a8a', border:'1px solid #38bdf8', borderRadius:5, color:'#fff', fontSize:'0.62rem', fontWeight:800, cursor:'pointer' }}>
+                                    📍 HOY
+                                  </button>
+                                  <button type="button" onClick={() => setSemaforoSelectedDayKey(projectDays[projectDays.length - 1]?.dateKey)}
+                                    style={{ padding:'0.2rem 0.5rem', background:'#1e293b', border:'1px solid #334155', borderRadius:5, color:'#fff', fontSize:'0.62rem', fontWeight:800, cursor:'pointer' }}>
+                                    ⏭ Día {totalDays}
+                                  </button>
+                                </div>
+                              </div>
 
-                              {/* Línea horizontal central (fondo completo) */}
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  left: 60,
-                                  right: 60,
-                                  top: 110,
-                                  height: 6,
-                                  background: '#1e293b',
-                                  borderRadius: 999
-                                }}
-                              />
-
-                              {/* Línea de progreso recorrida (relleno iluminado) */}
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  left: 60,
-                                  top: 110,
-                                  width: filledProgressWidth,
-                                  height: 6,
+                              {/* Barra de progreso */}
+                              <div style={{ position: 'relative', height: 10, background: '#1e293b', borderRadius: 999, marginBottom: 14, overflow: 'visible' }}>
+                                {/* Relleno progreso */}
+                                <div style={{
+                                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                                  width: `${pct}%`,
                                   background: 'linear-gradient(90deg, #2563eb, #10b981)',
                                   borderRadius: 999,
-                                  boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)'
-                                }}
-                              />
+                                  boxShadow: '0 0 10px rgba(16,185,129,0.45)',
+                                  transition: 'width 0.5s ease'
+                                }} />
 
-                              {/* Render de cada día del proyecto (todas las rayas y fechas) */}
-                              {projectDays.map((d, idx) => {
-                                const x = 60 + idx * daySlotWidth;
-                                const isPast = d.dateKey < todayKey;
-                                const isToday = d.dateKey === todayKey;
-                                const isFuture = d.dateKey > todayKey;
-                                const isSelected = d.dateKey === activeDayKey;
-                                const dayAdvs = advancesByDate.get(d.dateKey) || [];
-                                const hasPhotos = dayAdvs.length > 0;
-                                const dayNum = d.dayNumber;
-
-                                // Alternar arriba / abajo y 2 niveles de altura para que nunca se encimen
-                                const isEven = dayNum % 2 === 0;
-                                // 2 niveles arriba: nivel 1 más alto (top: 10px), nivel 2 medio (top: 54px)
-                                const topPos = isEven
-                                  ? (dayNum % 4 === 0 ? 10 : 54)
-                                  : (dayNum % 4 === 1 ? 172 : 130);
-
-                                return (
-                                  <div
-                                    key={d.dateKey}
-                                    style={{
-                                      position: 'absolute',
-                                      left: x,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: daySlotWidth,
-                                      transform: 'translateX(-50%)',
-                                      cursor: 'pointer'
-                                    }}
-                                    onClick={() => setSemaforoSelectedDayKey(d.dateKey)}
-                                    title={`Día ${dayNum} (${formatReadableDate(d.dateKey)}) · ${hasPhotos ? `${dayAdvs.length} foto(s)` : 'Sin fotos'}`}
-                                  >
-                                    {/* Raya vertical del día cruzando la línea horizontal */}
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        left: '50%',
-                                        top: 96,
-                                        width: isToday || isSelected ? 3 : 2,
-                                        height: 32,
-                                        transform: 'translateX(-50%)',
-                                        background: isToday
-                                          ? '#fbbf24'
-                                          : isSelected
-                                            ? '#38bdf8'
-                                            : hasPhotos
-                                              ? '#22c55e'
-                                              : isPast
-                                                ? '#3b82f6'
-                                                : '#334155',
-                                        boxShadow: isToday ? '0 0 8px #fbbf24' : isSelected ? '0 0 8px #38bdf8' : 'none',
-                                        borderRadius: 2,
-                                        zIndex: 1
-                                      }}
-                                    />
-
-                                    {/* Nódulo central en la raya */}
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        left: '50%',
-                                        top: 112,
-                                        width: isToday || isSelected ? 22 : 16,
-                                        height: isToday || isSelected ? 22 : 16,
-                                        transform: 'translate(-50%, -50%)',
-                                        borderRadius: '50%',
-                                        background: isToday
-                                          ? '#fbbf24'
-                                          : isSelected
-                                            ? '#0284c7'
-                                            : hasPhotos
-                                              ? '#16a34a'
-                                              : isPast
-                                                ? '#1e3a8a'
-                                                : '#1e293b',
-                                        border: `2px solid ${isToday ? '#fef08a' : isSelected ? '#38bdf8' : hasPhotos ? '#4ade80' : isPast ? '#60a5fa' : '#475569'}`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '0.55rem',
-                                        color: '#ffffff',
-                                        fontWeight: 900,
-                                        boxShadow: isToday ? '0 0 10px rgba(251,191,36,0.8)' : isSelected ? '0 0 10px rgba(56,189,248,0.8)' : 'none',
-                                        zIndex: 2,
-                                        transition: 'transform 0.15s ease'
-                                      }}
-                                    >
-                                      {hasPhotos ? '📷' : isToday ? '🔥' : isPast ? '✓' : ''}
-                                    </div>
-
-                                    {/* Etiqueta del Día y Fecha (EN LETRAS BLANCAS en 2 niveles) */}
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        left: '50%',
-                                        top: topPos,
-                                        transform: 'translateX(-50%)',
-                                        padding: '3px 6px',
-                                        background: isSelected
-                                          ? '#0369a1'
-                                          : isToday
-                                            ? '#78350f'
-                                            : hasPhotos
-                                              ? '#14532d'
-                                              : '#1e293b',
-                                        border: `1px solid ${isSelected ? '#38bdf8' : isToday ? '#fbbf24' : hasPhotos ? '#22c55e' : isPast ? '#475569' : '#334155'}`,
-                                        borderRadius: 6,
-                                        textAlign: 'center',
-                                        whiteSpace: 'nowrap',
-                                        boxShadow: isSelected ? '0 0 12px rgba(56,189,248,0.4)' : '0 2px 6px rgba(0,0,0,0.4)',
-                                        zIndex: 3
-                                      }}
-                                    >
-                                      {/* Día N en letra blanca pura */}
-                                      <div style={{ color: '#ffffff', fontWeight: 900, fontSize: '0.68rem', lineHeight: 1.1 }}>
-                                        Día {dayNum}
-                                      </div>
-                                      {/* Fecha en letra blanca legible */}
-                                      <div style={{ color: '#ffffff', opacity: 0.95, fontSize: '0.6rem', fontWeight: 700, marginTop: 1 }}>
-                                        {d.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                                      </div>
-                                      {/* Indicador de fotos si existen */}
-                                      {hasPhotos && (
-                                        <div style={{ color: '#86efac', fontSize: '0.55rem', fontWeight: 900, marginTop: 1 }}>
-                                          📷 {dayAdvs.length}
-                                        </div>
-                                      )}
-                                      {isToday && (
-                                        <div style={{ color: '#fde047', fontSize: '0.55rem', fontWeight: 900, marginTop: 1 }}>
-                                          HOY
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ── SECCIÓN 2: CALENDARIO EXCLUSIVO DEL PROYECTO ── */}
-                        <div style={{ marginBottom: 24, padding: '1rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-                            <div>
-                              <h4 style={{ margin: 0, color: '#ffffff', fontSize: '0.92rem', fontWeight: 900 }}>
-                                📅 Calendario exclusivo del proyecto (Días contratados: 1 al {totalDays})
-                              </h4>
-                              <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginTop: 2 }}>
-                                Solamente se muestran los días hábiles del proyecto. Observa los días agotados y el registro de fotos diario.
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: '0.68rem' }}>
-                              <span style={{ color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e293b', border: '1px solid #475569' }} /> Agotado
-                              </span>
-                              <span style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#78350f', border: '1px solid #fbbf24' }} /> HOY (En curso)
-                              </span>
-                              <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#0369a1', border: '1px solid #38bdf8' }} /> Seleccionado
-                              </span>
-                              <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#090d16', border: '1px solid #1e293b' }} /> Restante
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Semanas del proyecto */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {projectWeeks.map(w => (
-                              <div key={w.weekNum} style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: 10, padding: '0.75rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid #1e293b' }}>
-                                  <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.72rem' }}>
-                                    🗓️ Semana {w.weekNum} · Días {w.days[0].dayNumber} al {w.days[w.days.length - 1].dayNumber}
-                                  </span>
-                                  <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>
-                                    {w.days[0].date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} – {w.days[w.days.length - 1].date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 150px), 1fr))', gap: 8 }}>
-                                  {w.days.map(d => {
-                                    const isPast = d.dateKey < todayKey;
-                                    const isToday = d.dateKey === todayKey;
-                                    const isFuture = d.dateKey > todayKey;
-                                    const isSelected = d.dateKey === activeDayKey;
-                                    const dayAdvs = advancesByDate.get(d.dateKey) || [];
-
-                                    return (
-                                      <button
-                                        key={d.dateKey}
-                                        type="button"
-                                        onClick={() => setSemaforoSelectedDayKey(d.dateKey)}
-                                        style={{
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          alignItems: 'stretch',
-                                          textAlign: 'left',
-                                          padding: '8px 10px',
-                                          background: isSelected
-                                            ? '#0369a1'
-                                            : isToday
-                                              ? 'linear-gradient(135deg, #451a03 0%, #78350f 100%)'
-                                              : isPast
-                                                ? '#131e33'
-                                                : '#0d1322',
-                                          border: isSelected
-                                            ? '2px solid #38bdf8'
-                                            : isToday
-                                              ? '2px solid #fbbf24'
-                                              : dayAdvs.length > 0
-                                                ? '1px solid #16a34a'
-                                                : isPast
-                                                  ? '1px solid #1e293b'
-                                                  : '1px solid #151e2e',
-                                          borderRadius: 8,
-                                          cursor: 'pointer',
-                                          boxShadow: isSelected ? '0 0 14px rgba(56,189,248,0.4)' : isToday ? '0 0 12px rgba(251,191,36,0.3)' : 'none',
-                                          transition: 'transform 0.1s ease, border-color 0.1s ease'
-                                        }}
-                                      >
-                                        {/* Fila superior: Día y estado */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                          <strong style={{ color: '#ffffff', fontSize: '0.8rem', fontWeight: 900 }}>
-                                            Día {d.dayNumber}
-                                          </strong>
-                                          <span style={{
-                                            fontSize: '0.58rem',
-                                            fontWeight: 800,
-                                            padding: '1px 5px',
-                                            borderRadius: 4,
-                                            background: isToday ? '#fef08a' : isPast ? '#1e293b' : '#151e2e',
-                                            color: isToday ? '#78350f' : isPast ? '#94a3b8' : '#64748b'
-                                          }}>
-                                            {isToday ? '🔥 HOY' : isPast ? '✓ Agotado' : '⏳'}
-                                          </span>
-                                        </div>
-
-                                        {/* Fecha legible en blanco */}
-                                        <div style={{ color: '#ffffff', opacity: 0.9, fontSize: '0.67rem', fontWeight: 700, marginBottom: 6 }}>
-                                          {d.date.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })}
-                                        </div>
-
-                                        {/* Fotos o estado del día */}
-                                        {dayAdvs.length > 0 ? (
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
-                                            <div style={{ display: 'flex', gap: 2 }}>
-                                              {dayAdvs.slice(0, 2).map((adv, ai) => (
-                                                <img
-                                                  key={ai}
-                                                  src={imageUrl(adv.url)}
-                                                  alt=""
-                                                  style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4, border: '1px solid #22c55e' }}
-                                                />
-                                              ))}
-                                            </div>
-                                            <span style={{ color: '#86efac', fontSize: '0.62rem', fontWeight: 800 }}>
-                                              📷 {dayAdvs.length} foto{dayAdvs.length > 1 ? 's' : ''}
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <div style={{ marginTop: 'auto', color: isToday ? '#fde047' : isPast ? '#64748b' : '#475569', fontSize: '0.62rem', fontStyle: 'italic' }}>
-                                            {isToday ? '+ Subir fotos de hoy' : isPast ? 'Sin fotos' : 'Programado'}
-                                          </div>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* ── SECCIÓN 3: GESTOR DE FOTOS DEL DÍA SELECCIONADO ── */}
-                        <div style={{ padding: '1.1rem', background: '#0b1329', border: '2px solid #38bdf844', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-                            <div>
-                              <div style={{ color: '#38bdf8', fontSize: '0.68rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                Registro fotográfico por día
-                              </div>
-                              <h4 style={{ margin: '2px 0 0', color: '#ffffff', fontSize: '1.05rem', fontWeight: 900 }}>
-                                📸 Día {activeDayObj?.dayNumber} de {totalDays} · {formatReadableDate(activeDayKey)}
-                              </h4>
-                            </div>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <span style={{
-                                padding: '0.25rem 0.65rem',
-                                borderRadius: 6,
-                                background: activeDayKey === todayKey ? '#78350f' : activeDayKey < todayKey ? '#1e293b' : '#0d1322',
-                                color: activeDayKey === todayKey ? '#fde047' : '#ffffff',
-                                border: '1px solid #334155',
-                                fontSize: '0.7rem',
-                                fontWeight: 800
-                              }}>
-                                {activeDayKey === todayKey ? '🔥 Día en curso (HOY)' : activeDayKey < todayKey ? '✓ Día agotado' : '⏳ Día futuro'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Galería de fotos registradas en este día */}
-                          <div style={{ marginBottom: 16 }}>
-                            <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 800, marginBottom: 8 }}>
-                              Fotos cargadas para este día ({activeDayAdvances.length}):
-                            </div>
-                            {activeDayAdvances.length === 0 ? (
-                              <div style={{ padding: '1.2rem', textAlign: 'center', background: '#090d16', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.75rem' }}>
-                                No hay fotos de avance registradas para el Día {activeDayObj?.dayNumber}. Usa el formulario abajo para subir fotos del taller.
-                              </div>
-                            ) : (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 10 }}>
-                                {activeDayAdvances.map(adv => (
-                                  <div
-                                    key={adv.id}
-                                    style={{
-                                      background: '#090d16',
-                                      border: `1px solid ${adv.published ? '#22c55e' : '#334155'}`,
-                                      borderRadius: 8,
-                                      padding: '8px',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: 6
-                                    }}
-                                  >
-                                    <div style={{ position: 'relative', width: '100%', height: 120, borderRadius: 6, overflow: 'hidden', background: '#000', cursor: 'pointer' }}
-                                      onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}
-                                    >
-                                      <img
-                                        src={imageUrl(adv.url)}
-                                        alt=""
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                      />
-                                      <span style={{ position: 'absolute', bottom: 4, right: 4, padding: '2px 6px', background: 'rgba(0,0,0,0.7)', borderRadius: 4, color: '#fff', fontSize: '0.6rem' }}>
-                                        🔍 Ampliar
-                                      </span>
-                                    </div>
-
-                                    {/* Comentario */}
-                                    <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 600, minHeight: 28, wordBreak: 'break-word' }}>
-                                      {adv.comment || <span style={{ color: '#64748b', fontStyle: 'italic' }}>Sin comentarios</span>}
-                                    </div>
-
-                                    {/* Acciones */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #1e293b' }}>
-                                      <button
-                                        type="button"
-                                        title={adv.published ? 'Visible para el cliente. Clic para ocultar.' : 'Oculto al cliente. Clic para publicar.'}
-                                        onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
-                                        style={{
-                                          padding: '3px 7px',
-                                          borderRadius: 5,
-                                          background: adv.published ? '#14532d' : '#1e293b',
-                                          color: adv.published ? '#86efac' : '#94a3b8',
-                                          border: `1px solid ${adv.published ? '#22c55e' : '#475569'}`,
-                                          fontSize: '0.62rem',
-                                          fontWeight: 800,
-                                          cursor: 'pointer'
-                                        }}
-                                      >
-                                        {adv.published ? '✓ Visible al cliente' : '👁️ Solo taller'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteDailyAdvance(adv.id)}
-                                        style={{
-                                          padding: '3px 6px',
-                                          borderRadius: 5,
-                                          background: '#450a0a',
-                                          color: '#fca5a5',
-                                          border: '1px solid #dc2626',
-                                          fontSize: '0.62rem',
-                                          fontWeight: 800,
-                                          cursor: 'pointer'
-                                        }}
-                                      >
-                                        🗑️
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Formulario de subida de fotos para el día activo */}
-                          <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.9rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: 10 }}>
-                            <div style={{ color: '#ffffff', fontSize: '0.78rem', fontWeight: 900, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span>📤 Cargar nueva(s) foto(s) para el Día {activeDayObj?.dayNumber}</span>
-                              <span style={{ color: '#94a3b8', fontSize: '0.68rem', fontWeight: 600 }}>({formatReadableDate(activeDayKey)})</span>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <label style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  padding: '0.45rem 0.9rem',
-                                  background: '#1e293b',
-                                  border: '1px dashed #38bdf8',
-                                  borderRadius: 8,
-                                  color: '#38bdf8',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  cursor: 'pointer'
-                                }}>
-                                  <span>📷 Seleccionar fotos</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    style={{ display: 'none' }}
-                                    onChange={e => setSemaforoAdvanceFiles(Array.from(e.target.files || []))}
-                                  />
-                                </label>
-                                {semaforoAdvanceFiles.length > 0 && (
-                                  <span style={{ color: '#86efac', fontSize: '0.72rem', fontWeight: 800 }}>
-                                    ✓ {semaforoAdvanceFiles.length} foto(s) seleccionada(s)
-                                  </span>
+                                {/* Indicador HOY */}
+                                {todayIdx >= 0 && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    left: `${Math.min(100, (todayIdx / Math.max(1, totalDays - 1)) * 100)}%`,
+                                    top: '50%', transform: 'translate(-50%, -50%)',
+                                    width: 18, height: 18, borderRadius: '50%',
+                                    background: '#fbbf24', border: '3px solid #fff',
+                                    boxShadow: '0 0 10px rgba(251,191,36,0.8)',
+                                    zIndex: 4
+                                  }} />
                                 )}
+
+                                {/* Milestones */}
+                                {milestoneIndices.map(mi => {
+                                  const md = projectDays[mi];
+                                  if (!md) return null;
+                                  const mPct = (mi / Math.max(1, totalDays - 1)) * 100;
+                                  const mIsPast = md.dateKey <= todayKey;
+                                  return (
+                                    <div key={mi} style={{
+                                      position: 'absolute',
+                                      left: `${mPct}%`,
+                                      top: '50%', transform: 'translate(-50%, -50%)',
+                                      width: 10, height: 10, borderRadius: '50%',
+                                      background: mIsPast ? '#10b981' : '#334155',
+                                      border: '2px solid #0f172a',
+                                      zIndex: 3
+                                    }} />
+                                  );
+                                })}
                               </div>
 
-                              <input
-                                type="text"
-                                placeholder="Comentarios de la foto o avance del día (ej. Armado de muebles, corte de tableros...)"
-                                value={semaforoAdvanceComment}
-                                onChange={e => setSemaforoAdvanceComment(e.target.value)}
-                                style={{
-                                  padding: '0.5rem 0.75rem',
-                                  background: '#1e293b',
-                                  border: '1px solid #334155',
-                                  borderRadius: 8,
-                                  color: '#ffffff',
-                                  fontSize: '0.78rem'
-                                }}
-                              />
+                              {/* Etiquetas de milestones */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                                {milestoneIndices.map(mi => {
+                                  const md = projectDays[mi];
+                                  if (!md) return null;
+                                  const mIsPast = md.dateKey <= todayKey;
+                                  return (
+                                    <button key={mi} type="button"
+                                      onClick={() => setSemaforoSelectedDayKey(md.dateKey)}
+                                      style={{
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                        padding: '3px 7px',
+                                        background: activeDayKey === md.dateKey ? '#0369a1' : '#1e293b',
+                                        border: `1px solid ${activeDayKey === md.dateKey ? '#38bdf8' : mIsPast ? '#10b981' : '#334155'}`,
+                                        borderRadius: 6, cursor: 'pointer',
+                                        boxShadow: activeDayKey === md.dateKey ? '0 0 8px rgba(56,189,248,0.4)' : 'none'
+                                      }}
+                                    >
+                                      <span style={{ color: '#ffffff', fontSize: '0.62rem', fontWeight: 900 }}>Día {md.dayNumber}</span>
+                                      <span style={{ color: '#94a3b8', fontSize: '0.58rem' }}>
+                                        {md.date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#cbd5e1', fontSize: '0.72rem', cursor: 'pointer' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={semaforoAdvancePublished}
-                                    onChange={e => setSemaforoAdvancePublished(e.target.checked)}
-                                  />
-                                  <span>Visible para el cliente en su liga de seguimiento</span>
-                                </label>
-
-                                <button
-                                  type="submit"
-                                  disabled={semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0}
-                                  style={{
-                                    padding: '0.5rem 1.1rem',
-                                    background: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? '#334155' : '#2563eb',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: 8,
-                                    fontSize: '0.75rem',
-                                    fontWeight: 900,
-                                    cursor: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? 'not-allowed' : 'pointer',
-                                    boxShadow: semaforoAdvanceFiles.length > 0 ? '0 4px 12px rgba(37,99,235,0.4)' : 'none'
-                                  }}
-                                >
-                                  {semaforoUploadingAdvance ? '⏳ Guardando...' : `Guardar avance en Día ${activeDayObj?.dayNumber}`}
-                                </button>
+                              {/* Texto de porcentaje y progreso */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: '0.68rem', color: '#94a3b8' }}>
+                                <span>🔵 {elapsedDaysCount} días agotados</span>
+                                <span style={{ color: '#10b981', fontWeight: 900 }}>{pct}% completado</span>
+                                <span>🟢 {remainingDaysCount} días restantes</span>
                               </div>
                             </div>
-                          </form>
-                        </div>
+                          );
+                        })()}
+
+                        {/* ── SECCIÓN 2: CALENDARIO MENSUAL + PANEL DE FOTOS DEL DÍA ── */}
+                        {(() => {
+                          // Construir set de días del proyecto para lookup rápido
+                          const projectDaySet = new Set(projectDays.map(d => d.dateKey));
+                          const projectDayMap = new Map(projectDays.map(d => [d.dateKey, d]));
+
+                          // Calcular rango de meses cubiertos por el proyecto
+                          const firstDate = projectDays[0]?.date || new Date();
+                          const lastDate = projectDays[projectDays.length - 1]?.date || new Date();
+
+                          // Mes activo del calendario (derivado del día seleccionado o el mes de hoy)
+                          const calTargetDate = activeDayKey
+                            ? (projectDayMap.get(activeDayKey)?.date || firstDate)
+                            : firstDate;
+
+                          // Navegar meses con estado local (usamos ref para no re-renderizar todo)
+                          // Usamos el mes/año del día activo como ancla
+                          const calYear = calTargetDate.getFullYear();
+                          const calMonth = calTargetDate.getMonth(); // 0-indexed
+
+                          // Número de días en el mes
+                          const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                          // Día de la semana del 1ro del mes (0=Dom)
+                          const firstWeekday = new Date(calYear, calMonth, 1).getDay();
+                          // Ajustar para Lun=0
+                          const startOffset = (firstWeekday + 6) % 7;
+
+                          const calCells = [];
+                          // Celdas vacías al inicio
+                          for (let i = 0; i < startOffset; i++) calCells.push(null);
+                          // Días del mes
+                          for (let d = 1; d <= daysInMonth; d++) {
+                            const dt = new Date(calYear, calMonth, d);
+                            const dk = getDateKey(dt);
+                            calCells.push({ date: dt, dateKey: dk, dayNum: d, projDay: projectDayMap.get(dk) || null });
+                          }
+
+                          const monthLabel = firstDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+                          const calMonthLabel = new Date(calYear, calMonth, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+                          // Mes anterior / siguiente dentro del rango del proyecto
+                          const prevMonthDate = new Date(calYear, calMonth - 1, 15);
+                          const nextMonthDate = new Date(calYear, calMonth + 1, 15);
+                          const canGoPrev = prevMonthDate >= new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+                          const canGoNext = nextMonthDate <= new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+
+                          const weekDays = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+                          return (
+                            <div style={{ marginBottom: 24 }}>
+                              <h4 style={{ margin: '0 0 10px', color: '#ffffff', fontSize: '0.88rem', fontWeight: 900 }}>
+                                📅 Calendario del proyecto · {totalDays} días hábiles
+                              </h4>
+
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                                gap: 14,
+                                alignItems: 'start'
+                              }}>
+
+                                {/* COLUMNA IZQUIERDA: Calendario mensual */}
+                                <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: 12, padding: '0.85rem', minWidth: 0 }}>
+                                  {/* Header del mes */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                    <button type="button"
+                                      disabled={!canGoPrev}
+                                      onClick={() => {
+                                        const pd = projectDays.find(d => {
+                                          const dt = d.date;
+                                          return dt.getFullYear() === prevMonthDate.getFullYear() && dt.getMonth() === prevMonthDate.getMonth();
+                                        });
+                                        if (pd) setSemaforoSelectedDayKey(pd.dateKey);
+                                      }}
+                                      style={{ background: 'none', border: '1px solid #334155', borderRadius: 6, color: canGoPrev ? '#ffffff' : '#334155', cursor: canGoPrev ? 'pointer' : 'default', padding: '2px 8px', fontSize: '0.8rem' }}
+                                    >‹</button>
+                                    <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.78rem', textTransform: 'capitalize' }}>{calMonthLabel}</span>
+                                    <button type="button"
+                                      disabled={!canGoNext}
+                                      onClick={() => {
+                                        const nd = projectDays.find(d => {
+                                          const dt = d.date;
+                                          return dt.getFullYear() === nextMonthDate.getFullYear() && dt.getMonth() === nextMonthDate.getMonth();
+                                        });
+                                        if (nd) setSemaforoSelectedDayKey(nd.dateKey);
+                                      }}
+                                      style={{ background: 'none', border: '1px solid #334155', borderRadius: 6, color: canGoNext ? '#ffffff' : '#334155', cursor: canGoNext ? 'pointer' : 'default', padding: '2px 8px', fontSize: '0.8rem' }}
+                                    >›</button>
+                                  </div>
+
+                                  {/* Cabecera días semana */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+                                    {weekDays.map(wd => (
+                                      <div key={wd} style={{ textAlign: 'center', color: '#64748b', fontSize: '0.58rem', fontWeight: 800, padding: '2px 0' }}>{wd}</div>
+                                    ))}
+                                  </div>
+
+                                  {/* Grid de días */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+                                    {calCells.map((cell, ci) => {
+                                      if (!cell) return <div key={`e${ci}`} />;
+                                      const isProjectDay = !!cell.projDay;
+                                      const isPast = cell.dateKey < todayKey;
+                                      const isToday = cell.dateKey === todayKey;
+                                      const isSelected = cell.dateKey === activeDayKey;
+                                      const dayAdvs = isProjectDay ? (advancesByDate.get(cell.dateKey) || []) : [];
+                                      const hasPhotos = dayAdvs.length > 0;
+                                      const firstPhoto = hasPhotos ? dayAdvs[0] : null;
+
+                                      return (
+                                        <button
+                                          key={cell.dateKey}
+                                          type="button"
+                                          disabled={!isProjectDay}
+                                          onClick={() => isProjectDay && setSemaforoSelectedDayKey(cell.dateKey)}
+                                          title={isProjectDay ? `Día ${cell.projDay.dayNumber} · ${cell.dateKey}${hasPhotos ? ` · ${dayAdvs.length} foto(s)` : ''}` : ''}
+                                          style={{
+                                            position: 'relative',
+                                            aspectRatio: '1',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'flex-start',
+                                            padding: '2px',
+                                            border: isSelected
+                                              ? '2px solid #38bdf8'
+                                              : isToday
+                                                ? '2px solid #fbbf24'
+                                                : isProjectDay
+                                                  ? hasPhotos
+                                                    ? '1px solid #22c55e'
+                                                    : isPast
+                                                      ? '1px solid #1e3a8a'
+                                                      : '1px solid #1e293b'
+                                                  : '1px solid #0f172a',
+                                            borderRadius: 6,
+                                            background: isSelected
+                                              ? '#0369a1'
+                                              : isToday
+                                                ? '#78350f'
+                                                : isProjectDay
+                                                  ? hasPhotos
+                                                    ? '#0f2d18'
+                                                    : isPast
+                                                      ? '#0d1a2e'
+                                                      : '#0d1322'
+                                                  : '#07090f',
+                                            cursor: isProjectDay ? 'pointer' : 'default',
+                                            overflow: 'hidden',
+                                            boxShadow: isSelected ? '0 0 8px rgba(56,189,248,0.5)' : isToday ? '0 0 8px rgba(251,191,36,0.4)' : 'none',
+                                            transition: 'border-color 0.15s, background 0.15s'
+                                          }}
+                                        >
+                                          {/* Miniatura de foto si hay */}
+                                          {firstPhoto && (
+                                            <img
+                                              src={imageUrl(firstPhoto.url)}
+                                              alt=""
+                                              style={{
+                                                position: 'absolute', inset: 0,
+                                                width: '100%', height: '100%',
+                                                objectFit: 'cover',
+                                                opacity: 0.55,
+                                                borderRadius: 5
+                                              }}
+                                            />
+                                          )}
+
+                                          {/* Número del día (siempre encima) */}
+                                          <span style={{
+                                            position: 'relative', zIndex: 1,
+                                            fontSize: '0.62rem', fontWeight: 900,
+                                            color: isProjectDay ? '#ffffff' : '#334155',
+                                            lineHeight: 1,
+                                            marginTop: 2,
+                                            textShadow: firstPhoto ? '0 1px 3px rgba(0,0,0,0.9)' : 'none'
+                                          }}>
+                                            {cell.dayNum}
+                                          </span>
+
+                                          {/* Badge de fotos */}
+                                          {hasPhotos && (
+                                            <span style={{
+                                              position: 'absolute', bottom: 2, right: 2, zIndex: 2,
+                                              background: 'rgba(0,0,0,0.75)',
+                                              color: '#86efac', fontSize: '0.48rem', fontWeight: 900,
+                                              padding: '1px 3px', borderRadius: 3
+                                            }}>📷{dayAdvs.length}</span>
+                                          )}
+
+                                          {/* HOY indicator */}
+                                          {isToday && (
+                                            <span style={{
+                                              position: 'absolute', bottom: 2, left: 2, zIndex: 2,
+                                              background: '#fbbf24', color: '#000',
+                                              fontSize: '0.42rem', fontWeight: 900,
+                                              padding: '1px 3px', borderRadius: 3
+                                            }}>HOY</span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Leyenda */}
+                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, fontSize: '0.58rem' }}>
+                                    <span style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#78350f', border: '2px solid #fbbf24', display: 'inline-block' }} />HOY
+                                    </span>
+                                    <span style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0369a1', border: '2px solid #38bdf8', display: 'inline-block' }} />Seleccionado
+                                    </span>
+                                    <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0f2d18', border: '1px solid #22c55e', display: 'inline-block' }} />Con fotos
+                                    </span>
+                                    <span style={{ color: '#475569', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#07090f', border: '1px solid #0f172a', display: 'inline-block' }} />Fuera del proyecto
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* COLUMNA DERECHA: Panel de fotos del día seleccionado */}
+                                <div style={{ background: '#090d16', border: '2px solid #38bdf844', borderRadius: 12, padding: '0.85rem', minWidth: 0 }}>
+                                  {/* Header del panel derecho */}
+                                  <div style={{ marginBottom: 12 }}>
+                                    <div style={{ color: '#38bdf8', fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Registro fotográfico</div>
+                                    <div style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 900, marginTop: 2 }}>
+                                      📸 {activeDayObj ? `Día ${activeDayObj.dayNumber} de ${totalDays}` : 'Selecciona un día'}
+                                    </div>
+                                    {activeDayKey && (
+                                      <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: 2 }}>{formatReadableDate(activeDayKey)}</div>
+                                    )}
+                                    {activeDayKey && (
+                                      <span style={{
+                                        display: 'inline-block', marginTop: 6,
+                                        padding: '2px 8px', borderRadius: 5,
+                                        background: activeDayKey === todayKey ? '#78350f' : activeDayKey < todayKey ? '#1e293b' : '#0d1322',
+                                        color: activeDayKey === todayKey ? '#fde047' : '#ffffff',
+                                        border: '1px solid #334155', fontSize: '0.65rem', fontWeight: 800
+                                      }}>
+                                        {activeDayKey === todayKey ? '🔥 Día en curso (HOY)' : activeDayKey < todayKey ? '✓ Día agotado' : '⏳ Día futuro'}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Galería de fotos del día */}
+                                  {!activeDayKey ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#475569', fontSize: '0.75rem' }}>
+                                      👆 Selecciona un día del calendario para ver o subir fotos
+                                    </div>
+                                  ) : activeDayAdvances.length === 0 ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', background: '#0b1329', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.72rem', marginBottom: 12 }}>
+                                      Sin fotos para el Día {activeDayObj?.dayNumber}. Usa el formulario abajo.
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 90px), 1fr))', gap: 6, marginBottom: 12 }}>
+                                      {activeDayAdvances.map(adv => (
+                                        <div key={adv.id} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', border: `1px solid ${adv.published ? '#22c55e' : '#334155'}` }}>
+                                          <div style={{ position: 'relative', paddingTop: '75%', background: '#000', cursor: 'pointer' }}
+                                            onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}>
+                                            <img src={imageUrl(adv.url)} alt=""
+                                              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <span style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.5rem', padding: '1px 4px', borderRadius: 3 }}>🔍</span>
+                                          </div>
+                                          {adv.comment && (
+                                            <div style={{ padding: '3px 5px', background: '#0b1329', color: '#ffffff', fontSize: '0.58rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                                              {adv.comment}
+                                            </div>
+                                          )}
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 4px', background: '#07090f', borderTop: '1px solid #1e293b' }}>
+                                            <button type="button" onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
+                                              title={adv.published ? 'Visible cliente' : 'Solo taller'}
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: adv.published ? '#22c55e' : '#64748b' }}>
+                                              {adv.published ? '✓' : '👁️'}
+                                            </button>
+                                            <button type="button" onClick={() => handleDeleteDailyAdvance(adv.id)}
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.65rem', color: '#ef4444' }}>🗑️</button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Formulario subida */}
+                                  {activeDayKey && (
+                                    <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.75rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 8 }}>
+                                      <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 900, marginBottom: 8 }}>📤 Cargar fotos – Día {activeDayObj?.dayNumber}</div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.35rem 0.7rem', background: '#1e293b', border: '1px dashed #38bdf8', borderRadius: 7, color: '#38bdf8', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>
+                                          📷 Seleccionar fotos
+                                          <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                                            onChange={e => setSemaforoAdvanceFiles(Array.from(e.target.files || []))} />
+                                        </label>
+                                        {semaforoAdvanceFiles.length > 0 && (
+                                          <span style={{ color: '#86efac', fontSize: '0.68rem', fontWeight: 800 }}>✓ {semaforoAdvanceFiles.length} foto(s)</span>
+                                        )}
+                                        <input type="text" placeholder="Comentario del avance..."
+                                          value={semaforoAdvanceComment}
+                                          onChange={e => setSemaforoAdvanceComment(e.target.value)}
+                                          style={{ padding: '0.4rem 0.6rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 7, color: '#ffffff', fontSize: '0.72rem' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#cbd5e1', fontSize: '0.68rem', cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={semaforoAdvancePublished} onChange={e => setSemaforoAdvancePublished(e.target.checked)} />
+                                            Visible al cliente
+                                          </label>
+                                          <button type="submit"
+                                            disabled={semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0}
+                                            style={{ padding: '0.4rem 0.9rem', background: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? '#334155' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: '0.7rem', fontWeight: 900, cursor: semaforoUploadingAdvance || semaforoAdvanceFiles.length === 0 ? 'not-allowed' : 'pointer' }}>
+                                            {semaforoUploadingAdvance ? '⏳ Guardando...' : 'Guardar'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </form>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Sección 3 eliminada – el gestor de fotos ya está integrado en la columna derecha del calendario */}
 
                         {/* Lightbox visor grande */}
                         {semaforoLightboxUrl && (
