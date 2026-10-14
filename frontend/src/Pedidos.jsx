@@ -764,7 +764,7 @@ function Pedidos() {
       if (selected.render_pdf_path) {
         try {
           setMessage('Procesando planos y hojas del PDF de render...');
-          const pdfUrl = imageUrl(selected.render_pdf_path);
+          const pdfUrl = `${API}/api/prospects/${selected.id}/render-pdf`;
           const renderPages = await convertPdfToImageUrls(pdfUrl);
           if (renderPages && renderPages.length > 0) {
             const renderAnnex = document.createElement('div');
@@ -914,7 +914,8 @@ function Pedidos() {
   const downloadRenderPdf = async () => {
     if (!selected?.render_pdf_path) return;
     try {
-      const response = await fetch(imageUrl(selected.render_pdf_path));
+      // Usar el proxy del backend para evitar el 401 de Cloudinary
+      const response = await fetch(`${API}/api/prospects/${selected.id}/render-pdf`);
       if (!response.ok) throw new Error(`No se pudo descargar el PDF de render (${response.status})`);
       const fileUrl = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
@@ -2830,7 +2831,7 @@ function Pedidos() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     {selected.render_pdf_path && (
                       <>
-                        <a href={imageUrl(selected.render_pdf_path)} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>
+                        <a href={`${API}/api/prospects/${selected.id}/render-pdf`} target="_blank" rel="noreferrer" style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: '#eff6ff', color: '#1d4f91', fontSize: '0.8rem', fontWeight: 800, textDecoration: 'none' }}>
                           Ver PDF
                         </a>
                         <button type="button" onClick={downloadRenderPdf} style={{ padding: '0.5rem 0.8rem', border: 0, borderRadius: 8, background: '#1d4ed8', color: '#fff', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}>
@@ -3008,7 +3009,7 @@ function Pedidos() {
               {selected.render_pdf_path && (
                 <p style={{ margin: '0 0 10px' }}>
                   <strong>PDF de render:</strong>{' '}
-                  <a href={imageUrl(selected.render_pdf_path)}>{imageUrl(selected.render_pdf_path)}</a>
+                  <a href={`${API}/api/prospects/${selected.id}/render-pdf`} target="_blank" rel="noreferrer">Ver / Descargar PDF de Render</a>
                 </p>
               )}
               {croquisImages.length > 0 && (

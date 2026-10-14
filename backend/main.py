@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -457,22 +458,32 @@ def delete_prospect(prospect_id: int, db: Session = Depends(get_db)):
 
 
 async def upload_to_storage(file: UploadFile, prefix: str) -> str:
-    ext = os.path.splitext(file.filename)[1]
+    ext = os.path.splitext(file.filename or "")[1].lower()
     unique_name = f"{prefix}_{uuid.uuid4()}{ext}"
-    
+
     # Leer contenido del archivo primero (importante para evitar stream ya consumido)
     contents = await file.read()
+
+    # Los PDFs en Cloudinary deben subirse como resource_type="raw" para que
+    # puedan entregarse públicamente sin 401 Unauthorized.
+    is_pdf = ext == ".pdf" or (file.content_type or "").lower() == "application/pdf"
+    resource_type = "raw" if is_pdf else "auto"
 
     # Si Cloudinary está configurado, subimos ahí
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
         try:
             import io
-            result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=unique_name, folder="rdadmin", resource_type="auto")
+            result = cloudinary.uploader.upload(
+                io.BytesIO(contents),
+                public_id=unique_name,
+                folder="rdadmin",
+                resource_type=resource_type,
+            )
             return result.get("secure_url")
         except Exception as e:
             print(f"Error subiendo a Cloudinary: {e}")
             raise HTTPException(status_code=500, detail=f"Error en Cloudinary: {str(e)}")
-            
+
     # Fallback: guardar en disco local (carpeta /uploads)
     save_path = os.path.join(UPLOAD_DIR, unique_name)
     with open(save_path, "wb") as buffer:
@@ -841,6 +852,63 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
         "pdf_path": db_prospect.render_pdf_path,
         "render_applies": db_prospect.render_applies
     }
+
+
+@app.get("/api/prospects/{prospect_id}/render-pdf")
+async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
+    """Proxifica el PDF del render para evitar el error 401 de Cloudinary.
+    
+    Cloudinary bloquea la descarga directa de PDFs subidos bajo image/upload.
+    Este endpoint los obtiene de forma autenticada (o desde disco) y los
+    entrega al navegador con el Content-Type correcto.
+    """
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    if not prospect.render_pdf_path:
+        raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
+
+    pdf_url = prospect.render_pdf_path
+
+    # Archivo local en /uploads
+    if pdf_url.startswith("/uploads/"):
+        local_path = pdf_url.lstrip("/")
+        if not os.path.exists(local_path):
+            raise HTTPException(status_code=404, detail="Archivo local no encontrado")
+        def local_iter():
+            with open(local_path, "rb") as f:
+                yield from iter(lambda: f.read(65536), b"")
+        return StreamingResponse(
+            local_iter(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+        )
+
+    # Archivo en Cloudinary: convertir image/upload -> raw/upload si aplica
+    # (para PDFs ya subidos con resource_type incorrecto)
+    if "cloudinary.com" in pdf_url and "/image/upload/" in pdf_url:
+        pdf_url = pdf_url.replace("/image/upload/", "/raw/upload/")
+
+    # Obtener el PDF remotamente y transmitirlo al cliente
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(pdf_url)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"No se pudo obtener el PDF ({resp.status_code}). Suba el render nuevamente."
+                )
+            content = resp.content
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Error de red al obtener el PDF: {exc}")
+
+    return StreamingResponse(
+        iter([content]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+    )
+
 
 @app.post("/api/users/{user_id}/upload-photo")
 async def upload_user_photo(user_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):

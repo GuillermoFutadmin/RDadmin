@@ -570,7 +570,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
       {prospect.render_pdf_path && (
         <div style={{ marginTop:'0.8rem', padding:'0.6rem 0.75rem', backgroundColor:'#f0fdf4', border: '1px solid #bbf7d0', borderRadius:'8px' }}>
           <p style={{ fontSize:'0.68rem', color:'#166534', margin:'0 0 0.4rem', textTransform:'uppercase', fontWeight:'700' }}>📄 Cotización de Render (PDF)</p>
-          <a href={prospect.render_pdf_path.startsWith('http') ? prospect.render_pdf_path : `${API}${prospect.render_pdf_path}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.8rem', backgroundColor: '#22c55e', color: 'white', textDecoration: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem' }}>
+          <a href={`${API}/api/prospects/${prospect.id}/render-pdf`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.8rem', backgroundColor: '#22c55e', color: 'white', textDecoration: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem' }}>
             <span>📄</span> Ver Documento PDF
           </a>
         </div>

@@ -1,6 +1,10 @@
 /**
  * Convierte un archivo PDF en un arreglo de imágenes de alta resolución (Data URLs)
  * utilizando PDF.js para que puedan adjuntarse e imprimirse directamente como páginas en el Machote y Contrato.
+ *
+ * Nota: si `pdfUrl` apunta al proxy del backend (/api/prospects/{id}/render-pdf),
+ * se descarga primero con fetch() para que el interceptor de auth agregue el Bearer token.
+ * Esto evita que PDF.js intente acceder directamente a la URL con XHR sin credenciales.
  */
 export async function convertPdfToImageUrls(pdfUrl) {
   if (!pdfUrl) return [];
@@ -28,10 +32,20 @@ export async function convertPdfToImageUrls(pdfUrl) {
   }
 
   try {
-    const loadingTask = window.pdfjsLib.getDocument({
-      url: pdfUrl,
-      withCredentials: false
-    });
+    // Descargar el PDF primero con fetch() para que el interceptor de auth
+    // incluya el Bearer token (necesario para rutas /api/ protegidas).
+    let pdfData;
+    if (pdfUrl.includes('/api/')) {
+      const resp = await fetch(pdfUrl);
+      if (!resp.ok) throw new Error(`No se pudo obtener el PDF de render (${resp.status})`);
+      pdfData = await resp.arrayBuffer();
+    } else {
+      pdfData = { url: pdfUrl, withCredentials: false };
+    }
+
+    const loadingTask = window.pdfjsLib.getDocument(
+      pdfData instanceof ArrayBuffer ? { data: pdfData } : pdfData
+    );
     const pdfDoc = await loadingTask.promise;
     const pageImages = [];
 
