@@ -13,7 +13,7 @@ TOKEN_TTL_SECONDS = 12 * 60 * 60
 PBKDF2_ITERATIONS = 200_000
 
 # Rutas /api/* que se pueden usar sin sesión.
-PUBLIC_PATHS = {"/api/users/login"}
+PUBLIC_PATHS = {"/api/users/login", "/api/health"}
 
 
 def _secret() -> bytes:

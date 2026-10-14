@@ -147,6 +147,7 @@ if os.path.exists(FRONTEND_DIST):
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"), headers={"Cache-Control": "no-cache"})
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {"status": "ok"}
 
