@@ -9,11 +9,12 @@ import Colaboradores from './Colaboradores';
 import Accesos from './Accesos';
 import Asistencia from './Asistencia';
 import Proveedores from './Proveedores';
+import Avances from './Avances';
 import Login from './Login';
 import { 
   IconUsers, IconTrendingUp, IconFileText, IconPenTool, 
   IconHardHat, IconClock, IconWallet, IconSettings, 
-  IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut
+  IconPackage, IconLock, IconChevronRight, IconKey, IconLogOut, IconCamera
 } from './icons';
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -25,6 +26,7 @@ function App() {
   const [prospectsOpen, setProspectsOpen] = useState(false);
   const [contratosOpen, setContratosOpen] = useState(false);
   const [colaboradoresOpen, setColaboradoresOpen] = useState(false);
+  const [produccionOpen, setProduccionOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoFrame, setLogoFrame] = useState(1);
@@ -536,14 +538,32 @@ function App() {
               </li>
             )}
 
-            {/* Producción: sección independiente de Clientes */}
+            {/* Producción (con submenú Avances) */}
             {hasProductionAccess && (
               <li
-                className={activeTab === 'Produccion' ? 'active' : ''}
-                onClick={() => { setActiveTab('Produccion'); setProspectsOpen(false); setContratosOpen(false); setColaboradoresOpen(false); }}
-                style={{ display: 'flex', alignItems: 'center' }}
+                className={['Produccion', 'Avances'].includes(activeTab) ? 'active' : ''}
+                onClick={() => {
+                  setProduccionOpen(prev => !prev);
+                  setActiveTab('Produccion');
+                  setProspectsOpen(false);
+                  setContratosOpen(false);
+                  setColaboradoresOpen(false);
+                }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <IconPackage /> Producción
+                <span style={{ display: 'flex', alignItems: 'center' }}><IconPackage /> Producción</span>
+                <IconChevronRight style={{ transform: produccionOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
+              </li>
+            )}
+
+            {/* Submenú: Avances */}
+            {produccionOpen && hasProductionAccess && (
+              <li
+                className={activeTab === 'Avances' ? 'active' : ''}
+                onClick={() => setActiveTab('Avances')}
+                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Avances' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
+              >
+                <IconCamera /> Avances
               </li>
             )}
 
@@ -674,6 +694,7 @@ function App() {
         {activeTab === 'Dashboard'     && hasAccess('Dashboard')     && <Dashboard />}
         {activeTab === 'Ventas'        && hasAccess('Ventas')        && <Ventas />}
         {activeTab === 'Produccion'   && hasProductionAccess         && <Pedidos />}
+        {activeTab === 'Avances'      && hasProductionAccess         && <Avances />}
         {activeTab === 'Proveedores' && hasAccess('Proveedores') && <Proveedores />}
         {activeTab === 'Prospectos'    && hasAccess('Prospectos')    && <Prospects />}
         {activeTab === 'Contratos'     && hasAccess('Contratos')        && <Contratos startView="list" onProductionStarted={() => setActiveTab('Produccion')} />}

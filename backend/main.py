@@ -616,6 +616,111 @@ def toggle_publish_week_photo(prospect_id: int, photo_id: str, db: Session = Dep
     return {"production_data": prospect.production_data}
 
 
+# ── AVANCES DIARIOS DE PRODUCCIÓN (CARPINTERÍA) ────────────────
+@app.post("/api/prospects/{prospect_id}/daily-advances")
+async def upload_daily_advance(
+    prospect_id: int,
+    date: str = Form(...),
+    comment: str = Form(""),
+    published: bool = Form(True),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos de imagen")
+
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    clean_date = date.strip()[:10]
+    image_url = await upload_to_storage(file, f"advance_{prospect_id}_{clean_date}")
+    advances = production.setdefault("daily_advances", [])
+    advance_entry = {
+        "id": str(uuid.uuid4()),
+        "date": clean_date,
+        "url": image_url,
+        "comment": comment.strip(),
+        "published": bool(published),
+        "created_at": datetime.utcnow().isoformat() + "Z"
+    }
+    advances.append(advance_entry)
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"advance": advance_entry, "production_data": prospect.production_data}
+
+
+@app.delete("/api/prospects/{prospect_id}/daily-advances/{advance_id}")
+def delete_daily_advance(prospect_id: int, advance_id: str, db: Session = Depends(get_db)):
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    advances = production.get("daily_advances", [])
+    production["daily_advances"] = [a for a in advances if str(a.get("id")) != advance_id and a.get("url") != advance_id]
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Avance eliminado", "production_data": prospect.production_data}
+
+
+class DailyAdvanceUpdate(BaseModel):
+    comment: Optional[str] = None
+    published: Optional[bool] = None
+
+
+@app.put("/api/prospects/{prospect_id}/daily-advances/{advance_id}")
+def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUpdate, db: Session = Depends(get_db)):
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    import json
+    production = {}
+    if prospect.production_data:
+        try:
+            production = json.loads(prospect.production_data)
+        except Exception:
+            production = {}
+
+    advances = production.get("daily_advances", [])
+    updated = False
+    for a in advances:
+        if str(a.get("id")) == advance_id or a.get("url") == advance_id:
+            if data.published is not None:
+                a["published"] = data.published
+            else:
+                a["published"] = not a.get("published", True)
+            if data.comment is not None:
+                a["comment"] = data.comment
+            updated = True
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="Avance no encontrado")
+
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"production_data": prospect.production_data}
+
+
 @app.post("/api/prospects/{prospect_id}/upload-image")
 async def upload_design_image(prospect_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()

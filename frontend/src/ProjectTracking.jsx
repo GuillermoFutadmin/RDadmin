@@ -587,6 +587,33 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             </div>
           )}
 
+          {/* Bitácora de fotos de avance en taller publicadas al cliente */}
+          {(() => {
+            const dailyPublished = (production.daily_advances || []).filter(a => a.published !== false);
+            if (!dailyPublished.length) return null;
+            return (
+              <div style={{ marginTop: 12, padding: '0.85rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 11 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: '0.9rem' }}>📸</span>
+                  <strong style={{ color: '#166534', fontSize: '0.82rem' }}>Bitácora de fotos en taller ({dailyPublished.length})</strong>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+                  {dailyPublished.map((adv, i) => (
+                    <div key={adv.id || i} style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', border: '1px solid #dcfce7', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <a href={adv.url} target="_blank" rel="noreferrer" title="Clic para ampliar">
+                        <img src={adv.url} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                      </a>
+                      <div style={{ padding: '4px 6px' }}>
+                        <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#166534', display: 'block' }}>{adv.date}</span>
+                        {adv.comment && <span style={{ fontSize: '0.66rem', color: '#334155', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adv.comment}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {prospect.delivery_date && !delivered && (
             <div style={{ marginTop: 8, color: '#475569', fontSize: '0.75rem' }}>
               Fecha de entrega acordada: <strong>{formatDate(`${prospect.delivery_date}T12:00:00`) || prospect.delivery_date}</strong>
