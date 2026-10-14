@@ -907,51 +907,61 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
             res_type = m.group(1)    # "image" o "raw"
             full_path = m.group(2)   # e.g. rdadmin/render_xxx.pdf
 
-            if res_type == "raw":
-                # PDFs nuevos subidos como raw: se sirven directamente sin restricción
-                fetch_url = pdf_url
-            else:
-                # PDFs antiguos bajo image/upload: usar private_download_url
-                # (pasa por api.cloudinary.com, bypasea la restricción de PDF delivery)
-                try:
-                    cfg = cloudinary.config()
-                    if cfg.api_key and cfg.api_secret:
-                        filename = full_path.rsplit("/", 1)[-1]
-                        if "." in filename:
-                            public_id = full_path.rsplit(".", 1)[0]
-                            fmt = full_path.rsplit(".", 1)[1]
-                        else:
-                            public_id = full_path
-                            fmt = "pdf"
-                        fetch_url = cloudinary.utils.private_download_url(
-                            public_id,
-                            format=fmt,
-                            resource_type="image",
-                            expires_at=int(time.time()) + 3600,
-                            attachment=False,
-                        )
-                        print(f"[render-pdf] private_download_url generada para prospect {prospect_id}")
-                except Exception as sign_err:
-                    print(f"[render-pdf] Error generando private_download_url: {sign_err}")
+        # Lista de URLs a intentar en orden:
+        # 1. URL directa (rápida, funciona si la entrega de PDFs está permitida o es raw)
+        # 2. URL firmada de descarga de la API de Cloudinary con type='upload'
+        urls_to_try = [pdf_url]
 
-        try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(fetch_url)
-                if resp.status_code == 200:
-                    return StreamingResponse(
-                        iter([resp.content]),
-                        media_type="application/pdf",
-                        headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+        m = re.search(r'/(image|raw)/upload/(?:v\d+/)?(.+)', pdf_url)
+        if m:
+            res_type = m.group(1)
+            full_path = m.group(2)
+            try:
+                cfg = cloudinary.config()
+                if cfg.api_key and cfg.api_secret:
+                    filename = full_path.rsplit("/", 1)[-1]
+                    if "." in filename:
+                        public_id = full_path.rsplit(".", 1)[0]
+                        fmt = full_path.rsplit(".", 1)[1]
+                    else:
+                        public_id = full_path
+                        fmt = "pdf"
+                    admin_dl_url = cloudinary.utils.private_download_url(
+                        public_id,
+                        format=fmt,
+                        resource_type=res_type,
+                        type="upload",
+                        expires_at=int(time.time()) + 3600,
+                        attachment=False,
                     )
-                raise HTTPException(
-                    status_code=502,
-                    detail=(
-                        f"No se pudo obtener el PDF ({resp.status_code}). "
-                        "Suba el render nuevamente con el botón Reemplazar Render."
-                    )
-                )
-        except httpx.RequestError as exc:
-            raise HTTPException(status_code=502, detail=f"Error de red al obtener el PDF: {exc}")
+                    urls_to_try.append(admin_dl_url)
+            except Exception as sign_err:
+                print(f"[render-pdf] Error generando URL de descarga firmada: {sign_err}")
+
+        last_status = 500
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            for url in urls_to_try:
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code == 200:
+                        return StreamingResponse(
+                            iter([resp.content]),
+                            media_type="application/pdf",
+                            headers={"Content-Disposition": f'inline; filename="render_{prospect_id}.pdf"'},
+                        )
+                    last_status = resp.status_code
+                    print(f"[render-pdf] Intento con {url[:60]}... retornó {resp.status_code}")
+                except Exception as req_err:
+                    print(f"[render-pdf] Error solicitando {url[:60]}...: {req_err}")
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"No se pudo descargar el archivo de Cloudinary ({last_status}). "
+                "Cloudinary requiere activar 'Allow delivery of PDF and ZIP files' en su consola, "
+                "o reemplace el render con el botón Reemplazar Render."
+            )
+        )
 
     raise HTTPException(
         status_code=502,
