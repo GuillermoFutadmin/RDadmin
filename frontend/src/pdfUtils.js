@@ -69,7 +69,8 @@ export async function convertPdfToImageUrls(pdfUrl) {
         totalPages: pdfDoc.numPages,
         dataUrl,
         width: viewport.width,
-        height: viewport.height
+        height: viewport.height,
+        isLandscape: viewport.width > viewport.height
       });
     }
 

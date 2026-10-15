@@ -771,20 +771,25 @@ function Pedidos() {
             const renderAnnex = document.createElement('div');
             renderAnnex.className = 'production-pdf-render-annex';
             renderPages.forEach(p => {
+              const isLandscape = p.isLandscape ?? (p.width > p.height);
               const pageContainer = document.createElement('div');
-              pageContainer.className = 'production-pdf-new-page';
-              pageContainer.style.cssText = 'page-break-before: always; break-before: page; margin-top: 10mm;';
+              pageContainer.className = isLandscape
+                ? 'production-pdf-new-page production-pdf-page-landscape'
+                : 'production-pdf-new-page';
+              pageContainer.style.cssText = isLandscape
+                ? 'page: landscape-page; break-before: page; page-break-before: always; margin: 0; padding: 0;'
+                : 'break-before: page; page-break-before: always; margin-top: 10mm;';
               pageContainer.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 3mm; margin-bottom: 5mm;">
-                  <h2 style="margin:0; font-size:16px; color:#1d4f91; font-weight:bold;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 2.5mm; margin-bottom: 3.5mm;">
+                  <h2 style="margin:0; font-size:15px; color:#1d4f91; font-weight:bold;">
                     Plano / Render del proyecto — Producción
                   </h2>
                   <span style="font-size:11px; color:#64748b; font-weight:bold;">
                     Hoja ${p.pageNum} de ${p.totalPages}
                   </span>
                 </div>
-                <div style="display:flex; justify-content:center; align-items:center; min-height:225mm; padding: 2mm 0;">
-                  <img src="${p.dataUrl}" alt="Render Hoja ${p.pageNum}" style="display:block; max-width:100%; max-height:235mm; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
+                <div style="display:flex; justify-content:center; align-items:center; ${isLandscape ? 'height:178mm;' : 'min-height:225mm;'} padding: 0;">
+                  <img src="${p.dataUrl}" alt="Render Hoja ${p.pageNum}" style="display:block; max-width:100%; ${isLandscape ? 'max-height:174mm; width:100%;' : 'max-height:235mm;'} object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
                 </div>
               `;
               renderAnnex.appendChild(pageContainer);
@@ -798,19 +803,19 @@ function Pedidos() {
         const renderAnnex = document.createElement('div');
         renderAnnex.className = 'production-pdf-render-annex';
         const pageContainer = document.createElement('div');
-        pageContainer.className = 'production-pdf-new-page';
-        pageContainer.style.cssText = 'page-break-before: always; break-before: page; margin-top: 10mm;';
+        pageContainer.className = 'production-pdf-new-page production-pdf-page-landscape';
+        pageContainer.style.cssText = 'page: landscape-page; break-before: page; page-break-before: always; margin: 0; padding: 0;';
         pageContainer.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 3mm; margin-bottom: 5mm;">
-            <h2 style="margin:0; font-size:16px; color:#1d4f91; font-weight:bold;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #1d4f91; padding-bottom: 2.5mm; margin-bottom: 3.5mm;">
+            <h2 style="margin:0; font-size:15px; color:#1d4f91; font-weight:bold;">
               Render Oficial del proyecto — Producción
             </h2>
             <span style="font-size:11px; color:#64748b; font-weight:bold;">
               Hoja de render
             </span>
           </div>
-          <div style="display:flex; justify-content:center; align-items:center; min-height:225mm; padding: 2mm 0;">
-            <img src="${imageUrl(selected.render_image_path)}" alt="Render Oficial" style="display:block; max-width:100%; max-height:235mm; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
+          <div style="display:flex; justify-content:center; align-items:center; height:178mm; padding: 0;">
+            <img src="${imageUrl(selected.render_image_path)}" alt="Render Oficial" style="display:block; max-width:100%; max-height:174mm; width:100%; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
           </div>
         `;
         renderAnnex.appendChild(pageContainer);
@@ -825,6 +830,19 @@ function Pedidos() {
             <title>${title}</title>
             <style>
               @page { size: A4 portrait; margin: 12mm; }
+              @page landscape-page { size: A4 landscape; margin: 8mm; }
+              .production-pdf-page-landscape {
+                page: landscape-page;
+                break-before: page;
+                page-break-before: always;
+              }
+              @media print {
+                .production-pdf-page-landscape {
+                  page: landscape-page;
+                  break-before: page;
+                  page-break-before: always;
+                }
+              }
               * { box-sizing: border-box; }
               html, body { margin: 0; padding: 0; background: #fff; }
               body { color: #1e293b; font: 12px/1.5 Arial, sans-serif; }
@@ -876,6 +894,11 @@ function Pedidos() {
               @media screen {
                 body { max-width: 210mm; margin: 0 auto; padding: 12mm; }
                 .production-pdf-new-page { margin-top: 12mm; }
+                .production-pdf-page-landscape {
+                  max-width: 297mm;
+                  margin-left: calc((210mm - 297mm) / 2);
+                  margin-right: calc((210mm - 297mm) / 2);
+                }
               }
             </style>
           </head>
