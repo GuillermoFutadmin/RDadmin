@@ -207,6 +207,24 @@ def client_project(prospect):
     }
 
 
+@app.on_event("startup")
+async def startup_client_portal_migrations():
+    statements = [
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS other_projects VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_path VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_image_path VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_applies BOOLEAN;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;"
+    ]
+    for sql in statements:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+        except Exception as e:
+            logger.info("Startup migration: %s (%s)", sql[:40], e)
+
+
 @app.post("/api/client-portal/login")
 def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
     try:
@@ -228,8 +246,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "restoration_details, quote_description, project_priorities, expectations, "
             "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
             "valuation_data, production_data, production_days, "
-            "render_pdf_path, render_image_path, render_applies, "
-            "CASE WHEN render_pdf_data IS NOT NULL THEN TRUE ELSE FALSE END AS has_render_pdf"
+            "render_pdf_path, render_image_path, render_applies"
         )
         cols_fallback = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
@@ -243,7 +260,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             sql = f"SELECT {cols_all} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
             row = db.execute(text(sql), {"pid": public_id, "pwd": password}).mappings().first()
         except Exception as e1:
-            logger.warning("Query con other_projects y production_days falló (%s), intentando cols_base", e1)
+            logger.warning("Query con cols_all falló (%s), intentando cols_base", e1)
             try:
                 db.rollback()
             except Exception:
@@ -278,20 +295,36 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
 @app.api_route("/api/client-portal/{public_id}/render-pdf", methods=["GET", "HEAD"])
 def client_portal_render_pdf(public_id: str, request: Request, db: Session = Depends(get_db)):
     pid = public_id.strip().upper()
-    sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+    row = None
+    has_bytea = True
+
     try:
+        sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
         row = db.execute(text(sql), {"pid": pid}).mappings().first()
-    except Exception as e:
-        logger.error("Error buscando render PDF para %s: %s", pid, e)
-        raise HTTPException(status_code=500, detail="Error de base de datos")
+    except Exception as e1:
+        has_bytea = False
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        try:
+            sql2 = "SELECT id, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+            row = db.execute(text(sql2), {"pid": pid}).mappings().first()
+        except Exception as e2:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            logger.warning("Fallback query render-pdf falló para %s: %s", pid, e2)
 
     if not row:
-        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        raise HTTPException(status_code=404, detail="Proyecto o render no encontrado")
 
-    has_data = bool(row.get("has_data"))
+    has_data = bool(row.get("has_data")) if has_bytea else False
     pdf_url = row.get("render_pdf_path")
+    pdf_data = row.get("render_pdf_data") if has_bytea else None
 
-    if not has_data and not pdf_url:
+    if not has_data and not pdf_url and not pdf_data:
         raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
     if request.method == "HEAD":
@@ -301,7 +334,6 @@ def client_portal_render_pdf(public_id: str, request: Request, db: Session = Dep
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
         )
 
-    pdf_data = row.get("render_pdf_data")
     if pdf_data:
         return Response(
             content=bytes(pdf_data),

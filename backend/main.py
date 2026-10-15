@@ -83,6 +83,29 @@ app.include_router(collaborators.router)
 app.include_router(store.router)
 
 @app.on_event("startup")
+async def run_db_migrations():
+    """Ejecuta migraciones críticas de base de datos de manera garantizada."""
+    from sqlalchemy import text
+    statements = [
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS is_contract BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS contract_date TIMESTAMP;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_applies BOOLEAN;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_price REAL;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_total_price REAL;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_image_path VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_path VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS other_projects VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;"
+    ]
+    for sql in statements:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+        except Exception as e:
+            print(f"[migration] {sql[:45]}: {e}")
+
+@app.on_event("startup")
 async def migrate_images_on_startup():
     """Mueve a Cloudinary las imágenes base64 existentes (con respaldo previo)."""
     imagestore.start_background_migration()
@@ -967,18 +990,33 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
 @app.api_route("/api/client-portal/{public_id}/render-pdf", methods=["GET", "HEAD"])
 async def client_portal_stream_render_pdf(public_id: str, request: Request, db: Session = Depends(get_db)):
     """Permite al portal de clientes consultar y descargar el PDF del render directamente."""
+    from sqlalchemy import text
     pid = public_id.strip().upper()
-    prospect = db.query(models.Prospect).filter(models.Prospect.public_id == pid).first()
-    if not prospect:
-        from sqlalchemy import func
-        prospect = db.query(models.Prospect).filter(func.upper(func.trim(models.Prospect.public_id)) == pid).first()
-    if not prospect:
-        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    row = None
+    has_bytea = True
 
-    has_data = bool(getattr(prospect, "render_pdf_data", None))
-    pdf_url = prospect.render_pdf_path
+    try:
+        sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+        row = db.execute(text(sql), {"pid": pid}).mappings().first()
+    except Exception:
+        has_bytea = False
+        try: db.rollback()
+        except Exception: pass
+        try:
+            sql2 = "SELECT id, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+            row = db.execute(text(sql2), {"pid": pid}).mappings().first()
+        except Exception:
+            try: db.rollback()
+            except Exception: pass
 
-    if not has_data and not pdf_url:
+    if not row:
+        raise HTTPException(status_code=404, detail="Proyecto o render no encontrado")
+
+    has_data = bool(row.get("has_data")) if has_bytea else False
+    pdf_url = row.get("render_pdf_path")
+    pdf_data = row.get("render_pdf_data") if has_bytea else None
+
+    if not has_data and not pdf_url and not pdf_data:
         raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
     if request.method == "HEAD":
@@ -988,7 +1026,6 @@ async def client_portal_stream_render_pdf(public_id: str, request: Request, db: 
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
         )
 
-    pdf_data = getattr(prospect, "render_pdf_data", None)
     if pdf_data:
         return Response(
             content=bytes(pdf_data),
@@ -996,30 +1033,31 @@ async def client_portal_stream_render_pdf(public_id: str, request: Request, db: 
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
         )
 
-    pdf_url = prospect.render_pdf_path
-    if pdf_url.startswith("/uploads/"):
-        local_path = pdf_url.lstrip("/")
-        if os.path.exists(local_path):
-            with open(local_path, "rb") as f:
-                return Response(
-                    content=f.read(),
-                    media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
-                )
-
-    if "cloudinary.com" in pdf_url:
-        import httpx
-        try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(pdf_url)
-                if resp.status_code == 200:
+    if pdf_url:
+        if pdf_url.startswith("/uploads/"):
+            local_path = pdf_url.lstrip("/")
+            if os.path.exists(local_path):
+                with open(local_path, "rb") as f:
                     return Response(
-                        content=resp.content,
+                        content=f.read(),
                         media_type="application/pdf",
                         headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
                     )
-        except Exception:
-            pass
+        if "cloudinary.com" in pdf_url:
+            import httpx
+            try:
+                async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                    resp = await client.get(pdf_url)
+                    if resp.status_code == 200:
+                        return Response(
+                            content=resp.content,
+                            media_type="application/pdf",
+                            headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
+                        )
+            except Exception:
+                pass
+        if pdf_url.startswith("http"):
+            return RedirectResponse(url=pdf_url)
 
     raise HTTPException(status_code=404, detail="Render PDF no disponible")
 
