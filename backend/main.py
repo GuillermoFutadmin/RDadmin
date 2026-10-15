@@ -163,6 +163,53 @@ async def run_db_migrations():
     except Exception as se:
         print(f"[migration] Aviso sincronización production_data: {se}")
 
+    # Sincronizar stage en los avances diarios existentes que no tengan stage asignado
+    try:
+        from database import SessionLocal
+        with SessionLocal() as s:
+            rows = s.query(models.Prospect).filter(models.Prospect.production_data.isnot(None)).all()
+            updated_adv = 0
+            for p in rows:
+                p_dict = {}
+                try:
+                    p_dict = json.loads(p.production_data)
+                except Exception:
+                    continue
+                if not isinstance(p_dict, dict):
+                    continue
+                advs = p_dict.get("daily_advances")
+                if not isinstance(advs, list) or not advs:
+                    continue
+
+                cur_stage = p_dict.get("current_stage", 0)
+                stages_list = p_dict.get("stages", [])
+                changed = False
+
+                for a in advs:
+                    if isinstance(a, dict) and (a.get("stage") is None):
+                        adv_date = str(a.get("date") or a.get("created_at") or "")[:10]
+                        matched_stage = cur_stage
+                        if adv_date and len(stages_list) >= 6:
+                            for st_idx in range(len(stages_list) - 1, -1, -1):
+                                st_item = stages_list[st_idx]
+                                if isinstance(st_item, dict):
+                                    st_ent = str(st_item.get("entered_at") or "")[:10]
+                                    if st_ent and st_ent <= adv_date:
+                                        matched_stage = st_idx
+                                        break
+                        a["stage"] = matched_stage
+                        changed = True
+
+                if changed:
+                    p.production_data = json.dumps(p_dict, ensure_ascii=False)
+                    updated_adv += 1
+
+            if updated_adv > 0:
+                s.commit()
+                print(f"[migration] Se asignó etapa a avances diarios en {updated_adv} proyectos.")
+    except Exception as adv_e:
+        print(f"[migration] Aviso asignación de etapas en avances diarios: {adv_e}")
+
 @app.on_event("startup")
 async def migrate_images_on_startup():
     """Mueve a Cloudinary las imágenes base64 existentes (con respaldo previo)."""
@@ -739,6 +786,7 @@ async def upload_daily_advance(
     date: str = Form(...),
     comment: str = Form(""),
     published: bool = Form(True),
+    stage: Optional[int] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -757,6 +805,13 @@ async def upload_daily_advance(
         except Exception:
             production = {}
 
+    current_stage = production.get("current_stage", 0)
+    assigned_stage = stage if stage is not None else current_stage
+    try:
+        assigned_stage = max(0, min(int(assigned_stage), 5))
+    except (ValueError, TypeError):
+        assigned_stage = current_stage
+
     clean_date = date.strip()[:10]
     image_url = await upload_to_storage(file, f"advance_{prospect_id}_{clean_date}")
     advances = production.setdefault("daily_advances", [])
@@ -766,6 +821,7 @@ async def upload_daily_advance(
         "url": image_url,
         "comment": comment.strip(),
         "published": bool(published),
+        "stage": assigned_stage,
         "created_at": datetime.utcnow().isoformat() + "Z"
     }
     advances.append(advance_entry)

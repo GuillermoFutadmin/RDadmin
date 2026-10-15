@@ -142,6 +142,12 @@ def client_project(prospect):
             ],
         })
 
+    current_stage = production.get("current_stage", 0)
+    if not isinstance(current_stage, int) or isinstance(current_stage, bool):
+        current_stage = 0
+    current_stage = max(0, min(current_stage, 5))
+    has_production = bool(production_data_raw)
+
     raw_daily = production.get("daily_advances") if isinstance(production.get("daily_advances"), list) else []
     public_daily = []
     for adv in raw_daily:
@@ -153,22 +159,33 @@ def client_project(prospect):
         photo_url = safe_photo_url(adv.get("url"))
         if not photo_url:
             continue
+
+        adv_stage = adv.get("stage")
+        if adv_stage is None:
+            adv_stage = current_stage
+            adv_date = str(adv.get("date") or adv.get("created_at") or "")[:10]
+            if adv_date and isinstance(stages, list) and len(stages) >= 6:
+                for s_i in range(len(stages) - 1, -1, -1):
+                    s_ent = str(stages[s_i].get("entered_at") or "")[:10] if isinstance(stages[s_i], dict) else ""
+                    if s_ent and s_ent <= adv_date:
+                        adv_stage = s_i
+                        break
+        try:
+            adv_stage = max(0, min(int(adv_stage), 5))
+        except (ValueError, TypeError):
+            adv_stage = current_stage
+
         public_daily.append({
             "id": adv.get("id"),
             "url": photo_url,
             "date": adv.get("date"),
             "comment": adv.get("comment") if isinstance(adv.get("comment"), str) else "",
+            "stage": adv_stage,
             "created_at": adv.get("created_at"),
         })
 
     # Ordenar las fotos diarias por fecha descendente
     public_daily.sort(key=lambda a: (a.get("date") or "", a.get("created_at") or ""), reverse=True)
-
-    current_stage = production.get("current_stage", 0)
-    if not isinstance(current_stage, int) or isinstance(current_stage, bool):
-        current_stage = 0
-    current_stage = max(0, min(current_stage, 5))
-    has_production = bool(production_data_raw)
 
     capture_d = _g("capture_date")
     contract_d = _g("contract_date")

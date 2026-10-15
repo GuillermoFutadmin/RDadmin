@@ -1430,11 +1430,13 @@ function Pedidos() {
                       try {
                         let lastResult = null;
                         for (const file of semaforoAdvanceFiles) {
-                          const fd = new FormData();
+                          const spProd = parseJson(sp.production_data, {});
+                          const curStage = spProd.current_stage !== undefined ? spProd.current_stage : 0;
                           fd.append('file', file);
                           fd.append('date', activeDayKey);
                           fd.append('comment', semaforoAdvanceComment);
                           fd.append('published', semaforoAdvancePublished ? 'true' : 'false');
+                          fd.append('stage', String(curStage));
                           const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances`, {
                             method: 'POST',
                             body: fd

@@ -200,11 +200,14 @@ export default function Avances() {
     try {
       let lastResult = null;
       for (const file of advanceFiles) {
-        const fd = new FormData();
+        const selProj = projects.find(p => p.id === selectedProjectId);
+        const selProd = parseJson(selProj?.production_data, {});
+        const curStage = selProd.current_stage !== undefined ? selProd.current_stage : 0;
         fd.append('file', file);
         fd.append('date', selectedDateKey);
         fd.append('comment', advanceComment);
         fd.append('published', advancePublished ? 'true' : 'false');
+        fd.append('stage', String(curStage));
 
         const res = await fetch(`${API}/api/prospects/${selectedProjectId}/daily-advances`, {
           method: 'POST',
