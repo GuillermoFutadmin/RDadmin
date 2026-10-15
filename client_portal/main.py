@@ -161,19 +161,34 @@ def client_project(prospect):
             continue
 
         adv_stage = adv.get("stage")
-        if adv_stage is None:
-            adv_stage = current_stage
-            adv_date = str(adv.get("date") or adv.get("created_at") or "")[:10]
-            if adv_date and isinstance(stages, list) and len(stages) >= 6:
-                for s_i in range(len(stages) - 1, -1, -1):
-                    s_ent = str(stages[s_i].get("entered_at") or "")[:10] if isinstance(stages[s_i], dict) else ""
-                    if s_ent and s_ent <= adv_date:
-                        adv_stage = s_i
-                        break
+        adv_created = str(adv.get("created_at") or adv.get("date") or "")
+        adv_date_only = str(adv.get("date") or adv.get("created_at") or "")[:10]
+
+        matched_stage = 2
+        if isinstance(stages, list) and len(stages) >= 6 and adv_created:
+            for s_i in range(len(stages) - 1, 1, -1):
+                s_item = stages[s_i]
+                if isinstance(s_item, dict):
+                    s_ent = str(s_item.get("entered_at") or "")
+                    if s_ent:
+                        if len(s_ent) > 10 and len(adv_created) > 10:
+                            if s_ent <= adv_created:
+                                matched_stage = s_i
+                                break
+                        elif s_ent[:10] < adv_date_only:
+                            matched_stage = s_i
+                            break
+                        elif s_ent[:10] == adv_date_only and s_i == 2:
+                            matched_stage = 2
+                            break
+
+        if adv_stage is None or adv_stage == current_stage:
+            adv_stage = matched_stage
+
         try:
             adv_stage = max(0, min(int(adv_stage), 5))
         except (ValueError, TypeError):
-            adv_stage = current_stage
+            adv_stage = matched_stage
 
         public_daily.append({
             "id": adv.get("id"),

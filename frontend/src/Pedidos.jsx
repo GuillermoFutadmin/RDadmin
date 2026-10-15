@@ -1431,7 +1431,8 @@ function Pedidos() {
                         let lastResult = null;
                         for (const file of semaforoAdvanceFiles) {
                           const spProd = parseJson(sp.production_data, {});
-                          const curStage = spProd.current_stage !== undefined ? spProd.current_stage : 0;
+                          const curStage = spProd.current_stage !== undefined ? spProd.current_stage : 2;
+                          const fd = new FormData();
                           fd.append('file', file);
                           fd.append('date', activeDayKey);
                           fd.append('comment', semaforoAdvanceComment);

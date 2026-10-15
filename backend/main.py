@@ -184,19 +184,31 @@ async def run_db_migrations():
                 cur_stage = p_dict.get("current_stage", 0)
                 stages_list = p_dict.get("stages", [])
                 changed = False
-
                 for a in advs:
-                    if isinstance(a, dict) and (a.get("stage") is None):
-                        adv_date = str(a.get("date") or a.get("created_at") or "")[:10]
-                        matched_stage = cur_stage
-                        if adv_date and len(stages_list) >= 6:
-                            for st_idx in range(len(stages_list) - 1, -1, -1):
-                                st_item = stages_list[st_idx]
-                                if isinstance(st_item, dict):
-                                    st_ent = str(st_item.get("entered_at") or "")[:10]
-                                    if st_ent and st_ent <= adv_date:
+                    if not isinstance(a, dict):
+                        continue
+                    adv_created = str(a.get("created_at") or a.get("date") or "")
+                    adv_date_only = str(a.get("date") or a.get("created_at") or "")[:10]
+                    matched_stage = 2  # Por defecto etapa 2: Producción iniciada (inicio de taller)
+
+                    if stages_list and isinstance(stages_list, list) and len(stages_list) >= 6:
+                        for st_idx in range(len(stages_list) - 1, 1, -1):
+                            st_item = stages_list[st_idx]
+                            if isinstance(st_item, dict):
+                                st_ent = str(st_item.get("entered_at") or "")
+                                if st_ent:
+                                    if len(st_ent) > 10 and len(adv_created) > 10:
+                                        if st_ent <= adv_created:
+                                            matched_stage = st_idx
+                                            break
+                                    elif st_ent[:10] < adv_date_only:
                                         matched_stage = st_idx
                                         break
+                                    elif st_ent[:10] == adv_date_only and st_idx == 2:
+                                        matched_stage = 2
+                                        break
+
+                    if a.get("stage") != matched_stage:
                         a["stage"] = matched_stage
                         changed = True
 

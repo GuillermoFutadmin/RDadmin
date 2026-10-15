@@ -202,7 +202,8 @@ export default function Avances() {
       for (const file of advanceFiles) {
         const selProj = projects.find(p => p.id === selectedProjectId);
         const selProd = parseJson(selProj?.production_data, {});
-        const curStage = selProd.current_stage !== undefined ? selProd.current_stage : 0;
+        const curStage = selProd.current_stage !== undefined ? selProd.current_stage : 2;
+        const fd = new FormData();
         fd.append('file', file);
         fd.append('date', selectedDateKey);
         fd.append('comment', advanceComment);
