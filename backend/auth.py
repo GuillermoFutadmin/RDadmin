@@ -80,7 +80,7 @@ def needs_rehash(stored: str) -> bool:
 
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    if request.method == "OPTIONS" or not path.startswith("/api/") or path in PUBLIC_PATHS:
+    if request.method == "OPTIONS" or not path.startswith("/api/") or path in PUBLIC_PATHS or path.startswith("/api/client-portal/"):
         return await call_next(request)
 
     header = request.headers.get("authorization", "")

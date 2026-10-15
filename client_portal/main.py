@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
@@ -171,6 +171,7 @@ def client_project(prospect):
     delivery_d = _g("delivery_date")
 
     return {
+        "id": _g("id"),
         "name": _g("name"),
         "public_id": _g("public_id"),
         "project_type": _g("project_type"),
@@ -188,6 +189,10 @@ def client_project(prospect):
         "has_quote": bool(_g("has_quote")),
         "valuation_data": bool(_g("valuation_data")),
         "production_days": _g("production_days") or production.get("planned_days"),
+        "render_pdf_path": _g("render_pdf_path"),
+        "render_image_path": _g("render_image_path"),
+        "render_applies": bool(_g("render_applies")),
+        "has_render_pdf": bool(_g("render_pdf_path") or _g("render_pdf_data")),
         "production_data": {
             "started_at": production.get("started_at"),
             "delivered_at": production.get("delivered_at"),
@@ -210,13 +215,15 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "id, public_id, contract_password, name, project_type, project_type_other, "
             "other_projects, restoration_details, quote_description, project_priorities, "
             "expectations, capture_date, contract_date, delivery_date, status, is_contract, "
-            "has_quote, valuation_data, production_data, production_days"
+            "has_quote, valuation_data, production_data, production_days, "
+            "render_pdf_path, render_image_path, render_applies, render_pdf_data"
         )
         cols_base = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
             "restoration_details, quote_description, project_priorities, expectations, "
             "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
-            "valuation_data, production_data, production_days"
+            "valuation_data, production_data, production_days, "
+            "render_pdf_path, render_image_path, render_applies"
         )
         cols_fallback = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
@@ -260,6 +267,37 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
     except Exception as exc:
         logger.exception("Error en client_portal_login: %s", exc)
         return JSONResponse({"detail": f"Error interno: {str(exc)}"}, status_code=500)
+
+
+@app.get("/api/client-portal/{public_id}/render-pdf")
+def client_portal_render_pdf(public_id: str, db: Session = Depends(get_db)):
+    pid = public_id.strip().upper()
+    sql = "SELECT id, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+    try:
+        row = db.execute(text(sql), {"pid": pid}).mappings().first()
+    except Exception as e:
+        logger.error("Error buscando render PDF para %s: %s", pid, e)
+        raise HTTPException(status_code=500, detail="Error de base de datos")
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    pdf_data = row.get("render_pdf_data")
+    if pdf_data:
+        return Response(
+            content=bytes(pdf_data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
+        )
+
+    pdf_url = row.get("render_pdf_path")
+    if pdf_url:
+        if pdf_url.startswith("http"):
+            return RedirectResponse(url=pdf_url)
+        # Si es ruta local
+        return RedirectResponse(url=pdf_url)
+
+    raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
 
 @app.get("/health")

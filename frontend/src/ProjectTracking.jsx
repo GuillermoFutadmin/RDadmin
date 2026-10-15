@@ -129,6 +129,17 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             : null
   }));
 
+  const hasRender = Boolean(
+    prospect.render_pdf_path ||
+    prospect.has_render_pdf ||
+    prospect.render_image_path ||
+    prospect.render_applies
+  );
+  const renderPdfUrl = hasRender && (prospect.public_id
+    ? `/api/client-portal/${prospect.public_id}/render-pdf`
+    : (prospect.id ? `/api/prospects/${prospect.id}/render-pdf` : null));
+  const renderImageUrl = safePhotoUrl(prospect.render_image_path);
+
   // Ciclo de vida y línea de tiempo para el cliente
   const parseDateKey = (val) => {
     if (!val) return null;
@@ -331,6 +342,142 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                       ) : (
                         <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: '0.84rem' }}>Aún no hay una descripción capturada para este proyecto.</p>
                       )}
+                    </div>
+                  )}
+
+                  {activeStage === 1 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{
+                        padding: '1rem',
+                        background: '#ffffff',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 12,
+                        boxShadow: '0 3px 12px rgba(37, 99, 235, 0.08)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                          <div>
+                            <div style={{ color: '#2563eb', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              Diseño y Planos Aprobados
+                            </div>
+                            <h4 style={{ margin: '3px 0 0', color: '#1e3a5f', fontSize: '1rem', fontWeight: 800 }}>
+                              📐 Plano / Render Oficial del Proyecto
+                            </h4>
+                          </div>
+
+                          {renderPdfUrl && (
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <a
+                                href={renderPdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '0.48rem 0.9rem',
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: 8,
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  textDecoration: 'none'
+                                }}
+                              >
+                                <span>👁️</span>
+                                <span>Ver PDF en pantalla completa</span>
+                              </a>
+                              <a
+                                href={renderPdfUrl}
+                                download={`Plano_Render_${prospect.public_id || prospect.id}.pdf`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '0.48rem 0.9rem',
+                                  background: '#1d4ed8',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: 8,
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  textDecoration: 'none'
+                                }}
+                              >
+                                <span>⬇️</span>
+                                <span>Descargar Plano PDF</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+
+                        {renderImageUrl ? (
+                          <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            maxHeight: 520,
+                            background: '#0f172a',
+                            borderRadius: 10,
+                            overflow: 'hidden',
+                            border: '1px solid #cbd5e1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: renderPdfUrl ? 10 : 0
+                          }}>
+                            <img
+                              src={renderImageUrl}
+                              alt="Plano / Render del Proyecto"
+                              style={{
+                                display: 'block',
+                                maxWidth: '100%',
+                                maxHeight: 520,
+                                objectFit: 'contain'
+                              }}
+                            />
+                          </div>
+                        ) : null}
+
+                        {renderPdfUrl ? (
+                          <div style={{
+                            width: '100%',
+                            height: 'min(70vh, 520px)',
+                            minHeight: 380,
+                            borderRadius: 10,
+                            overflow: 'hidden',
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc'
+                          }}>
+                            <iframe
+                              src={`${renderPdfUrl}#toolbar=1&navpanes=0`}
+                              title="Plano y Render del Proyecto"
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                border: 'none',
+                                display: 'block'
+                              }}
+                            />
+                          </div>
+                        ) : !renderImageUrl ? (
+                          <div style={{
+                            padding: '1.5rem',
+                            textAlign: 'center',
+                            background: '#f8fafc',
+                            borderRadius: 8,
+                            border: '1px dashed #cbd5e1',
+                            color: '#64748b'
+                          }}>
+                            <span style={{ fontSize: '1.8rem', display: 'block', marginBottom: 4 }}>📐</span>
+                            <strong style={{ display: 'block', color: '#1e293b', fontSize: '0.9rem' }}>
+                              Plano de diseño en preparación
+                            </strong>
+                            <span style={{ fontSize: '0.78rem', marginTop: 3, display: 'inline-block' }}>
+                              El equipo de taller está preparando las especificaciones de corte y planos finales.
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   )}
 
@@ -616,7 +763,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                     </div>
                   )}
 
-                  {activeStage !== 0 && !photos.length && !stageData.note && (
+                  {activeStage !== 0 && (activeStage !== 1 || !hasRender) && !photos.length && !stageData.note && (
                     <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
                       {stageComplete ? 'Esta etapa no tiene fotos ni notas registradas.' : 'Esta etapa aún no tiene avances registrados.'}
                     </p>

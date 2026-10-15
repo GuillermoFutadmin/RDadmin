@@ -964,6 +964,57 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/api/client-portal/{public_id}/render-pdf")
+async def client_portal_stream_render_pdf(public_id: str, db: Session = Depends(get_db)):
+    """Permite al portal de clientes consultar y descargar el PDF del render directamente."""
+    pid = public_id.strip().upper()
+    prospect = db.query(models.Prospect).filter(models.Prospect.public_id == pid).first()
+    if not prospect:
+        from sqlalchemy import func
+        prospect = db.query(models.Prospect).filter(func.upper(func.trim(models.Prospect.public_id)) == pid).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    pdf_data = getattr(prospect, "render_pdf_data", None)
+    if pdf_data:
+        return Response(
+            content=bytes(pdf_data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
+        )
+
+    if not prospect.render_pdf_path:
+        raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
+
+    pdf_url = prospect.render_pdf_path
+    if pdf_url.startswith("/uploads/"):
+        local_path = pdf_url.lstrip("/")
+        if os.path.exists(local_path):
+            with open(local_path, "rb") as f:
+                return Response(
+                    content=f.read(),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
+                )
+
+    if "cloudinary.com" in pdf_url:
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                resp = await client.get(pdf_url)
+                if resp.status_code == 200:
+                    return Response(
+                        content=resp.content,
+                        media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
+                    )
+        except Exception:
+            pass
+
+    raise HTTPException(status_code=404, detail="Render PDF no disponible")
+
+
+
 @app.post("/api/users/{user_id}/upload-photo")
 async def upload_user_photo(user_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
