@@ -112,8 +112,7 @@ const safePhotoUrl = (photo) => {
 
 export default function ProjectTracking({ prospect, compact = false, showEvidence = false, requestDetails = [] }) {
   const [selectedStage, setSelectedStage] = useState(null);
-  const [expandedPhotoIndex, setExpandedPhotoIndex] = useState(null);
-  const [dailyLightboxIndex, setDailyLightboxIndex] = useState(null);
+  const [galleryLightboxIndex, setGalleryLightboxIndex] = useState(null);
 
   const progress = getProjectTrackingProgress(prospect);
   const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
@@ -327,6 +326,24 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
               const advStage = adv.stage !== undefined && adv.stage !== null ? Number(adv.stage) : currentProductionStage;
               return advStage === activeStage;
             });
+            const combinedStagePhotos = [
+              ...photos.map((url, idx) => ({
+                id: `stage-${idx}`,
+                url,
+                badge: photos.length > 1 ? `Foto ${idx + 1}` : 'Etapa',
+                date: stageData.entered_at ? formatDate(stageData.entered_at) : null,
+                comment: null,
+                source: 'stage'
+              })),
+              ...stageDailyAdvances.map((adv, idx) => ({
+                id: adv.id || `daily-${idx}`,
+                url: adv.url,
+                badge: adv.date ? `📅 ${adv.date}` : 'Taller',
+                date: adv.date || null,
+                comment: adv.comment || null,
+                source: 'daily'
+              }))
+            ];
             return (
               <div style={{ marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
@@ -345,7 +362,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                     return (
                       <React.Fragment key={name}>
                         <button type="button" aria-pressed={isActive} aria-label={`${name}, ${complete ? 'completada' : current ? 'etapa actual' : 'pendiente'}`}
-                          onClick={() => { setSelectedStage(index); setExpandedPhotoIndex(null); }}
+                          onClick={() => { setSelectedStage(index); setGalleryLightboxIndex(null); }}
                           className={`production-stage-button${isActive ? ' is-selected' : ''}${reached ? ' has-projects' : ''}`}
                           style={{ '--stage-color': color, '--stage-surface': complete ? '#f0fdf4' : current ? '#eff6ff' : '#f8fafc', color: current ? '#1d4ed8' : complete ? '#166534' : '#334155' }}>
                           <span className="production-stage-icon"><StageIcon stage={index} /></span>
@@ -539,252 +556,136 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
 
                   {stageData.note && <div style={{ marginTop: 10, color: '#475569', fontSize: '0.84rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{stageData.note}</div>}
 
-                  {photos.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      {expandedPhotoIndex !== null && photos[expandedPhotoIndex] ? (
-                        <div style={{
-                          padding: 12,
-                          background: '#0f172a',
-                          borderRadius: 14,
-                          border: '1px solid #334155',
-                          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.25)'
-                        }}>
-                          {/* Header bar */}
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 10,
-                            marginBottom: 10,
-                            color: '#f8fafc'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <strong style={{ fontSize: '0.92rem', color: '#ffffff' }}>📷 {stageName}</strong>
-                              {photos.length > 1 && (
-                                <span style={{
-                                  fontSize: '0.74rem',
-                                  padding: '2px 8px',
-                                  background: 'rgba(255, 255, 255, 0.16)',
-                                  borderRadius: 999,
-                                  color: '#e2e8f0',
-                                  fontWeight: 600
-                                }}>
-                                  Foto {expandedPhotoIndex + 1} de {photos.length}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedPhotoIndex(null)}
-                              aria-label="Cerrar vista grande"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                padding: '0.35rem 0.85rem',
-                                background: 'rgba(255, 255, 255, 0.18)',
-                                color: '#ffffff',
-                                border: '1px solid rgba(255, 255, 255, 0.3)',
-                                borderRadius: 8,
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ✕ Cerrar
-                            </button>
-                          </div>
-
-                          {/* Main large image */}
-                          <div style={{
-                            position: 'relative',
-                            width: '100%',
-                            maxHeight: 'min(70vh, 520px)',
-                            minHeight: 220,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: '#020617',
-                            borderRadius: 10,
-                            overflow: 'hidden'
-                          }}>
-                            <img
-                              src={photos[expandedPhotoIndex]}
-                              alt={`Evidencia ${expandedPhotoIndex + 1} de ${photos.length} · ${stageName}`}
-                              style={{
-                                display: 'block',
-                                maxWidth: '100%',
-                                maxHeight: 'min(70vh, 520px)',
-                                width: 'auto',
-                                height: 'auto',
-                                objectFit: 'contain'
-                              }}
-                            />
-
-                            {photos.length > 1 && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedPhotoIndex((expandedPhotoIndex - 1 + photos.length) % photos.length)}
-                                  aria-label="Foto anterior"
-                                  style={{
-                                    position: 'absolute',
-                                    left: 10,
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    width: 42,
-                                    height: 42,
-                                    borderRadius: '50%',
-                                    background: 'rgba(15, 23, 42, 0.82)',
-                                    color: '#ffffff',
-                                    border: '1px solid rgba(255, 255, 255, 0.35)',
-                                    fontSize: '1.5rem',
-                                    lineHeight: '1',
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.45)'
-                                  }}
-                                >
-                                  ‹
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedPhotoIndex((expandedPhotoIndex + 1) % photos.length)}
-                                  aria-label="Foto siguiente"
-                                  style={{
-                                    position: 'absolute',
-                                    right: 10,
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    width: 42,
-                                    height: 42,
-                                    borderRadius: '50%',
-                                    background: 'rgba(15, 23, 42, 0.82)',
-                                    color: '#ffffff',
-                                    border: '1px solid rgba(255, 255, 255, 0.35)',
-                                    fontSize: '1.5rem',
-                                    lineHeight: '1',
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.45)'
-                                  }}
-                                >
-                                  ›
-                                </button>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Miniaturas de navegación */}
-                          {photos.length > 1 && (
-                            <div style={{
-                              display: 'flex',
-                              gap: 8,
-                              marginTop: 10,
-                              overflowX: 'auto',
-                              padding: '4px 2px'
-                            }}>
-                              {photos.map((url, idx) => {
-                                const isCurrent = idx === expandedPhotoIndex;
-                                return (
-                                  <button
-                                    key={`thumb-expanded-${url}-${idx}`}
-                                    type="button"
-                                    onClick={() => setExpandedPhotoIndex(idx)}
-                                    aria-label={`Ver foto ${idx + 1}`}
-                                    style={{
-                                      padding: 0,
-                                      border: isCurrent ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.25)',
-                                      borderRadius: 7,
-                                      overflow: 'hidden',
-                                      background: '#000',
-                                      cursor: 'pointer',
-                                      opacity: isCurrent ? 1 : 0.6,
-                                      transform: isCurrent ? 'scale(1.04)' : 'none',
-                                      flex: 'none'
-                                    }}
-                                  >
-                                    <img
-                                      src={url}
-                                      alt=""
-                                      style={{
-                                        display: 'block',
-                                        width: 58,
-                                        height: 44,
-                                        objectFit: 'cover'
-                                      }}
-                                    />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
+                  {combinedStagePhotos.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      {/* Cabecera unificada de la galería */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginBottom: 10,
+                        paddingBottom: 8,
+                        borderBottom: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '1rem' }}>📷</span>
+                          <strong style={{ color: '#1e3a5f', fontSize: '0.88rem' }}>
+                            Galería de avances en {stageName}
+                          </strong>
                         </div>
-                      ) : (
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: photos.length === 1
-                            ? 'minmax(0, 480px)'
-                            : 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
-                          gap: 12
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          padding: '2px 10px',
+                          borderRadius: 999,
+                          border: '1px solid #bfdbfe'
                         }}>
-                          {photos.map((url, photoIndex) => (
+                          {combinedStagePhotos.length} {combinedStagePhotos.length === 1 ? 'fotografía registrada' : 'fotografías registradas'}
+                        </span>
+                      </div>
+
+                      {/* Cuadrícula unificada de fotos */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 230px), 1fr))',
+                        gap: 12
+                      }}>
+                        {combinedStagePhotos.map((item, photoIndex) => (
+                          <div
+                            key={item.id || `${item.url}-${photoIndex}`}
+                            style={{
+                              background: '#ffffff',
+                              borderRadius: 12,
+                              overflow: 'hidden',
+                              border: '1px solid #cbd5e1',
+                              boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-3px)';
+                              e.currentTarget.style.boxShadow = '0 8px 22px rgba(15, 23, 42, 0.14)';
+                              e.currentTarget.style.borderColor = '#94a3b8';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.06)';
+                              e.currentTarget.style.borderColor = '#cbd5e1';
+                            }}
+                          >
                             <button
-                              key={`${url}-${photoIndex}`}
                               type="button"
-                              onClick={() => setExpandedPhotoIndex(photoIndex)}
-                              aria-label={`Ver evidencia ${photoIndex + 1} de ${stageName}`}
+                              onClick={() => setGalleryLightboxIndex(photoIndex)}
+                              aria-label={`Ver foto ${photoIndex + 1} de ${stageName}`}
                               style={{
                                 position: 'relative',
                                 display: 'block',
                                 width: '100%',
+                                aspectRatio: '4 / 3',
                                 padding: 0,
                                 margin: 0,
-                                border: '1px solid #cbd5e1',
-                                borderRadius: 12,
-                                overflow: 'hidden',
+                                border: 'none',
                                 background: '#0f172a',
                                 cursor: 'pointer',
-                                boxShadow: '0 3px 10px rgba(15, 23, 42, 0.08)',
-                                transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
-                                textAlign: 'left'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-3px)';
-                                e.currentTarget.style.boxShadow = '0 8px 22px rgba(15, 23, 42, 0.16)';
-                                e.currentTarget.style.borderColor = '#94a3b8';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 3px 10px rgba(15, 23, 42, 0.08)';
-                                e.currentTarget.style.borderColor = '#cbd5e1';
+                                overflow: 'hidden'
                               }}
                             >
                               <img
-                                src={url}
-                                alt={`Evidencia ${photoIndex + 1} · ${stageName}`}
+                                src={item.url}
+                                alt={item.comment || `Evidencia ${photoIndex + 1} · ${stageName}`}
                                 loading="lazy"
+                                onError={(e) => {
+                                  // Ocultar card si la imagen no carga o tiene enlace roto
+                                  const card = e.currentTarget.closest('[style*="display: flex"]');
+                                  if (card) card.style.display = 'none';
+                                }}
                                 style={{
                                   display: 'block',
                                   width: '100%',
-                                  aspectRatio: '4 / 3',
+                                  height: '100%',
                                   objectFit: 'cover'
                                 }}
                               />
+
+                              {/* Badge en esquina superior izquierda */}
                               <div style={{
                                 position: 'absolute',
-                                bottom: 10,
-                                right: 10,
+                                top: 8,
+                                left: 8,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 5,
-                                padding: '5px 10px',
-                                background: 'rgba(15, 23, 42, 0.78)',
+                                gap: 4,
+                                padding: '3px 8px',
+                                background: 'rgba(15, 23, 42, 0.72)',
                                 color: '#ffffff',
-                                borderRadius: 8,
-                                fontSize: '0.74rem',
+                                borderRadius: 6,
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                backdropFilter: 'blur(4px)',
+                                WebkitBackdropFilter: 'blur(4px)',
+                                pointerEvents: 'none'
+                              }}>
+                                {item.badge}
+                              </div>
+
+                              {/* Botón Ampliar */}
+                              <div style={{
+                                position: 'absolute',
+                                bottom: 8,
+                                right: 8,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '4px 8px',
+                                background: 'rgba(15, 23, 42, 0.8)',
+                                color: '#ffffff',
+                                borderRadius: 6,
+                                fontSize: '0.7rem',
                                 fontWeight: 700,
                                 backdropFilter: 'blur(4px)',
                                 WebkitBackdropFilter: 'blur(4px)',
@@ -794,115 +695,32 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                                 <span>🔍</span>
                                 <span>Ampliar</span>
                               </div>
-                              <div style={{
-                                position: 'absolute',
-                                top: 10,
-                                left: 10,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                padding: '3px 8px',
-                                background: 'rgba(15, 23, 42, 0.65)',
-                                color: '#f8fafc',
-                                borderRadius: 6,
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                backdropFilter: 'blur(4px)',
-                                WebkitBackdropFilter: 'blur(4px)',
-                                pointerEvents: 'none'
-                              }}>
-                                Foto {photoIndex + 1} {photos.length > 1 ? `de ${photos.length}` : ''}
-                              </div>
                             </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
-                  {/* ── FOTOGRAFÍAS DE TALLER CAPTURADAS DURANTE ESTA ETAPA ── */}
-                  {stageDailyAdvances.length > 0 && (
-                    <div style={{
-                      marginTop: 16,
-                      paddingTop: 14,
-                      borderTop: (photos.length > 0 || stageData.note) ? '1px dashed #cbd5e1' : 'none'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: '1rem' }}>🪵</span>
-                          <strong style={{ color: '#166534', fontSize: '0.86rem' }}>
-                            Avances de taller en {stageName}
-                          </strong>
-                        </div>
-                        <span style={{
-                          fontSize: '0.68rem',
-                          fontWeight: 800,
-                          background: '#dcfce7',
-                          color: '#15803d',
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          border: '1px solid #86efac'
-                        }}>
-                          {stageDailyAdvances.length} {stageDailyAdvances.length === 1 ? 'fotografía registrada' : 'fotografías registradas'}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 190px), 1fr))', gap: 10 }}>
-                        {stageDailyAdvances.map((adv, aIdx) => (
-                          <div
-                            key={adv.id || aIdx}
-                            style={{
-                              background: '#ffffff',
-                              borderRadius: 10,
-                              overflow: 'hidden',
-                              border: '1px solid #e2e8f0',
-                              boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+                            {/* Detalle o comentario */}
+                            <div style={{
+                              padding: '0.6rem 0.75rem',
+                              flex: 1,
                               display: 'flex',
-                              flexDirection: 'column'
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setDailyLightboxIndex(aIdx)}
-                              style={{
-                                position: 'relative',
-                                padding: 0,
-                                border: 'none',
-                                background: '#000',
-                                cursor: 'pointer',
-                                width: '100%',
-                                aspectRatio: '4 / 3',
-                                overflow: 'hidden',
-                                display: 'block'
-                              }}
-                              title="Clic para ampliar en alta definición"
-                            >
-                              <img
-                                src={adv.url}
-                                alt={adv.comment || 'Avance de carpintería'}
-                                loading="lazy"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                              />
-                              <span style={{
-                                position: 'absolute', bottom: 6, right: 6,
-                                background: 'rgba(15, 23, 42, 0.75)', color: '#ffffff',
-                                fontSize: '0.65rem', fontWeight: 800, padding: '2px 7px',
-                                borderRadius: 6, backdropFilter: 'blur(4px)'
-                              }}>
-                                🔍 Ampliar
-                              </span>
-                            </button>
-                            <div style={{ padding: '0.55rem 0.65rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                                <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>
-                                  📅 {adv.date}
-                                </span>
-                              </div>
-                              {adv.comment ? (
-                                <p style={{ margin: 0, fontSize: '0.74rem', color: '#1e293b', lineHeight: 1.35, wordBreak: 'break-word' }}>
-                                  {adv.comment}
+                              flexDirection: 'column',
+                              justifyContent: item.comment ? 'flex-start' : 'center',
+                              background: '#ffffff',
+                              borderTop: '1px solid #f1f5f9'
+                            }}>
+                              {item.comment ? (
+                                <p style={{
+                                  margin: 0,
+                                  fontSize: '0.76rem',
+                                  color: '#1e293b',
+                                  lineHeight: 1.35,
+                                  wordBreak: 'break-word'
+                                }}>
+                                  {item.comment}
                                 </p>
                               ) : (
-                                <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Avance de taller</span>
+                                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                  {item.date ? `Fecha: ${item.date}` : `Fotografía de ${stageName}`}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -911,73 +729,161 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                     </div>
                   )}
 
-                  {/* Lightbox para los avances de esta etapa */}
-                  {dailyLightboxIndex !== null && stageDailyAdvances[dailyLightboxIndex] && (
+                  {/* Lightbox unificado en modal para recorrer TODAS las fotos de la etapa */}
+                  {galleryLightboxIndex !== null && combinedStagePhotos[galleryLightboxIndex] && (
                     <div
                       style={{
-                        position: 'fixed', inset: 0, zIndex: 9999,
-                        background: 'rgba(2, 6, 23, 0.92)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        padding: '1rem', backdropFilter: 'blur(6px)'
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 9999,
+                        background: 'rgba(2, 6, 23, 0.94)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1rem',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)'
                       }}
-                      onClick={() => setDailyLightboxIndex(null)}
+                      onClick={() => setGalleryLightboxIndex(null)}
                     >
                       <div
                         style={{
-                          position: 'relative', maxWidth: 'min(92vw, 900px)', maxHeight: '88vh',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center',
-                          background: '#0f172a', borderRadius: 14, overflow: 'hidden',
-                          border: '1px solid #334155', boxShadow: '0 12px 40px rgba(0,0,0,0.6)'
+                          position: 'relative',
+                          width: '100%',
+                          maxWidth: 'min(92vw, 920px)',
+                          maxHeight: '90vh',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          background: '#0f172a',
+                          borderRadius: 14,
+                          overflow: 'hidden',
+                          border: '1px solid #334155',
+                          boxShadow: '0 16px 48px rgba(0,0,0,0.7)'
                         }}
-                        onClick={e => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 1rem', background: '#090d16', color: '#fff', borderBottom: '1px solid #1e293b' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: '0.85rem' }}>📷</span>
-                            <strong style={{ fontSize: '0.82rem' }}>
-                              {stageName} · {stageDailyAdvances[dailyLightboxIndex].date}
-                            </strong>
-                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                              ({dailyLightboxIndex + 1} de {stageDailyAdvances.length})
+                        {/* Cabecera del Lightbox */}
+                        <div style={{
+                          width: '100%',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem 1rem',
+                          background: '#090d16',
+                          color: '#ffffff',
+                          borderBottom: '1px solid #1e293b'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>📷 {stageName}</strong>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 8px',
+                              background: 'rgba(255, 255, 255, 0.16)',
+                              borderRadius: 999,
+                              color: '#e2e8f0',
+                              fontWeight: 600
+                            }}>
+                              Foto {galleryLightboxIndex + 1} de {combinedStagePhotos.length}
                             </span>
+                            {combinedStagePhotos[galleryLightboxIndex].date && (
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                · {combinedStagePhotos[galleryLightboxIndex].date}
+                              </span>
+                            )}
                           </div>
                           <button
                             type="button"
-                            onClick={() => setDailyLightboxIndex(null)}
-                            style={{ background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: 6, padding: '3px 9px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 800 }}
+                            onClick={() => setGalleryLightboxIndex(null)}
+                            style={{
+                              background: '#1e293b',
+                              color: '#ffffff',
+                              border: '1px solid #334155',
+                              borderRadius: 6,
+                              padding: '4px 10px',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                              fontWeight: 700
+                            }}
                           >
                             ✕ Cerrar
                           </button>
                         </div>
 
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020617', width: '100%', maxHeight: '68vh' }}>
+                        {/* Contenedor de la foto principal */}
+                        <div style={{
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: '#020617',
+                          width: '100%',
+                          maxHeight: 'min(68vh, 600px)',
+                          minHeight: 260,
+                          overflow: 'hidden'
+                        }}>
                           <img
-                            src={stageDailyAdvances[dailyLightboxIndex].url}
+                            src={combinedStagePhotos[galleryLightboxIndex].url}
                             alt=""
-                            style={{ maxWidth: '100%', maxHeight: '68vh', objectFit: 'contain', display: 'block' }}
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: 'min(68vh, 600px)',
+                              width: 'auto',
+                              height: 'auto',
+                              objectFit: 'contain',
+                              display: 'block'
+                            }}
                           />
-                          {stageDailyAdvances.length > 1 && (
+
+                          {/* Flechas de navegación */}
+                          {combinedStagePhotos.length > 1 && (
                             <>
                               <button
                                 type="button"
-                                onClick={() => setDailyLightboxIndex((dailyLightboxIndex - 1 + stageDailyAdvances.length) % stageDailyAdvances.length)}
+                                onClick={() => setGalleryLightboxIndex((galleryLightboxIndex - 1 + combinedStagePhotos.length) % combinedStagePhotos.length)}
+                                aria-label="Foto anterior"
                                 style={{
-                                  position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                                  width: 38, height: 38, borderRadius: '50%', background: 'rgba(15,23,42,0.8)',
-                                  color: '#fff', border: '1px solid #475569', fontSize: '1.3rem', cursor: 'pointer',
-                                  display: 'grid', placeItems: 'center'
+                                  position: 'absolute',
+                                  left: 12,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: '50%',
+                                  background: 'rgba(15,23,42,0.85)',
+                                  color: '#ffffff',
+                                  border: '1px solid rgba(255,255,255,0.3)',
+                                  fontSize: '1.5rem',
+                                  lineHeight: 1,
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
                                 }}
                               >
                                 ‹
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setDailyLightboxIndex((dailyLightboxIndex + 1) % stageDailyAdvances.length)}
+                                onClick={() => setGalleryLightboxIndex((galleryLightboxIndex + 1) % combinedStagePhotos.length)}
+                                aria-label="Foto siguiente"
                                 style={{
-                                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                                  width: 38, height: 38, borderRadius: '50%', background: 'rgba(15,23,42,0.8)',
-                                  color: '#fff', border: '1px solid #475569', fontSize: '1.3rem', cursor: 'pointer',
-                                  display: 'grid', placeItems: 'center'
+                                  position: 'absolute',
+                                  right: 12,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: '50%',
+                                  background: 'rgba(15,23,42,0.85)',
+                                  color: '#ffffff',
+                                  border: '1px solid rgba(255,255,255,0.3)',
+                                  fontSize: '1.5rem',
+                                  lineHeight: 1,
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
                                 }}
                               >
                                 ›
@@ -986,16 +892,74 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                           )}
                         </div>
 
-                        {stageDailyAdvances[dailyLightboxIndex].comment && (
-                          <div style={{ width: '100%', padding: '0.65rem 1rem', background: '#090d16', color: '#e2e8f0', fontSize: '0.78rem', borderTop: '1px solid #1e293b' }}>
-                            💬 {stageDailyAdvances[dailyLightboxIndex].comment}
+                        {/* Pie con comentario si existe */}
+                        {combinedStagePhotos[galleryLightboxIndex].comment && (
+                          <div style={{
+                            width: '100%',
+                            padding: '0.65rem 1rem',
+                            background: '#090d16',
+                            color: '#e2e8f0',
+                            fontSize: '0.8rem',
+                            borderTop: '1px solid #1e293b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}>
+                            <span>💬</span>
+                            <span>{combinedStagePhotos[galleryLightboxIndex].comment}</span>
+                          </div>
+                        )}
+
+                        {/* Tira de miniaturas */}
+                        {combinedStagePhotos.length > 1 && (
+                          <div style={{
+                            display: 'flex',
+                            gap: 8,
+                            padding: '8px 12px',
+                            background: '#060a12',
+                            borderTop: '1px solid #1e293b',
+                            overflowX: 'auto'
+                          }}>
+                            {combinedStagePhotos.map((thumb, tIdx) => {
+                              const isCurrent = tIdx === galleryLightboxIndex;
+                              return (
+                                <button
+                                  key={`thumb-${thumb.id || tIdx}`}
+                                  type="button"
+                                  onClick={() => setGalleryLightboxIndex(tIdx)}
+                                  aria-label={`Ver foto ${tIdx + 1}`}
+                                  style={{
+                                    padding: 0,
+                                    border: isCurrent ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.2)',
+                                    borderRadius: 6,
+                                    overflow: 'hidden',
+                                    background: '#000',
+                                    cursor: 'pointer',
+                                    opacity: isCurrent ? 1 : 0.55,
+                                    transform: isCurrent ? 'scale(1.04)' : 'none',
+                                    flex: 'none'
+                                  }}
+                                >
+                                  <img
+                                    src={thumb.url}
+                                    alt=""
+                                    style={{
+                                      display: 'block',
+                                      width: 54,
+                                      height: 40,
+                                      objectFit: 'cover'
+                                    }}
+                                  />
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {activeStage !== 0 && (activeStage !== 1 || !hasRender) && !photos.length && !stageDailyAdvances.length && !stageData.note && (
+                  {activeStage !== 0 && (activeStage !== 1 || !hasRender) && !combinedStagePhotos.length && !stageData.note && (
                     <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
                       {stageComplete ? 'Esta etapa no tiene fotos ni notas registradas.' : 'Esta etapa aún no tiene avances registrados.'}
                     </p>
