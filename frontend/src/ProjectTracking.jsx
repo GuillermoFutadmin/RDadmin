@@ -170,7 +170,14 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
     prospect.render_image_path ||
     prospect.render_applies
   );
-  const renderImageUrl = safePhotoUrl(prospect.render_image_path);
+  const [imageError, setImageError] = useState(false);
+  const rawImageUrl = safePhotoUrl(prospect.render_image_path);
+  const isImagePdf = rawImageUrl && (rawImageUrl.toLowerCase().endsWith('.pdf') || rawImageUrl.toLowerCase().includes('/pdf'));
+  const renderImageUrl = !isImagePdf ? rawImageUrl : null;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [prospect.render_image_path]);
 
   // Ciclo de vida y línea de tiempo para el cliente
   const parseDateKey = (val) => {
@@ -443,7 +450,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                           )}
                         </div>
 
-                        {renderImageUrl ? (
+                        {renderImageUrl && !imageError ? (
                           <div style={{
                             position: 'relative',
                             width: '100%',
@@ -460,6 +467,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                             <img
                               src={renderImageUrl}
                               alt="Plano / Render del Proyecto"
+                              onError={() => setImageError(true)}
                               style={{
                                 display: 'block',
                                 maxWidth: '100%',

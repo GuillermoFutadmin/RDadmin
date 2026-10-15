@@ -542,16 +542,13 @@ def delete_prospect(prospect_id: int, db: Session = Depends(get_db)):
 
 async def upload_to_storage(file: UploadFile, prefix: str) -> str:
     ext = os.path.splitext(file.filename or "")[1].lower()
-    unique_name = f"{prefix}_{uuid.uuid4()}{ext}"
+    is_pdf = ext == ".pdf" or (file.content_type or "").lower() == "application/pdf"
+    resource_type = "raw" if is_pdf else "auto"
+    unique_name = f"{prefix}_{uuid.uuid4()}{ext}" if is_pdf else f"{prefix}_{uuid.uuid4()}"
 
     # Leer contenido del archivo primero (importante para evitar stream ya consumido)
     contents = await file.read()
-
-    # Los PDFs se suben como resource_type="raw" para que Cloudinary los sirva
-    # directamente sin la restricción de entrega de PDFs que aplica a image/upload.
     import io
-    is_pdf = ext == ".pdf" or (file.content_type or "").lower() == "application/pdf"
-    resource_type = "raw" if is_pdf else "auto"
 
     # Si Cloudinary está configurado, subimos ahí
     if CLOUDINARY_URL or (os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY")):
