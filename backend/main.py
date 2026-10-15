@@ -964,8 +964,8 @@ async def stream_render_pdf(prospect_id: int, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/api/client-portal/{public_id}/render-pdf")
-async def client_portal_stream_render_pdf(public_id: str, db: Session = Depends(get_db)):
+@app.api_route("/api/client-portal/{public_id}/render-pdf", methods=["GET", "HEAD"])
+async def client_portal_stream_render_pdf(public_id: str, request: Request, db: Session = Depends(get_db)):
     """Permite al portal de clientes consultar y descargar el PDF del render directamente."""
     pid = public_id.strip().upper()
     prospect = db.query(models.Prospect).filter(models.Prospect.public_id == pid).first()
@@ -975,6 +975,19 @@ async def client_portal_stream_render_pdf(public_id: str, db: Session = Depends(
     if not prospect:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
+    has_data = bool(getattr(prospect, "render_pdf_data", None))
+    pdf_url = prospect.render_pdf_path
+
+    if not has_data and not pdf_url:
+        raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
+
+    if request.method == "HEAD":
+        return Response(
+            status_code=200,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
+        )
+
     pdf_data = getattr(prospect, "render_pdf_data", None)
     if pdf_data:
         return Response(
@@ -982,9 +995,6 @@ async def client_portal_stream_render_pdf(public_id: str, db: Session = Depends(
             media_type="application/pdf",
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'},
         )
-
-    if not prospect.render_pdf_path:
-        raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
     pdf_url = prospect.render_pdf_path
     if pdf_url.startswith("/uploads/"):

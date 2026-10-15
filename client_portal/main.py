@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,6 +40,10 @@ def _safe_alter(sql: str) -> None:
 
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS other_projects VARCHAR;")
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_path VARCHAR;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_image_path VARCHAR;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_applies BOOLEAN;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;")
 
 app = FastAPI(title="RDadmin Client Portal")
 
@@ -192,7 +196,7 @@ def client_project(prospect):
         "render_pdf_path": _g("render_pdf_path"),
         "render_image_path": _g("render_image_path"),
         "render_applies": bool(_g("render_applies")),
-        "has_render_pdf": bool(_g("render_pdf_path") or _g("render_pdf_data")),
+        "has_render_pdf": bool(_g("has_render_pdf") or _g("render_pdf_path") or _g("render_pdf_data")),
         "production_data": {
             "started_at": production.get("started_at"),
             "delivered_at": production.get("delivered_at"),
@@ -216,14 +220,16 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "other_projects, restoration_details, quote_description, project_priorities, "
             "expectations, capture_date, contract_date, delivery_date, status, is_contract, "
             "has_quote, valuation_data, production_data, production_days, "
-            "render_pdf_path, render_image_path, render_applies, render_pdf_data"
+            "render_pdf_path, render_image_path, render_applies, "
+            "CASE WHEN render_pdf_data IS NOT NULL THEN TRUE ELSE FALSE END AS has_render_pdf"
         )
         cols_base = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
             "restoration_details, quote_description, project_priorities, expectations, "
             "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
             "valuation_data, production_data, production_days, "
-            "render_pdf_path, render_image_path, render_applies"
+            "render_pdf_path, render_image_path, render_applies, "
+            "CASE WHEN render_pdf_data IS NOT NULL THEN TRUE ELSE FALSE END AS has_render_pdf"
         )
         cols_fallback = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
@@ -269,10 +275,10 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
         return JSONResponse({"detail": f"Error interno: {str(exc)}"}, status_code=500)
 
 
-@app.get("/api/client-portal/{public_id}/render-pdf")
-def client_portal_render_pdf(public_id: str, db: Session = Depends(get_db)):
+@app.api_route("/api/client-portal/{public_id}/render-pdf", methods=["GET", "HEAD"])
+def client_portal_render_pdf(public_id: str, request: Request, db: Session = Depends(get_db)):
     pid = public_id.strip().upper()
-    sql = "SELECT id, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+    sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
     try:
         row = db.execute(text(sql), {"pid": pid}).mappings().first()
     except Exception as e:
@@ -282,6 +288,19 @@ def client_portal_render_pdf(public_id: str, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
+    has_data = bool(row.get("has_data"))
+    pdf_url = row.get("render_pdf_path")
+
+    if not has_data and not pdf_url:
+        raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
+
+    if request.method == "HEAD":
+        return Response(
+            status_code=200,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
+        )
+
     pdf_data = row.get("render_pdf_data")
     if pdf_data:
         return Response(
@@ -290,11 +309,14 @@ def client_portal_render_pdf(public_id: str, db: Session = Depends(get_db)):
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
         )
 
-    pdf_url = row.get("render_pdf_path")
     if pdf_url:
         if pdf_url.startswith("http"):
             return RedirectResponse(url=pdf_url)
         # Si es ruta local
+        if pdf_url.startswith("/uploads/"):
+            local_path = (ROOT_DIR / pdf_url.lstrip("/")).resolve()
+            if local_path.is_file():
+                return FileResponse(local_path, media_type="application/pdf")
         return RedirectResponse(url=pdf_url)
 
     raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")

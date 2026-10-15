@@ -129,15 +129,47 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
             : null
   }));
 
+  const rawPdfUrl = prospect.public_id
+    ? `/api/client-portal/${prospect.public_id}/render-pdf`
+    : (prospect.id ? `/api/prospects/${prospect.id}/render-pdf` : null);
+
+  const [pdfStatus, setPdfStatus] = useState(() => {
+    if (prospect.render_pdf_path || prospect.has_render_pdf) return 'ready';
+    if (prospect.has_render_pdf === false && !prospect.render_pdf_path) return 'not_found';
+    return rawPdfUrl ? 'checking' : 'not_found';
+  });
+
+  useEffect(() => {
+    if (prospect.render_pdf_path || prospect.has_render_pdf) {
+      setPdfStatus('ready');
+      return;
+    }
+    if (!rawPdfUrl) {
+      setPdfStatus('not_found');
+      return;
+    }
+    let active = true;
+    fetch(rawPdfUrl, { method: 'HEAD' })
+      .then(res => {
+        if (!active) return;
+        setPdfStatus(res.ok ? 'ready' : 'not_found');
+      })
+      .catch(() => {
+        if (!active) return;
+        setPdfStatus('not_found');
+      });
+    return () => { active = false; };
+  }, [rawPdfUrl, prospect.has_render_pdf, prospect.render_pdf_path]);
+
+  const renderPdfUrl = pdfStatus === 'ready' ? rawPdfUrl : null;
   const hasRender = Boolean(
+    pdfStatus === 'ready' ||
+    pdfStatus === 'checking' ||
     prospect.render_pdf_path ||
     prospect.has_render_pdf ||
     prospect.render_image_path ||
     prospect.render_applies
   );
-  const renderPdfUrl = hasRender && (prospect.public_id
-    ? `/api/client-portal/${prospect.public_id}/render-pdf`
-    : (prospect.id ? `/api/prospects/${prospect.id}/render-pdf` : null));
   const renderImageUrl = safePhotoUrl(prospect.render_image_path);
 
   // Ciclo de vida y línea de tiempo para el cliente
@@ -458,6 +490,18 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                                 display: 'block'
                               }}
                             />
+                          </div>
+                        ) : pdfStatus === 'checking' ? (
+                          <div style={{
+                            padding: '2rem 1.5rem',
+                            textAlign: 'center',
+                            background: '#f8fafc',
+                            borderRadius: 8,
+                            border: '1px dashed #bfdbfe',
+                            color: '#2563eb'
+                          }}>
+                            <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: 4 }}>⏳</span>
+                            <strong style={{ display: 'block', fontSize: '0.88rem' }}>Cargando plano y render del proyecto...</strong>
                           </div>
                         ) : !renderImageUrl ? (
                           <div style={{
