@@ -105,6 +105,64 @@ async def run_db_migrations():
         except Exception as e:
             print(f"[migration] {sql[:45]}: {e}")
 
+    # Otorgar permisos al rol de portal de cliente (rdadmin_client_portal u otros)
+    grant_sqls = [
+        "GRANT SELECT ON prospects TO rdadmin_client_portal;",
+        "GRANT SELECT (render_pdf_path, render_image_path, render_applies, render_pdf_data, other_projects, production_days) ON prospects TO rdadmin_client_portal;",
+        """
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg_%' AND rolname != current_user LOOP
+                BEGIN
+                    EXECUTE format('GRANT SELECT ON prospects TO %I', r.rolname);
+                EXCEPTION WHEN OTHERS THEN
+                    NULL;
+                END;
+            END LOOP;
+        END $$;
+        """
+    ]
+    for gsql in grant_sqls:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(gsql))
+            print(f"[migration] GRANT ejecutado")
+        except Exception as ge:
+            print(f"[migration] Aviso GRANT: {ge}")
+
+    # Sincronizar render_pdf_path hacia production_data (accesible sin restricciones de columna)
+    try:
+        from database import SessionLocal
+        with SessionLocal() as s:
+            rows = s.query(models.Prospect).filter(
+                (models.Prospect.render_pdf_path.isnot(None)) | (models.Prospect.render_image_path.isnot(None))
+            ).all()
+            for p in rows:
+                p_dict = {}
+                if p.production_data:
+                    try:
+                        p_dict = json.loads(p.production_data)
+                    except Exception:
+                        p_dict = {}
+                if not isinstance(p_dict, dict):
+                    p_dict = {}
+                dirty = False
+                if p.render_pdf_path and p_dict.get("render_pdf_path") != p.render_pdf_path:
+                    p_dict["render_pdf_path"] = p.render_pdf_path
+                    dirty = True
+                if p.render_image_path and p_dict.get("render_image_path") != p.render_image_path:
+                    p_dict["render_image_path"] = p.render_image_path
+                    dirty = True
+                if dirty:
+                    p_dict["render_applies"] = True
+                    p.production_data = json.dumps(p_dict, ensure_ascii=False)
+            s.commit()
+            print(f"[migration] Sincronizados renders hacia production_data")
+    except Exception as se:
+        print(f"[migration] Aviso sincronización production_data: {se}")
+
 @app.on_event("startup")
 async def migrate_images_on_startup():
     """Mueve a Cloudinary las imágenes base64 existentes (con respaldo previo)."""
@@ -908,6 +966,26 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
 
     db_prospect.render_applies = True
     db_prospect.updated_at = datetime.utcnow()
+
+    # Espejear hacia production_data (JSON accesible para el portal del cliente sin restricción de columnas)
+    try:
+        p_dict = {}
+        if db_prospect.production_data:
+            try:
+                p_dict = json.loads(db_prospect.production_data)
+            except Exception:
+                p_dict = {}
+        if not isinstance(p_dict, dict):
+            p_dict = {}
+        if db_prospect.render_pdf_path:
+            p_dict["render_pdf_path"] = db_prospect.render_pdf_path
+        if db_prospect.render_image_path:
+            p_dict["render_image_path"] = db_prospect.render_image_path
+        p_dict["render_applies"] = True
+        db_prospect.production_data = json.dumps(p_dict, ensure_ascii=False)
+    except Exception as pe:
+        print(f"[upload-render] Error espejeando a production_data: {pe}")
+
     try:
         db.commit()
         db.refresh(db_prospect)

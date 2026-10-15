@@ -193,10 +193,10 @@ def client_project(prospect):
         "has_quote": bool(_g("has_quote")),
         "valuation_data": bool(_g("valuation_data")),
         "production_days": _g("production_days") or production.get("planned_days"),
-        "render_pdf_path": _g("render_pdf_path"),
-        "render_image_path": _g("render_image_path"),
-        "render_applies": bool(_g("render_applies")),
-        "has_render_pdf": bool(_g("has_render_pdf") or _g("render_pdf_path") or _g("render_pdf_data")),
+        "render_pdf_path": _g("render_pdf_path") or production.get("render_pdf_path"),
+        "render_image_path": _g("render_image_path") or production.get("render_image_path"),
+        "render_applies": bool(_g("render_applies") or production.get("render_applies") or _g("render_pdf_path") or production.get("render_pdf_path") or _g("render_image_path") or production.get("render_image_path")),
+        "has_render_pdf": bool(_g("has_render_pdf") or _g("render_pdf_path") or production.get("render_pdf_path") or _g("render_pdf_data")),
         "production_data": {
             "started_at": production.get("started_at"),
             "delivered_at": production.get("delivered_at"),
@@ -320,19 +320,41 @@ def client_portal_render_pdf(public_id: str, request: Request):
     if row is None:
         db2 = SessionLocal()
         try:
-            sql2 = "SELECT id, render_pdf_path, render_image_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+            sql2 = "SELECT id, render_pdf_path, render_image_path, production_data FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
             row = db2.execute(text(sql2), {"pid": pid}).mappings().first()
         except Exception as e2:
             logger.warning("render-pdf query2 (fallback) falló para %s: %s", pid, e2)
         finally:
             db2.close()
 
+    # Attempt 3: query only production_data (100% guaranteed accessible to restricted DB roles)
+    if row is None:
+        db3 = SessionLocal()
+        try:
+            sql3 = "SELECT id, production_data FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+            row3 = db3.execute(text(sql3), {"pid": pid}).mappings().first()
+            if row3:
+                row = dict(row3)
+        except Exception as e3:
+            logger.warning("render-pdf query3 (production_data fallback) falló para %s: %s", pid, e3)
+        finally:
+            db3.close()
+
     if not row:
         raise HTTPException(status_code=404, detail="Proyecto o render no encontrado")
 
+    # If row was found via fallback, inspect production_data JSON for render urls
+    prod_raw = row.get("production_data")
+    prod_dict = {}
+    if prod_raw:
+        try:
+            prod_dict = json.loads(prod_raw) if isinstance(prod_raw, str) else (prod_raw if isinstance(prod_raw, dict) else {})
+        except Exception:
+            prod_dict = {}
+
     has_data = bool(row.get("has_data")) if has_bytea else False
-    pdf_url = row.get("render_pdf_path")
-    img_url = row.get("render_image_path")
+    pdf_url = row.get("render_pdf_path") or prod_dict.get("render_pdf_path")
+    img_url = row.get("render_image_path") or prod_dict.get("render_image_path")
     pdf_data = row.get("render_pdf_data") if has_bytea else None
 
     if not has_data and not pdf_url and not img_url and not pdf_data:

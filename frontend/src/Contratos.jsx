@@ -979,7 +979,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                         method: 'POST', body: fdPdf
                       });
                       const uploadDataPdf = await uploadResPdf.json();
-                      uploadedPdfUrl = uploadDataPdf.image_path;
+                      uploadedPdfUrl = uploadDataPdf.pdf_path || uploadDataPdf.image_path;
                     }
 
                     const totalPrice = renderApplies
