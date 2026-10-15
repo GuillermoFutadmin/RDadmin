@@ -866,7 +866,6 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
 
     import io
     image_urls = []
-    pdf_urls = []
     for file in files:
         contents = await file.read()
         filename_lower = (file.filename or "").lower()
@@ -874,39 +873,53 @@ async def upload_render_file(prospect_id: int, files: List[UploadFile] = File(..
         is_pdf = filename_lower.endswith(".pdf") or "pdf" in content_type
 
         if is_pdf:
-            # 1. Guardar los bytes del PDF directamente en PostgreSQL (BYTEA)
-            # Esto garantiza disponibilidad 100% permanente sin depender de restricciones de Cloudinary
-            db_prospect.render_pdf_data = contents
-            pdf_endpoint_url = f"/api/prospects/{prospect_id}/render-pdf"
-            pdf_urls.append(pdf_endpoint_url)
-
-            # Intentar también guardar en Cloudinary como respaldo si es posible
+            # 1. Subir a Cloudinary PRIMERO (siempre funciona si hay credenciales)
+            cloudinary_url = None
             try:
                 temp_file = UploadFile(filename=file.filename, file=io.BytesIO(contents))
-                cloud_url = await upload_to_storage(temp_file, "render")
-                # Si sube bien a Cloudinary, mantenemos la referencia
-                db_prospect.render_pdf_path = cloud_url
-            except Exception as e:
-                print(f"[upload-render] Respaldo Cloudinary omitido (archivo guardado en BD): {e}")
-                db_prospect.render_pdf_path = pdf_endpoint_url
-        else:
-            temp_file = UploadFile(filename=file.filename, file=io.BytesIO(contents))
-            new_url = await upload_to_storage(temp_file, "render")
-            image_urls.append(new_url)
+                cloudinary_url = await upload_to_storage(temp_file, "render")
+                db_prospect.render_pdf_path = cloudinary_url
+                print(f"[upload-render] PDF guardado en Cloudinary: {cloudinary_url}")
+            except Exception as cloud_err:
+                print(f"[upload-render] Cloudinary fallido: {cloud_err}")
 
-    if pdf_urls and not db_prospect.render_pdf_path:
-        db_prospect.render_pdf_path = pdf_urls[-1]
+            # 2. Intentar guardar bytes en PostgreSQL BYTEA (puede no existir la columna en prod)
+            try:
+                if hasattr(db_prospect, "render_pdf_data") and db_prospect.render_pdf_data is not None or hasattr(db_prospect, "render_pdf_data"):
+                    db_prospect.render_pdf_data = contents
+                    print(f"[upload-render] PDF guardado en BYTEA ({len(contents)} bytes)")
+                    if not cloudinary_url:
+                        # Cloudinary fallo, usar endpoint interno de streaming
+                        db_prospect.render_pdf_path = f"/api/prospects/{db_prospect.id}/render-pdf"
+            except Exception as bytea_err:
+                print(f"[upload-render] BYTEA no disponible: {bytea_err}")
+                if not cloudinary_url:
+                    db_prospect.render_pdf_path = f"/api/prospects/{db_prospect.id}/render-pdf"
+        else:
+            try:
+                temp_file = UploadFile(filename=file.filename, file=io.BytesIO(contents))
+                new_url = await upload_to_storage(temp_file, "render")
+                image_urls.append(new_url)
+            except Exception as img_err:
+                print(f"[upload-render] Error subiendo imagen render: {img_err}")
+
     if image_urls:
         db_prospect.render_image_path = image_urls[-1]
 
     db_prospect.render_applies = True
     db_prospect.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_prospect)
+    try:
+        db.commit()
+        db.refresh(db_prospect)
+    except Exception as commit_err:
+        db.rollback()
+        print(f"[upload-render] Error en commit: {commit_err}")
+        raise HTTPException(status_code=500, detail=f"Error guardando render: {commit_err}")
+
     return {
-        "image_path": db_prospect.render_image_path,
-        "pdf_path": db_prospect.render_pdf_path,
-        "render_applies": db_prospect.render_applies
+        "image_path": getattr(db_prospect, "render_image_path", None),
+        "pdf_path": getattr(db_prospect, "render_pdf_path", None),
+        "render_applies": getattr(db_prospect, "render_applies", True)
     }
 
 

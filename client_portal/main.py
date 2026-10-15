@@ -256,30 +256,37 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
         )
 
         row = None
+        params = {"pid": public_id, "pwd": password}
+
+        # Attempt 1: full query including render_pdf_data CASE WHEN
         try:
             sql = f"SELECT {cols_all} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-            row = db.execute(text(sql), {"pid": public_id, "pwd": password}).mappings().first()
+            row = db.execute(text(sql), params).mappings().first()
         except Exception as e1:
             logger.warning("Query con cols_all falló (%s), intentando cols_base", e1)
-            try:
-                db.rollback()
-            except Exception:
-                pass
+
+        # Attempt 2: same cols but no render_pdf_data reference - fresh session
+        if row is None:
+            db2 = SessionLocal()
             try:
                 sql2 = f"SELECT {cols_base} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-                row = db.execute(text(sql2), {"pid": public_id, "pwd": password}).mappings().first()
+                row = db2.execute(text(sql2), params).mappings().first()
             except Exception as e2:
                 logger.warning("Query con cols_base falló (%s), intentando cols_fallback", e2)
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-                try:
-                    sql3 = f"SELECT {cols_fallback} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-                    row = db.execute(text(sql3), {"pid": public_id, "pwd": password}).mappings().first()
-                except Exception as e3:
-                    logger.error("Error consultando prospectos en client portal: %s", e3)
-                    raise HTTPException(status_code=500, detail="Error de conexión a la base de datos al validar el acceso.")
+            finally:
+                db2.close()
+
+        # Attempt 3: minimal columns - fresh session
+        if row is None:
+            db3 = SessionLocal()
+            try:
+                sql3 = f"SELECT {cols_fallback} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
+                row = db3.execute(text(sql3), params).mappings().first()
+            except Exception as e3:
+                logger.error("Error consultando prospectos en client portal: %s", e3)
+                raise HTTPException(status_code=500, detail="Error de conexión a la base de datos al validar el acceso.")
+            finally:
+                db3.close()
 
         if not row:
             raise HTTPException(status_code=401, detail="ID o contraseña incorrectos")
@@ -293,38 +300,42 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
 
 
 @app.api_route("/api/client-portal/{public_id}/render-pdf", methods=["GET", "HEAD"])
-def client_portal_render_pdf(public_id: str, request: Request, db: Session = Depends(get_db)):
+def client_portal_render_pdf(public_id: str, request: Request):
     pid = public_id.strip().upper()
     row = None
     has_bytea = True
 
+    # Attempt 1: with render_pdf_data (BYTEA) - fresh session
+    db1 = SessionLocal()
     try:
-        sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
-        row = db.execute(text(sql), {"pid": pid}).mappings().first()
+        sql = "SELECT id, (render_pdf_data IS NOT NULL) AS has_data, render_pdf_data, render_pdf_path, render_image_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+        row = db1.execute(text(sql), {"pid": pid}).mappings().first()
     except Exception as e1:
+        logger.warning("render-pdf query1 falló para %s: %s", pid, e1)
         has_bytea = False
+    finally:
+        db1.close()
+
+    # Attempt 2: without render_pdf_data - fresh session
+    if row is None:
+        db2 = SessionLocal()
         try:
-            db.rollback()
-        except Exception:
-            pass
-        try:
-            sql2 = "SELECT id, render_pdf_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
-            row = db.execute(text(sql2), {"pid": pid}).mappings().first()
+            sql2 = "SELECT id, render_pdf_path, render_image_path FROM prospects WHERE UPPER(TRIM(public_id)) = :pid LIMIT 1"
+            row = db2.execute(text(sql2), {"pid": pid}).mappings().first()
         except Exception as e2:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-            logger.warning("Fallback query render-pdf falló para %s: %s", pid, e2)
+            logger.warning("render-pdf query2 (fallback) falló para %s: %s", pid, e2)
+        finally:
+            db2.close()
 
     if not row:
         raise HTTPException(status_code=404, detail="Proyecto o render no encontrado")
 
     has_data = bool(row.get("has_data")) if has_bytea else False
     pdf_url = row.get("render_pdf_path")
+    img_url = row.get("render_image_path")
     pdf_data = row.get("render_pdf_data") if has_bytea else None
 
-    if not has_data and not pdf_url and not pdf_data:
+    if not has_data and not pdf_url and not img_url and not pdf_data:
         raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
     if request.method == "HEAD":
@@ -334,6 +345,7 @@ def client_portal_render_pdf(public_id: str, request: Request, db: Session = Dep
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
         )
 
+    # Serve BYTEA data directly
     if pdf_data:
         return Response(
             content=bytes(pdf_data),
@@ -341,15 +353,16 @@ def client_portal_render_pdf(public_id: str, request: Request, db: Session = Dep
             headers={"Content-Disposition": f'inline; filename="render_{pid}.pdf"'}
         )
 
-    if pdf_url:
-        if pdf_url.startswith("http"):
-            return RedirectResponse(url=pdf_url)
-        # Si es ruta local
-        if pdf_url.startswith("/uploads/"):
-            local_path = (ROOT_DIR / pdf_url.lstrip("/")).resolve()
+    # Serve via URL (Cloudinary or local)
+    serve_url = pdf_url or img_url
+    if serve_url:
+        if serve_url.startswith("http"):
+            return RedirectResponse(url=serve_url)
+        if serve_url.startswith("/uploads/"):
+            local_path = (ROOT_DIR / serve_url.lstrip("/")).resolve()
             if local_path.is_file():
                 return FileResponse(local_path, media_type="application/pdf")
-        return RedirectResponse(url=pdf_url)
+        return RedirectResponse(url=serve_url)
 
     raise HTTPException(status_code=404, detail="Este proyecto no tiene render PDF")
 
