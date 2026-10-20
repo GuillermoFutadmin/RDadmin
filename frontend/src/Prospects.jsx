@@ -3994,8 +3994,11 @@ function Prospects() {
           onClose={() => setViewingValuation(null)}
           onSave={async (updatedData) => {
             try {
+              const numVal = parseFloat(updatedData.totalToPay || updatedData.grandTotal || 0);
+              const fmtPrice = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numVal);
               const payload = { 
                 estimated_price: String(updatedData.totalToPay),
+                quote_total_price: fmtPrice,
                 valuation_data: JSON.stringify(updatedData) 
               };
               const res = await fetch(`${API}/api/prospects/${viewingValuation.id}`, {

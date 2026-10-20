@@ -214,16 +214,53 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   const [quoteTitle, setQuoteTitle] = React.useState(p.quote_title || getDefaultTitle());
   const [quoteDesc, setQuoteDesc] = React.useState(getQuoteDescription());
 
-  // Precio: primero busca precio manual guardado, si no existe toma el de la valoración
+  // Parsear valoración y total real para que mande prioritariamente
+  const getValuationCalc = () => {
+    let sheets = null;
+    let margin = 30;
+    if (p.valuation_data) {
+      try {
+        const raw = JSON.parse(p.valuation_data);
+        if (raw.sheets && Array.isArray(raw.sheets) && raw.sheets.length > 0) {
+          sheets = raw.sheets;
+          margin = parseFloat(raw.globalMargin) || 30;
+        } else if (raw.materials || raw.labor || raw.concepts) {
+          sheets = [{ type: raw.projectType || 'Proyecto', materials: raw.materials || [], labor: raw.labor || [], concepts: raw.concepts || [] }];
+          margin = parseFloat(raw.margin) || 30;
+        }
+      } catch(e) {}
+    }
+    if (!sheets || sheets.length === 0) return { valSheets: null, valMargin: 30, valTotal: 0 };
+    const sumArr = arr => (arr || []).reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.price) || 0), 0);
+    const grandCost = sheets.reduce((s, sh) => s + sumArr(sh.materials) + sumArr(sh.labor) + sumArr(sh.concepts), 0);
+    const grandMg = grandCost * (margin / 100);
+    const grandTotal = grandCost + grandMg;
+    return { valSheets: sheets, valMargin: margin, valTotal: grandTotal };
+  };
+
+  const { valSheets, valMargin, valTotal } = React.useMemo(() => getValuationCalc(), [p.valuation_data]);
+  const fmtCurrency = (v) => new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+
+  // Precio: si existe valoración, toma automáticamente ese total exacto
   const getInitialPrice = () => {
+    if (valTotal > 0) {
+      return fmtCurrency(valTotal);
+    }
     if (p.quote_total_price) return p.quote_total_price;
     if (p.estimated_price) {
       const num = parseFloat(p.estimated_price);
-      return isNaN(num) ? p.estimated_price : new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2 }).format(num);
+      return isNaN(num) ? p.estimated_price : fmtCurrency(num);
     }
     return '';
   };
   const [quoteTotal, setQuoteTotal] = React.useState(getInitialPrice());
+
+  // Asegurar sincronización automática si la valoración cambia o se carga
+  React.useEffect(() => {
+    if (valTotal > 0) {
+      setQuoteTotal(fmtCurrency(valTotal));
+    }
+  }, [valTotal]);
   
   const getInitialDelivery = () => {
     if (p.quote_delivery_time) return p.quote_delivery_time;
@@ -817,30 +854,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
         {/* Totales y Entregas */}
         {(() => {
-          // Parsear valoración si existe
-          let valSheets = null;
-          let valMargin = 30;
-          if (p.valuation_data) {
-            try {
-              const raw = JSON.parse(p.valuation_data);
-              if (raw.sheets && Array.isArray(raw.sheets) && raw.sheets.length > 0) {
-                valSheets = raw.sheets;
-                valMargin = parseFloat(raw.globalMargin) || 30;
-              } else if (raw.materials || raw.labor || raw.concepts) {
-                // Formato viejo: una sola hoja
-                valSheets = [{ type: raw.projectType || 'Proyecto', materials: raw.materials || [], labor: raw.labor || [], concepts: raw.concepts || [] }];
-                valMargin = parseFloat(raw.margin) || 30;
-              }
-            } catch(e) { /* no-op */ }
-          }
           const fmtCur = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
           const sheetCost = (sh) => {
             const sum = arr => (arr || []).reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.price) || 0), 0);
             return sum(sh.materials) + sum(sh.labor) + sum(sh.concepts);
-          };
-          const sheetSections = (sh) => {
-            const sum = arr => (arr || []).reduce((s, m) => s + (parseFloat(m.qty) || 0) * (parseFloat(m.price) || 0), 0);
-            return { mat: sum(sh.materials), lab: sum(sh.labor), con: sum(sh.concepts) };
           };
 
           return (
@@ -849,9 +866,6 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
               {/* ── Resumen Global (Ocultar detalles internos y ganancia) ── */}
               {valSheets && valSheets.length > 0 && (() => {
-                const grandCost  = valSheets.reduce((s, sh) => s + sheetCost(sh), 0);
-                const grandMg    = grandCost * (valMargin / 100);
-                const grandTotal = grandCost + grandMg;
                 return (
                   <div style={{ width: '100%', marginBottom: '1rem' }}>
                     <div style={{ border: '2px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginTop: '0.5rem', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
@@ -878,7 +892,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                               TOTAL DEL PROYECTO
                             </td>
                             <td style={{ padding: '0.5rem 0.6rem', fontWeight: '800', fontSize: '1rem', textAlign: 'right', color: '#1e293b' }}>
-                              {fmtCur(grandTotal)}
+                              {fmtCur(valTotal)}
                             </td>
                           </tr>
                         </tbody>
@@ -898,6 +912,29 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                   placeholder="0.00"
                   style={{ ...inputDash, fontSize: '1.1rem', fontWeight: '700', width: '140px' }}
                 />
+                {valTotal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQuoteTotal(fmtCurrency(valTotal))}
+                    title="Hacer clic para re-sincronizar con el total exacto de la valoración"
+                    className="no-print"
+                    style={{
+                      fontSize: '0.75rem',
+                      backgroundColor: '#dcfce7',
+                      color: '#15803d',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontWeight: '700',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      border: '1px solid #86efac',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>✓</span> Sincronizado con Valoración
+                  </button>
+                )}
                 {(() => {
                   const numTotal = parseFloat(String(quoteTotal).replace(/[^\d.-]/g, '')) || 0;
                   const fmt = (v) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
@@ -909,7 +946,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                     </span>
                   );
                 })()}
-                {!p.quote_total_price && p.estimated_price && (
+                {valTotal <= 0 && !p.quote_total_price && p.estimated_price && (
                   <span className="no-print" style={{ fontSize: '0.75rem', backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
                     <span className="no-print">📊 </span>Precio de Valoración
                   </span>

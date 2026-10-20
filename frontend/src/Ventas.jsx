@@ -805,6 +805,7 @@ function Ventas() {
       grandTotal,
     };
     try {
+      const fmtGrandTotal = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(grandTotal);
       if (linkToProspect === 'yes' && selectedProspectId) {
         const current = prospects.find(p => p.id === Number(selectedProspectId));
         if (!current) throw new Error('Prospecto no encontrado');
@@ -812,6 +813,7 @@ function Ventas() {
           ...current,
           status:          'Valoración',
           estimated_price: grandTotal.toString(),
+          quote_total_price: fmtGrandTotal,
           valuation_data:  JSON.stringify(valuationDataObj),
         };
         const res = await fetch(`${API}/api/prospects/${selectedProspectId}`, {
@@ -824,6 +826,7 @@ function Ventas() {
           name:            standaloneName || 'Valoración WhatsApp',
           project_type:    sheets.map(s => s.type).join(', '),
           estimated_price: grandTotal.toString(),
+          quote_total_price: fmtGrandTotal,
           status:          'Valoración',
           valuation_data:  JSON.stringify(valuationDataObj),
         };
