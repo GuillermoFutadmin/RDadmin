@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconTrendingUp, IconFileText, IconCheckCircle, IconEdit, IconPlusCircle, IconTrash, IconSearch } from './icons';
 import useAutoRefresh from './useAutoRefresh';
-
+import { normalizeValuationSheets } from './valuationRows.js';
 
 const API = '';
 
@@ -4066,15 +4066,15 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
   // ── Normalizar al formato multi-hoja ──────────────────────────────────────
   // Si es formato viejo (sin sheets[]), lo envolvemos en un array de una hoja
   const normalizeToSheets = (raw) => {
-    if (raw.sheets && Array.isArray(raw.sheets)) return raw; // ya es nuevo formato
+    if (raw.sheets && Array.isArray(raw.sheets)) return { ...raw, sheets: normalizeValuationSheets(raw.sheets) };
     // Formato viejo
     return {
-      sheets: [{
+      sheets: normalizeValuationSheets([{
         type: raw.projectType || 'Proyecto',
         materials: raw.materials || [],
         labor:     raw.labor     || [],
         concepts:  raw.concepts  || [],
-      }],
+      }]),
       globalMargin: raw.margin || 30,
       grandTotal:   raw.totalToPay || 0,
     };

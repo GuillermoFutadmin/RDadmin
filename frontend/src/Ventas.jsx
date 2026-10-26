@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import useAutoRefresh from './useAutoRefresh';
+import { normalizeValuationRows } from './valuationRows.js';
 
 const API = '';
 const UNITS = ['pza', 'metro', 'ml', 'kilo', 'litro', 'pie', 'm2', 'par', 'rollo', 'caja', 'día'];
@@ -169,10 +170,10 @@ function AddSheetModal({ templatesDb, templateKeys, onAdd, onClose }) {
 // ─── Modal: Crear nuevo machote ───────────────────────────────────────────────
 function NewTemplateModal({ onSave, onClose }) {
   const [name, setName]   = useState('');
-  const [rows, setRows]   = useState([{ id: Date.now(), desc: '', price: 0, unit: 'pza' }]);
+  const [rows, setRows]   = useState([{ id: crypto.randomUUID(), desc: '', price: 0, unit: 'pza' }]);
   const backdropRef       = useRef(null);
 
-  const addRow  = () => setRows(p => [...p, { id: Date.now() + Math.random(), desc: '', price: 0, unit: 'pza' }]);
+  const addRow  = () => setRows(p => [...p, { id: crypto.randomUUID(), desc: '', price: 0, unit: 'pza' }]);
   const delRow  = (id) => setRows(p => p.filter(r => r.id !== id));
   const chgRow  = (id, field, val) => setRows(p => p.map(r => r.id === id ? { ...r, [field]: val } : r));
 
@@ -327,7 +328,13 @@ function Ventas() {
       const tpls = {};
       const keys = [];
       data.forEach(t => {
-        tpls[t.name] = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
+        const template = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
+        tpls[t.name] = {
+          ...template,
+          materiales: normalizeValuationRows(template.materiales),
+          mano_obra: normalizeValuationRows(template.mano_obra),
+          conceptos: normalizeValuationRows(template.conceptos),
+        };
         keys.push(t.name);
       });
       setTemplatesDb(tpls);
@@ -371,7 +378,7 @@ function Ventas() {
     const arr = [...(existing || [])];
     standards.forEach(std => {
       if (!arr.some(item => (item.desc || '').trim().toLowerCase() === std.desc.toLowerCase())) {
-        arr.push({ id: Date.now() + Math.random(), desc: std.desc, price: 0, unit: std.unit || 'pza' });
+        arr.push({ id: crypto.randomUUID(), desc: std.desc, price: 0, unit: std.unit || 'pza' });
       }
     });
     return arr;
@@ -382,7 +389,7 @@ function Ventas() {
     const tpl = templatesDb[type];
     if (!tpl) return null;
     return {
-      id:        Date.now() + Math.random(),
+      id:        crypto.randomUUID(),
       type,
       materials: tpl.materiales.map(normalizeItem),
       labor:     mergeWithStandards(tpl.mano_obra, STD_LABOR).map(normalizeItem),
@@ -463,7 +470,7 @@ function Ventas() {
       const k = (it.desc || '').trim().toLowerCase();
       if (!k) return;
       if (!seen.has(k)) {
-        const n = { id: Date.now() + Math.random(), desc: it.desc, price: Number(it.price) || 0, unit: it.unit || 'pza' };
+        const n = { id: crypto.randomUUID(), desc: it.desc, price: Number(it.price) || 0, unit: it.unit || 'pza' };
         seen.set(k, n); out.push(n);
       } else if (!seen.get(k).price && Number(it.price)) {
         seen.get(k).price = Number(it.price);
@@ -476,7 +483,7 @@ function Ventas() {
 
   const createNewTemplate = async (name, rows) => {
     const data = {
-      materiales: rows.map(r => ({ id: Date.now() + Math.random(), desc: r.desc, price: Number(r.price), unit: r.unit || 'pza' })),
+      materiales: rows.map(r => ({ id: crypto.randomUUID(), desc: r.desc, price: Number(r.price), unit: r.unit || 'pza' })),
       mano_obra:  buildGeneral('mano_obra', STD_LABOR),
       conceptos:  buildGeneral('conceptos', STD_CONCEPTS),
       created_at: new Date().toISOString()
@@ -508,7 +515,7 @@ function Ventas() {
       alert('Ya existe un machote con ese nombre');
       return;
     }
-    const fresh = (arr = []) => arr.map(i => ({ ...i, id: Date.now() + Math.random() }));
+    const fresh = (arr = []) => arr.map(i => ({ ...i, id: crypto.randomUUID() }));
     const data = {
       materiales: fresh(tpl.materiales),
       mano_obra:  fresh(tpl.mano_obra),
@@ -644,7 +651,7 @@ function Ventas() {
     setter(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
 
   const addEditRow = (type) => {
-    const row = { id: Date.now().toString(), desc: '', price: 0, unit: 'pza' };
+    const row = { id: crypto.randomUUID(), desc: '', price: 0, unit: 'pza' };
     if (type === 'mat') setEditMaterials(p => [...p, row]);
     if (type === 'lab') setEditLabor(p    => [...p, row]);
     if (type === 'con') setEditConcepts(p => [...p, row]);

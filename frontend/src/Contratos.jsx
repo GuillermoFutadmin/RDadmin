@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { normalizeValuationSheets } from './valuationRows.js';
 import { ContratoPDFView } from './ContratoPDF';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
@@ -1260,7 +1261,7 @@ import Croquis3D from './Croquis3D';
 const UNITS = ['pza','metro','ml','kilo','litro','pie','m2','par','rollo','caja','día'];
 const TEMPLATE_KEYS = ['Cocina','Clóset','Puerta Sólida','Puerta Tambor'];
 
-function mkRow(desc, price = 0) { return { id: Date.now() + Math.random(), desc, qty: 1, price: Number(price), unit: 'pza' }; }
+function mkRow(desc, price = 0) { return { id: crypto.randomUUID(), desc, qty: 1, price: Number(price), unit: 'pza' }; }
 
 const MEASUREMENT_FIELDS = {
   'Cocina': [
@@ -1659,10 +1660,10 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
         const d = typeof prospect.estimation_data === 'string'
           ? JSON.parse(prospect.estimation_data) : prospect.estimation_data;
         if (d.sheets && d.sheets.length > 0) {
-          setSheets(d.sheets);
+          setSheets(normalizeValuationSheets(d.sheets));
           estimationHadSheets.current = true;
         } else if (d.materials || d.labor || d.concepts) {
-          setSheets([{ type: prospect.project_type || 'Proyecto', materials: d.materials || [], labor: d.labor || [], concepts: d.concepts || [] }]);
+          setSheets(normalizeValuationSheets([{ type: prospect.project_type || 'Proyecto', materials: d.materials || [], labor: d.labor || [], concepts: d.concepts || [] }]));
           estimationHadSheets.current = true;
         }
         if (d.margin !== undefined) setMargin(d.margin);
@@ -1698,10 +1699,10 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
       try {
         const rawVal = JSON.parse(prospect.valuation_data);
         if (rawVal.sheets && rawVal.sheets.length > 0) {
-          setSheets(rawVal.sheets);
+          setSheets(normalizeValuationSheets(rawVal.sheets));
           if (rawVal.globalMargin) setMargin(rawVal.globalMargin);
         } else if (rawVal.materials || rawVal.labor || rawVal.concepts) {
-          setSheets([{ type: rawVal.projectType || 'Proyecto', materials: rawVal.materials || [], labor: rawVal.labor || [], concepts: rawVal.concepts || [] }]);
+          setSheets(normalizeValuationSheets([{ type: rawVal.projectType || 'Proyecto', materials: rawVal.materials || [], labor: rawVal.labor || [], concepts: rawVal.concepts || [] }]));
           if (rawVal.margin) setMargin(rawVal.margin);
         }
         setTemplateLoaded(true);
@@ -1728,7 +1729,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           try {
             const parsed = JSON.parse(tpl.data);
             const mapItem = it => ({
-              id: Date.now() + Math.random(),
+              id: crypto.randomUUID(),
               desc: it.desc || '',
               qty: 1, price: Number(it.price) || 0, unit: it.unit || 'pza'
             });
