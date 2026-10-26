@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import useAutoRefresh from './useAutoRefresh';
 import { IconCamera, IconCalendar, IconSearch, IconXCircle, IconCheckCircle, IconTrash, IconEdit } from './icons';
+import { PRODUCTION_WORK_STAGES } from './productionWorkItems';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -30,14 +31,46 @@ const formatReadableDate = (dateKey) => {
   });
 };
 
+const parseLifecycleDate = (value) => {
+  if (!value) return null;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const imageUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http') || url.startsWith('data:')) return url;
   return `${API}${url}`;
 };
 
-export default function Avances() {
-  const [projects, setProjects] = useState([]);
+function flattenProductionProjects(contracts) {
+  return contracts.flatMap(contract => {
+    const production = parseJson(contract.production_data, {});
+    if (Array.isArray(production.work_items)) {
+      return production.work_items
+        .filter(item => ['PRODUCCION', 'ENTREGADO'].includes(item.status))
+        .map(item => ({
+          ...contract,
+          key: `${contract.id}:${item.id}`,
+          workItemId: item.id,
+          workItemName: item.name,
+          project_type: item.name,
+          status: item.status,
+          workProductionData: item.production_data || {}
+        }));
+    }
+    return [{ ...contract, key: String(contract.id), workItemId: null, workItemName: '', workProductionData: production }];
+  });
+}
+
+function dailyAdvanceUrl(project, advanceId) {
+  const workItem = project?.workItemId ? `?work_item_id=${encodeURIComponent(project.workItemId)}` : '';
+  return `${API}/api/prospects/${project.id}/daily-advances/${advanceId}${workItem}`;
+}
+
+export default function Avances({ workItemsOnly = false }) {
+  const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [searchProject, setSearchProject] = useState('');
@@ -67,10 +100,12 @@ export default function Avances() {
       const res = await fetch(`${API}/api/prospects?light=true`);
       if (!res.ok) throw new Error(`Error al cargar proyectos (${res.status})`);
       const data = await res.json();
-      const inProd = data.filter(p => p.is_contract && ['PRODUCCION', 'ENTREGADO'].includes(p.status));
-      setProjects(inProd);
-      if (!selectedProjectId && inProd.length > 0) {
-        setSelectedProjectId(inProd[0].id);
+      const inProd = data.filter(p => p.is_contract && ['PRODUCCION', 'ENTREGADO'].includes(p.status)
+        && (!workItemsOnly || Array.isArray(parseJson(p.production_data, {}).work_items)));
+      setContracts(inProd);
+      const initialProjects = flattenProductionProjects(inProd);
+      if (!selectedProjectId && initialProjects.length > 0) {
+        setSelectedProjectId(initialProjects[0].key);
       }
     } catch (err) {
       console.error(err);
@@ -82,9 +117,40 @@ export default function Avances() {
   useEffect(() => { fetchProjects(); }, []);
   useAutoRefresh(() => fetchProjects({ silent: true }));
 
+  const updateContractProduction = (contractId, productionData) => {
+    setContracts(current => current.map(contract => contract.id === contractId
+      ? { ...contract, production_data: productionData }
+      : contract));
+    fetchProjects({ silent: true });
+  };
+
+  const handleChangeWorkStage = async (direction) => {
+    if (!selectedProject?.workItemId) return;
+    const currentStage = Number.isInteger(selectedProduction.current_stage) ? selectedProduction.current_stage : 0;
+    const nextStage = Math.max(0, Math.min(PRODUCTION_WORK_STAGES.length - 1, currentStage + direction));
+    if (nextStage === currentStage) return;
+    try {
+      const response = await fetch(`${API}/api/prospects/${selectedProject.id}/production-work-items/${encodeURIComponent(selectedProject.workItemId)}/stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_stage: nextStage })
+      });
+      if (!response.ok) throw new Error(`No se pudo actualizar la etapa (${response.status})`);
+      const result = await response.json();
+      setContracts(current => current.map(contract => contract.id === selectedProject.id
+        ? { ...contract, production_data: result.production_data, status: result.status }
+        : contract));
+      await fetchProjects({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setActionMessage(`❌ ${error.message || 'No se pudo actualizar la etapa.'}`);
+    }
+  };
+
   // Proyecto actualmente seleccionado
+  const projects = useMemo(() => flattenProductionProjects(contracts), [contracts]);
   const selectedProject = useMemo(() => {
-    return projects.find(p => p.id === selectedProjectId) || null;
+    return projects.find(p => p.key === selectedProjectId) || null;
   }, [projects, selectedProjectId]);
 
   // Lista de proyectos filtrada para el selector
@@ -94,18 +160,23 @@ export default function Avances() {
     return projects.filter(p =>
       (p.name || '').toLowerCase().includes(q) ||
       (p.public_id || '').toLowerCase().includes(q) ||
-      (p.project_type || '').toLowerCase().includes(q)
+      (p.project_type || '').toLowerCase().includes(q) ||
+      (p.workItemName || '').toLowerCase().includes(q)
     );
   }, [projects, searchProject]);
+
+  const selectedProduction = useMemo(() => {
+    if (!selectedProject) return {};
+    return selectedProject.workProductionData || parseJson(selectedProject.production_data, {});
+  }, [selectedProject]);
 
   // Avances diarios del proyecto seleccionado
   const advances = useMemo(() => {
     if (!selectedProject) return [];
-    const prod = parseJson(selectedProject.production_data, {});
-    const list = Array.isArray(prod.daily_advances) ? prod.daily_advances : [];
+    const list = Array.isArray(selectedProduction.daily_advances) ? selectedProduction.daily_advances : [];
     // Ordenar descendente por fecha/hora
     return [...list].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
-  }, [selectedProject]);
+  }, [selectedProject, selectedProduction]);
 
   // Mapa de avances agrupados por fecha (YYYY-MM-DD)
   const advancesByDate = useMemo(() => {
@@ -127,16 +198,10 @@ export default function Avances() {
   // Ciclo de vida del proyecto seleccionado (Prospecto -> Cliente -> Producción)
   const projectLifecycle = useMemo(() => {
     if (!selectedProject) return null;
-    const prod = parseJson(selectedProject.production_data, {});
-    const pProspectDate = selectedProject.capture_date
-      ? new Date(selectedProject.capture_date + 'T12:00:00')
-      : (selectedProject.created_at ? new Date(selectedProject.created_at) : null);
-    const pContractDate = selectedProject.contract_date
-      ? new Date(selectedProject.contract_date + 'T12:00:00')
-      : null;
-    const pProdStartDate = prod.started_at
-      ? new Date(prod.started_at + 'T12:00:00')
-      : (pContractDate || new Date());
+    const prod = selectedProduction;
+    const pProspectDate = parseLifecycleDate(selectedProject.capture_date || selectedProject.created_at);
+    const pContractDate = parseLifecycleDate(selectedProject.contract_date);
+    const pProdStartDate = parseLifecycleDate(prod.started_at) || pContractDate || new Date();
 
     let prospectDays = 0;
     if (pProspectDate && pContractDate) {
@@ -166,7 +231,7 @@ export default function Avances() {
       elapsedProdDays,
       totalLifecycleDays
     };
-  }, [selectedProject]);
+  }, [selectedProject, selectedProduction]);
 
   // Días del mes para el calendario (42 celdas: 6 semanas)
   const calendarDays = useMemo(() => {
@@ -200,8 +265,8 @@ export default function Avances() {
     try {
       let lastResult = null;
       for (const file of advanceFiles) {
-        const selProj = projects.find(p => p.id === selectedProjectId);
-        const selProd = parseJson(selProj?.production_data, {});
+        const selProj = selectedProject;
+        const selProd = selProj?.workProductionData || parseJson(selProj?.production_data, {});
         const curStage = selProd.current_stage !== undefined ? selProd.current_stage : 2;
         const fd = new FormData();
         fd.append('file', file);
@@ -209,8 +274,9 @@ export default function Avances() {
         fd.append('comment', advanceComment);
         fd.append('published', advancePublished ? 'true' : 'false');
         fd.append('stage', String(curStage));
+        if (selProj?.workItemId) fd.append('work_item_id', selProj.workItemId);
 
-        const res = await fetch(`${API}/api/prospects/${selectedProjectId}/daily-advances`, {
+        const res = await fetch(`${API}/api/prospects/${selProj.id}/daily-advances`, {
           method: 'POST',
           body: fd
         });
@@ -219,7 +285,7 @@ export default function Avances() {
       }
 
       if (lastResult) {
-        setProjects(cur => cur.map(p => p.id === selectedProjectId ? { ...p, production_data: lastResult.production_data } : p));
+        updateContractProduction(selectedProject.id, lastResult.production_data);
       }
 
       setAdvanceFiles([]);
@@ -236,14 +302,14 @@ export default function Avances() {
   // Alternar publicación al cliente
   const handleTogglePublish = async (advance) => {
     try {
-      const res = await fetch(`${API}/api/prospects/${selectedProjectId}/daily-advances/${advance.id}`, {
+      const res = await fetch(`${dailyAdvanceUrl(selectedProject, advance.id)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ published: !advance.published })
       });
       if (!res.ok) throw new Error('No se pudo actualizar la visibilidad');
       const result = await res.json();
-      setProjects(cur => cur.map(p => p.id === selectedProjectId ? { ...p, production_data: result.production_data } : p));
+      updateContractProduction(selectedProject.id, result.production_data);
     } catch (err) {
       setActionMessage('❌ ' + err.message);
     }
@@ -252,14 +318,14 @@ export default function Avances() {
   // Guardar comentario editado
   const handleSaveComment = async (advanceId) => {
     try {
-      const res = await fetch(`${API}/api/prospects/${selectedProjectId}/daily-advances/${advanceId}`, {
+      const res = await fetch(`${dailyAdvanceUrl(selectedProject, advanceId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: editingComment })
       });
       if (!res.ok) throw new Error('No se pudo guardar el comentario');
       const result = await res.json();
-      setProjects(cur => cur.map(p => p.id === selectedProjectId ? { ...p, production_data: result.production_data } : p));
+      updateContractProduction(selectedProject.id, result.production_data);
       setEditingAdvanceId(null);
       setEditingComment('');
     } catch (err) {
@@ -271,12 +337,12 @@ export default function Avances() {
   const handleDeleteAdvance = async (advanceId) => {
     if (!window.confirm('¿Deseas eliminar esta foto de avance?')) return;
     try {
-      const res = await fetch(`${API}/api/prospects/${selectedProjectId}/daily-advances/${advanceId}`, {
+      const res = await fetch(`${dailyAdvanceUrl(selectedProject, advanceId)}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('No se pudo eliminar el avance');
       const result = await res.json();
-      setProjects(cur => cur.map(p => p.id === selectedProjectId ? { ...p, production_data: result.production_data } : p));
+      updateContractProduction(selectedProject.id, result.production_data);
       setActionMessage('Foto eliminada.');
       setTimeout(() => setActionMessage(''), 3000);
     } catch (err) {
@@ -331,15 +397,15 @@ export default function Avances() {
       <div style={{ marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: 6 }}>
         <div style={{ display: 'flex', gap: 8, minWidth: 'max-content' }}>
           {filteredProjects.map(p => {
-            const isSelected = p.id === selectedProjectId;
-            const pProd = parseJson(p.production_data, {});
+            const isSelected = p.key === selectedProjectId;
+            const pProd = p.workProductionData || parseJson(p.production_data, {});
             const advCount = Array.isArray(pProd.daily_advances) ? pProd.daily_advances.length : 0;
             return (
-              <button
-                key={p.id}
+              <button data-guide="advances-project"
+                key={p.key}
                 type="button"
                 onClick={() => {
-                  setSelectedProjectId(p.id);
+                  setSelectedProjectId(p.key);
                   setActionMessage('');
                 }}
                 style={{
@@ -358,7 +424,7 @@ export default function Avances() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 800 }}>{p.name}</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800 }}>{p.name}{p.workItemName ? ` · ${p.workItemName}` : ''}</span>
                   {advCount > 0 && (
                     <span style={{ fontSize: '0.65rem', padding: '1px 6px', background: isSelected ? '#bfdbfe' : '#f1f5f9', borderRadius: 999, fontWeight: 700 }}>
                       📸 {advCount}
@@ -387,7 +453,7 @@ export default function Avances() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Ciclo de Vida del Proyecto · {selectedProject?.name}
+                Ciclo de Vida del Proyecto · {selectedProject?.name}{selectedProject?.workItemName ? ` · ${selectedProject.workItemName}` : ''}
               </div>
               <div style={{ color: '#ffffff', fontSize: '0.95rem', fontWeight: 900, marginTop: 2 }}>
                 Línea de tiempo histórica y avance en carpintería
@@ -483,6 +549,24 @@ export default function Avances() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedProject?.workItemId && (
+        <section style={{ marginBottom:'1.1rem', padding:'0.85rem 1rem', background:'#fff', border:'1px solid #dbe5ef', borderRadius:12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+            <div>
+              <div style={{ color:'#64748b', fontSize:'0.68rem', fontWeight:800, textTransform:'uppercase' }}>Avance del trabajo seleccionado</div>
+              <strong style={{ display:'block', marginTop:3, color:'#1e3a5f', fontSize:'0.92rem' }}>{selectedProject.workItemName}</strong>
+              <span style={{ display:'block', marginTop:3, color:'#2563eb', fontSize:'0.78rem', fontWeight:700 }}>
+                {PRODUCTION_WORK_STAGES[selectedProduction.current_stage || 0]}
+              </span>
+            </div>
+            <div style={{ display:'flex', gap:7 }}>
+              <button type="button" onClick={() => handleChangeWorkStage(-1)} disabled={!selectedProduction.current_stage} style={{ padding:'0.45rem 0.7rem', border:'1px solid #cbd5e1', borderRadius:7, background:'#fff', color:'#475569', fontWeight:700, cursor:'pointer', opacity:selectedProduction.current_stage ? 1 : 0.5 }}>Etapa anterior</button>
+              <button data-guide="advances-stage" type="button" onClick={() => handleChangeWorkStage(1)} disabled={selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1} style={{ padding:'0.45rem 0.7rem', border:0, borderRadius:7, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:'pointer', opacity:selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1 ? 0.5 : 1 }}>Avanzar etapa</button>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ── CUERPO PRINCIPAL: 2 COLUMNAS (CALENDARIO + PANEL DE AVANCES) ── */}
@@ -643,7 +727,7 @@ export default function Avances() {
             {selectedProject && (
               <div style={{ textAlign: 'right' }}>
                 <span style={{ padding: '0.25rem 0.65rem', background: '#f1f5f9', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700, color: '#334155' }}>
-                  {selectedProject.name}
+                  {selectedProject.name}{selectedProject.workItemName ? ` · ${selectedProject.workItemName}` : ''}
                 </span>
               </div>
             )}
@@ -982,7 +1066,7 @@ export default function Avances() {
             {/* Header del lightbox */}
             <div style={{ padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', color: '#fff' }}>
               <div>
-                <strong style={{ fontSize: '0.88rem' }}>{selectedProject?.name}</strong>
+                <strong style={{ fontSize: '0.88rem' }}>{selectedProject?.name}{selectedProject?.workItemName ? ` · ${selectedProject.workItemName}` : ''}</strong>
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginLeft: 8 }}>
                   Foto {lightboxIndex + 1} de {currentDayAdvances.length} · {formatReadableDate(selectedDateKey)}
                 </span>

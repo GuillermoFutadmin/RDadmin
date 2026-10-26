@@ -1,4 +1,6 @@
 import React from 'react';
+import { cascadeWorks, cascadeAction } from './workCascade';
+import ProspectWorkSelection from './ProspectWorkSelection';
 
 // ─────────────────────────────────────────────────────────────
 // CotizacionView – Vista de cotización mejorada
@@ -7,6 +9,37 @@ import React from 'react';
 export function CotizacionView({ prospect: p, onBack, onSaved }) {
   // Estado de guardado
   const [saved, setSaved] = React.useState(p.has_quote || false);
+  const [cascadeVersion, setCascadeVersion] = React.useState(0);
+  const [workBusy, setWorkBusy] = React.useState(false);
+  const [workError, setWorkError] = React.useState('');
+  const works = React.useMemo(() => cascadeWorks(p), [p.valuation_data, p.work_flow, cascadeVersion]);
+  const cascadeEnabled = !p.is_contract && (works.length > 1 || !!p.work_flow);
+  const [quotedIds, setQuotedIds] = React.useState(() => {
+    const available = cascadeWorks(p).filter(item => item.status === 'ACTIVE');
+    return available.filter(item => !p.has_quote || !p.work_flow || item.quoted).map(item => item.id);
+  });
+  const selectWorks = ids => {
+    setQuotedIds(ids);
+    setSaved(false);
+    const names = works.filter(item => ids.includes(item.id)).map(item => item.name);
+    setQuoteTitle(`FABRICACIÓN DE ${names.join(', ').toUpperCase()}`);
+    setQuoteDesc(`Fabricación e instalación de: ${names.join(', ')}.`);
+  };
+  const changeWorkState = async (action, item) => {
+    if (action === 'delete' && !window.confirm(`¿Eliminar "${item.name}" de los trabajos pendientes? No se enviará a Clientes.`)) return;
+    setWorkBusy(true);
+    setWorkError('');
+    try {
+      Object.assign(p, await cascadeAction(p.id, action, [item.id]));
+      selectWorks(quotedIds.filter(id => id !== item.id));
+      setCascadeVersion(version => version + 1);
+    } catch (error) {
+      console.error(error);
+      setWorkError(error.message);
+    } finally {
+      setWorkBusy(false);
+    }
+  };
   let estData = {};
   if (p.estimation_data) {
     try { estData = JSON.parse(p.estimation_data); } catch(e) {}
@@ -15,6 +48,8 @@ export function CotizacionView({ prospect: p, onBack, onSaved }) {
   const croquisPhotos = estData.croquisPhotos || [];
 
   const [showPdfModal, setShowPdfModal] = React.useState(false);
+  const [photoBusy, setPhotoBusy] = React.useState(false);
+  const [photoError, setPhotoError] = React.useState('');
 
   // Campos de cotización guardados en DB
   const getDefaultSaludo = () => {
@@ -211,8 +246,9 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     setIsEditingDesc(false);
   };
 
-  const [quoteTitle, setQuoteTitle] = React.useState(p.quote_title || getDefaultTitle());
-  const [quoteDesc, setQuoteDesc] = React.useState(getQuoteDescription());
+  const selectedWorkNames = works.filter(item => quotedIds.includes(item.id) && item.status === 'ACTIVE').map(item => item.name).join(', ');
+  const [quoteTitle, setQuoteTitle] = React.useState(cascadeEnabled && !p.has_quote ? `FABRICACIÓN DE ${selectedWorkNames.toUpperCase()}` : p.quote_title || getDefaultTitle());
+  const [quoteDesc, setQuoteDesc] = React.useState(cascadeEnabled && !p.has_quote ? `Fabricación e instalación de: ${selectedWorkNames}.` : getQuoteDescription());
 
   // Parsear valoración y total real para que mande prioritariamente
   const getValuationCalc = () => {
@@ -223,10 +259,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         const raw = JSON.parse(p.valuation_data);
         if (raw.sheets && Array.isArray(raw.sheets) && raw.sheets.length > 0) {
           sheets = raw.sheets;
-          margin = parseFloat(raw.globalMargin) || 30;
+          margin = Number(raw.globalMargin ?? 30);
         } else if (raw.materials || raw.labor || raw.concepts) {
           sheets = [{ type: raw.projectType || 'Proyecto', materials: raw.materials || [], labor: raw.labor || [], concepts: raw.concepts || [] }];
-          margin = parseFloat(raw.margin) || 30;
+          margin = Number(raw.margin ?? 30);
         }
       } catch(e) {}
     }
@@ -238,12 +274,15 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     return { valSheets: sheets, valMargin: margin, valTotal: grandTotal };
   };
 
-  const { valSheets, valMargin, valTotal } = React.useMemo(() => getValuationCalc(), [p.valuation_data]);
+  const valuationCalc = React.useMemo(() => getValuationCalc(), [p.valuation_data]);
+  const valSheets = cascadeEnabled ? works.filter(item => quotedIds.includes(item.id) && item.status === 'ACTIVE').map(item => item.sheet) : valuationCalc.valSheets;
+  const valMargin = valuationCalc.valMargin;
+  const valTotal = cascadeEnabled ? works.filter(item => quotedIds.includes(item.id) && item.status === 'ACTIVE').reduce((total, item) => total + item.price, 0) : valuationCalc.valTotal;
   const fmtCurrency = (v) => new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 
   // Precio: si existe valoración, toma automáticamente ese total exacto
   const getInitialPrice = () => {
-    if (valTotal > 0) {
+    if (valTotal > 0 || cascadeEnabled) {
       return fmtCurrency(valTotal);
     }
     if (p.quote_total_price) return p.quote_total_price;
@@ -257,10 +296,10 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
   // Asegurar sincronización automática si la valoración cambia o se carga
   React.useEffect(() => {
-    if (valTotal > 0) {
+    if (valTotal > 0 || cascadeEnabled) {
       setQuoteTotal(fmtCurrency(valTotal));
     }
-  }, [valTotal]);
+  }, [valTotal, cascadeEnabled]);
   
   const getInitialDelivery = () => {
     if (p.quote_delivery_time) return p.quote_delivery_time;
@@ -281,25 +320,40 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   const refPaths = p.reference_image_path ? p.reference_image_path.split(',') : (p.design_image_path ? [p.design_image_path] : []);
   
   const [imagePreview, setImagePreview] = React.useState([
-    p.quote_image_1 ? resolveUrl(p.quote_image_1) : resolveUrl(spacePaths[0]),
-    p.quote_image_2 ? resolveUrl(p.quote_image_2) : resolveUrl(spacePaths[1]),
-    p.quote_image_3 ? resolveUrl(p.quote_image_3) : resolveUrl(refPaths[0]),
-    p.quote_image_4 ? resolveUrl(p.quote_image_4) : resolveUrl(refPaths[1])
+    resolveUrl(p.quote_image_1 ?? spacePaths[0]),
+    resolveUrl(p.quote_image_2 ?? spacePaths[1]),
+    resolveUrl(p.quote_image_3 ?? refPaths[0]),
+    resolveUrl(p.quote_image_4 ?? refPaths[1])
   ]);
+
+  const editLinkedPhoto = async (group, src, file = null) => {
+    if (!file && !window.confirm('¿Eliminar esta foto de Cotización y también de Prospectos?')) return;
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      const data = new FormData();
+      data.append('group', group);
+      data.append('image_url', src);
+      if (file) data.append('file', file);
+      const response = await fetch(`${API}/api/prospects/${p.id}/linked-quote-photo`, { method: 'POST', body: data });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'No se pudo actualizar la foto');
+      Object.assign(p, result);
+      setImagePreview(current => current.map(url => url === src ? resolveUrl(result.replacement) : url));
+    } catch (error) {
+      console.error('Error actualizando foto vinculada:', error);
+      setPhotoError(error.message);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   const handleImageChange = async (idx, e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Mostrar preview inmediatamente
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const newPrev = [...imagePreview]; 
-      newPrev[idx] = ev.target.result;
-      setImagePreview(newPrev);
-    };
-    reader.readAsDataURL(file);
-
+    setPhotoBusy(true);
+    setPhotoError('');
     // Subir imagen al servidor
     const fd = new FormData();
     fd.append('file', file);
@@ -309,7 +363,9 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         body: fd
       });
       const data = await res.json();
+      if (!res.ok || !data.image_path) throw new Error(data.detail || 'No se pudo subir la foto');
       if (data.image_path) {
+        p[`quote_image_${idx + 1}`] = data.image_path;
         // Actualizamos el preview con la ruta real del servidor para asegurar persistencia
         const finalPrev = [...imagePreview];
         finalPrev[idx] = resolveUrl(data.image_path);
@@ -317,13 +373,29 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       }
     } catch (err) {
       console.error('Error subiendo imagen:', err);
+      setPhotoError(err.message);
+    } finally {
+      setPhotoBusy(false);
     }
   };
 
-  const removeImage = (idx) => {
-    const newPrev = [...imagePreview]; 
-    newPrev[idx] = null; 
-    setImagePreview(newPrev);
+  const removeImage = async (idx) => {
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      const key = `quote_image_${idx + 1}`;
+      const response = await fetch(`${API}/api/prospects/${p.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: '' })
+      });
+      if (!response.ok) throw new Error('No se pudo quitar la foto de la cotización');
+      p[key] = '';
+      setImagePreview(current => current.map((url, index) => index === idx ? null : url));
+    } catch (error) {
+      console.error('Error quitando foto:', error);
+      setPhotoError(error.message);
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -332,7 +404,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     ['Cliente', p.name],
     ['Contacto', p.contact_info],
     ['Ubicación', p.location],
-    ['Tipo de Proyecto', p.project_type],
+    ['Tipo de Proyecto', cascadeEnabled ? selectedWorkNames : p.project_type],
     ['Fecha de Inicio', p.start_date],
     ['Fecha de Entrega', p.delivery_date],
     ['Casa Habitada', p.inhabited_house],
@@ -341,7 +413,8 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
   ].filter(([, v]) => v);
 
   const handleSaveAndPrint = async () => {
-    setSaved(true);
+    setWorkBusy(true);
+    setWorkError('');
     // Actualizar status a 'Cotización' y guardar datos de cotización
     try {
       const payload = {
@@ -356,21 +429,27 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
         quote_validez: validez,
         quote_anticipo: anticipo
       };
-      await fetch(`${API}/api/prospects/${p.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      if (cascadeEnabled) {
+        const { name, has_quote, status, quote_total_price, ...quoteFields } = payload;
+        Object.assign(p, await cascadeAction(p.id, 'quote', quotedIds, quoteFields));
+        setCascadeVersion(version => version + 1);
+      } else {
+        const response = await fetch(`${API}/api/prospects/${p.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('No se pudo guardar la cotización');
+      }
+      setSaved(true);
+      if (onSaved) await onSaved(p.id);
+      setShowPdfModal(true);
     } catch (err) {
       console.error('Error guardando cotización:', err);
+      setWorkError(err.message);
+    } finally {
+      setWorkBusy(false);
     }
-    if (onSaved) {
-      // Notificar al componente padre (id del prospecto)
-      await onSaved(p.id);
-    }
-    
-    // Mostrar modal moderno en lugar de confirmación nativa
-    setShowPdfModal(true);
   };
 
   const generatePDF = () => {
@@ -444,12 +523,14 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
 
   return (
     <div style={{ maxWidth: '920px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      {cascadeEnabled && <ProspectWorkSelection works={works} selectedIds={quotedIds} onSelect={selectWorks} onAction={changeWorkState} busy={workBusy || photoBusy} error={workError} />}
+      {!cascadeEnabled && workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
 
       {/* ── Toolbar ── */}
       <div className="no-print" style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onBack} style={{ padding: '0.5rem 1rem', background: '#f1f5f9', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>← Regresar</button>
         {!saved ? (
-          <button onClick={handleSaveAndPrint} style={{ padding: '0.5rem 1.4rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button data-guide="quote-save" disabled={workBusy || (cascadeEnabled && !quotedIds.length)} onClick={handleSaveAndPrint} style={{ padding: '0.5rem 1.4rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>💾</span> Guardar y Generar PDF
           </button>
         ) : (
@@ -457,7 +538,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.2rem', background: '#dcfce7', color: '#15803d', borderRadius: '8px', fontWeight: '700', border: '1.5px solid #86efac', fontSize: '0.95rem' }}>
               ✅ Cotización Guardada
             </span>
-            <button onClick={() => setShowPdfModal(true)} style={{ padding: '0.5rem 1.4rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>🖨️ Descargar PDF</button>
+            <button data-guide="quote-pdf" onClick={() => setShowPdfModal(true)} style={{ padding: '0.5rem 1.4rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>🖨️ Descargar PDF</button>
           </>
         )}
       </div>
@@ -492,7 +573,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       )}
 
       {/* ── DOCUMENTO ── */}
-      <div id="cotizacion-doc" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', padding: '2.5rem', border: saved ? '2px solid #86efac' : '1px solid #e2e8f0', transition: 'border 0.4s' }}>
+      <div data-guide="quote-document" id="cotizacion-doc" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', padding: '2.5rem', border: saved ? '2px solid #86efac' : '1px solid #e2e8f0', transition: 'border 0.4s' }}>
 
         {/* Encabezado */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '3px solid #f97316' }}>
@@ -908,6 +989,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 <input
                   type="text"
                   value={quoteTotal}
+                  readOnly={cascadeEnabled}
                   onChange={e => setQuoteTotal(e.target.value)}
                   placeholder="0.00"
                   style={{ ...inputDash, fontSize: '1.1rem', fontWeight: '700', width: '140px' }}
@@ -1148,8 +1230,6 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             }
           });
 
-          if (annexImages.length === 0) return null;
-
           // Agrupar en exactamente 2 fotos por hoja:
           const photoPages = [];
           for (let i = 0; i < annexImages.length; i += 2) {
@@ -1159,23 +1239,28 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           return (
             <div>
               {/* Controles de carga manual visibles solo en pantalla */}
-              <div className="no-print" style={{ marginTop: '2rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+              <div data-guide="quote-photos" className="no-print" style={{ marginTop: '2rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.8rem' }}>
                   📸 Anexo: Imágenes del Proyecto y Referencias ({annexImages.length} fotos — 2 por hoja en PDF)
                 </div>
+                {photoBusy && <p role="status">Guardando foto...</p>}
+                {photoError && <p role="alert" style={{ color: '#b91c1c' }}>{photoError}</p>}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
                   {[0, 1, 2, 3].map(idx => (
                     <div key={idx} style={{ position: 'relative', border: '2px dashed #cbd5e1', borderRadius: '6px', overflow: 'hidden', aspectRatio: '1', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       {imagePreview[idx] ? (
                         <>
-                          <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                          <button onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                          <label style={{ width: '100%', height: '100%', cursor: 'pointer' }} title="Reemplazar foto adicional">
+                            <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <input aria-label={`Reemplazar foto adicional ${idx + 1}`} disabled={photoBusy} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
+                          </label>
+                          <button disabled={photoBusy} onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                         </>
                       ) : (
                         <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
                           <span style={{ fontSize: '1.5rem' }}>📷</span>
                           <span>Subir {idx + 1}</span>
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
+                          <input disabled={photoBusy} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
                         </label>
                       )}
                     </div>
@@ -1187,17 +1272,24 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                     <div style={{ fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}>
                       ✨ Fotos vinculadas desde Prospectos ({spaceList.length + refList.length}) que se imprimirán a 2 fotos por hoja:
                     </div>
+                    <p>Reemplazar o eliminar aquí también actualiza los originales de Prospectos. Los cambios se guardan automáticamente.</p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {spaceList.map((src, i) => (
-                        <div key={`sp-${i}`} style={{ width: '60px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', position: 'relative' }}>
-                          <img src={src} alt="Espacio" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '8px', textAlign: 'center' }}>Espacio {i+1}</span>
+                        <div key={`sp-${src}`} style={{ width: 130, borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                          <img src={src} alt={`Espacio ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover' }} />
+                          <label style={{ display: 'block', padding: 6, cursor: 'pointer' }}>Reemplazar
+                            <input aria-label={`Reemplazar Espacio ${i + 1}`} disabled={photoBusy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files[0]; if (file) editLinkedPhoto('space', src, file); e.target.value = ''; }} style={{ width: '100%' }} />
+                          </label>
+                          <button disabled={photoBusy} onClick={() => editLinkedPhoto('space', src)} style={{ width: '100%', color: '#b91c1c', padding: 6 }}>Eliminar Espacio {i + 1}</button>
                         </div>
                       ))}
                       {refList.map((src, i) => (
-                        <div key={`rf-${i}`} style={{ width: '60px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', position: 'relative' }}>
-                          <img src={src} alt="Ref" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '8px', textAlign: 'center' }}>Ref {i+1}</span>
+                        <div key={`rf-${src}`} style={{ width: 130, borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                          <img src={src} alt={`Referencia ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover' }} />
+                          <label style={{ display: 'block', padding: 6, cursor: 'pointer' }}>Reemplazar
+                            <input aria-label={`Reemplazar Referencia ${i + 1}`} disabled={photoBusy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files[0]; if (file) editLinkedPhoto('reference', src, file); e.target.value = ''; }} style={{ width: '100%' }} />
+                          </label>
+                          <button disabled={photoBusy} onClick={() => editLinkedPhoto('reference', src)} style={{ width: '100%', color: '#b91c1c', padding: 6 }}>Eliminar Referencia {i + 1}</button>
                         </div>
                       ))}
                     </div>

@@ -3,6 +3,7 @@ import { ContratoDetail, getMeasureSections } from './Contratos';
 import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
 import { convertPdfToImageUrls } from './pdfUtils';
+import Avances from './Avances';
 
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
@@ -228,6 +229,7 @@ function InfoCard({ label, children }) {
 
 function Pedidos() {
   const [projects, setProjects] = useState([]);
+  const [hasWorkItemProjects, setHasWorkItemProjects] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [activeStage, setActiveStage] = useState(0);
   const [overviewStage, setOverviewStage] = useState(null);
@@ -271,9 +273,11 @@ function Pedidos() {
       const response = await fetch(`${API}/api/prospects?light=true`);
       if (!response.ok) throw new Error(`No se pudo cargar Producción (${response.status})`);
       const data = await response.json();
-      const productionProjects = data.filter(project =>
+      const allProductionProjects = data.filter(project =>
         project.is_contract && project.production_data && ['PRODUCCION', 'ENTREGADO'].includes(project.status)
       );
+      setHasWorkItemProjects(allProductionProjects.some(project => Array.isArray(parseJson(project.production_data, {}).work_items)));
+      const productionProjects = allProductionProjects.filter(project => !Array.isArray(parseJson(project.production_data, {}).work_items));
       setProjects(current => productionProjects.map(project => mergeHeavy(project, current.find(item => item.id === project.id))));
       setSelectedId(current => productionProjects.some(project => project.id === current)
         ? current
@@ -802,6 +806,7 @@ function Pedidos() {
       } else if (selected.render_image_path) {
         const renderAnnex = document.createElement('div');
         renderAnnex.className = 'production-pdf-render-annex';
+        for (const renderPhoto of collectImageUrls(selected.render_image_path)) {
         const pageContainer = document.createElement('div');
         pageContainer.className = 'production-pdf-new-page production-pdf-page-landscape';
         pageContainer.style.cssText = 'page: landscape-page; break-before: page; page-break-before: always; margin: 0; padding: 0;';
@@ -815,10 +820,12 @@ function Pedidos() {
             </span>
           </div>
           <div style="display:flex; justify-content:center; align-items:center; height:178mm; padding: 0;">
-            <img src="${imageUrl(selected.render_image_path)}" alt="Render Oficial" style="display:block; max-width:100%; max-height:174mm; width:100%; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
+            <img alt="Render Oficial" style="display:block; max-width:100%; max-height:174mm; width:100%; object-fit:contain; margin:0 auto; border:1px solid #cbd5e1; border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" />
           </div>
         `;
+        pageContainer.querySelector('img').src = imageUrl(renderPhoto);
         renderAnnex.appendChild(pageContainer);
+        }
         content.appendChild(renderAnnex);
       }
 
@@ -1056,6 +1063,8 @@ function Pedidos() {
       </header>
 
       {message && <div role="status" style={{ marginBottom: 12, padding: '0.7rem 0.9rem', background: message.includes('no pudo') || message.includes('No se pudo') ? '#fef2f2' : '#eff6ff', color: message.includes('no pudo') || message.includes('No se pudo') ? '#b91c1c' : '#1d4f91', borderRadius: 10 }}>{message}</div>}
+      {hasWorkItemProjects && <Avances workItemsOnly />}
+      {(!hasWorkItemProjects || projects.length > 0) && <>
 
       <section style={{ marginBottom: 16, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 16, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -2494,7 +2503,7 @@ function Pedidos() {
                         ? 'Entrega registrada · proyecto completo'
                         : `${STAGE_NAMES[action.stageIndex]} · avance ${action.stageIndex + 1} de ${STAGE_NAMES.length}`;
                       return (
-                        <button key={action.id} type="button" onClick={() => selectProductionProject(action.project)}
+                        <button data-guide="production-open" key={action.id} type="button" onClick={() => selectProductionProject(action.project)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(action.project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                           <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                             {!action.isDeadline && <span style={{ flexShrink: 0, display: 'inline-flex' }}><StageIcon stage={action.stageIndex} size={22} /></span>}
@@ -2533,7 +2542,7 @@ function Pedidos() {
                 {calendarProjects.length ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 8 }}>
                     {calendarProjects.map(project => (
-                      <button key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                      <button data-guide="production-open" key={project.id} type="button" onClick={() => selectProductionProject(project)}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                         <span style={{ minWidth: 0 }}>
                           <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.8rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
@@ -2951,12 +2960,12 @@ function Pedidos() {
                   <input type="file" accept="image/*" disabled={saving} onChange={event => { uploadEvidence(event.target.files?.[0]); event.target.value = ''; }} style={{ display: 'none' }} />
                 </label>
               </div>
-              <textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
+              <textarea data-guide="production-note" value={note} onChange={event => setNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
                 rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, font: 'inherit', fontSize: '0.85rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
+                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
                       {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `Guardar avance y pasar a ${STAGE_NAMES[currentStage + 1]} →`}
                   </button>
                 </div>
@@ -3184,6 +3193,7 @@ function Pedidos() {
           </section>
         </div>
       )}
+      </>}
     </main>
   );
 }

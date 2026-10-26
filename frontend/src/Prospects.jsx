@@ -1,8 +1,10 @@
+import { MATERIAL_CATEGORIES, WOOD_TONES, STAIN_COLORS, KITCHEN_LAYOUTS, KITCHEN_ADDONS } from './furnitureCatalog.js';
+import { normalizeValuationSheets } from './valuationRows.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconTrendingUp, IconFileText, IconCheckCircle, IconEdit, IconPlusCircle, IconTrash, IconSearch } from './icons';
 import useAutoRefresh from './useAutoRefresh';
-import { normalizeValuationSheets } from './valuationRows.js';
+import { cascadeWorks, cascadeAction, isInProspects } from './workCascade';
 
 const API = '';
 
@@ -10,17 +12,39 @@ const API = '';
 function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState('');
+  const works = cascadeWorks(prospect);
+  const cascadeEnabled = works.length > 1 || !!prospect.work_flow;
+  const eligible = works.filter(item => item.status === 'ACTIVE' && (!prospect.work_flow || item.quoted));
+  const [approvedIds, setApprovedIds] = useState(() => eligible.map(item => item.id));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const handleApprove = async () => {
+    setBusy(true);
+    setError('');
+    try {
+    if (cascadeEnabled) {
+      await cascadeAction(prospect.id, 'approve', approvedIds);
+      onClose();
+      await fetchProspects();
+      return;
+    }
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let pwd = '';
     for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
 
-    await fetch(`${API}/api/prospects/${prospect.id}`, {
+    const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_contract: true, contract_date: new Date().toISOString(), status: 'APROBADO', contract_password: pwd }),
     });
+    if (!response.ok) throw new Error('No se pudo aprobar el proyecto');
     onClose(); fetchProspects();
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRejectConfirm = async () => {
@@ -35,7 +59,7 @@ function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
       <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', width: '440px', maxWidth: '95vw', boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}>
-        <h3 style={{ margin: '0 0 0.3rem', color: '#1e293b', fontSize: '1.1rem' }}>Se aprobó el proyecto?</h3>
+        <h3 data-guide="approval-dialog" style={{ margin: '0 0 0.3rem', color: '#1e293b', fontSize: '1.1rem' }}>Se aprobó el proyecto?</h3>
         <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '0 0 1.2rem' }}>
           <strong>{prospect.name}</strong> · {prospect.project_type}
         </p>
@@ -68,16 +92,26 @@ function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
           </>
         ) : (
           <>
+            {cascadeEnabled && <div style={{ marginBottom: 16 }}>
+              <p>Solo los trabajos marcados pasan a Clientes. Los demás quedan en Prospectos.</p>
+              {eligible.map(item => <label key={item.id} style={{ display: 'block', padding: 6 }}>
+                <input type="checkbox" disabled={busy} checked={approvedIds.includes(item.id)}
+                  onChange={() => setApprovedIds(ids => ids.includes(item.id) ? ids.filter(id => id !== item.id) : [...ids, item.id])} />
+                {' '}{item.name}
+              </label>)}
+            </div>}
+            {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
             <div style={{ display: 'flex', gap: '0.8rem' }}>
               <button
+                disabled={busy || (cascadeEnabled && !approvedIds.length)}
                 onClick={handleApprove}
                 style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem' }}>
                 SI - Pasar a Contratos
               </button>
               <button
-                onClick={() => setShowReason(true)}
+                onClick={() => cascadeEnabled ? onClose() : setShowReason(true)}
                 style={{ flex: 1, padding: '0.75rem', background: '#64748b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem' }}>
-                NO - Papelera
+                {cascadeEnabled ? 'Decidir después' : 'NO - Papelera'}
               </button>
             </div>
             <button
@@ -189,7 +223,7 @@ function EmpathyGuide({ onContinue, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', gap: '1rem' }}>
-        <button onClick={onContinue}
+        <button data-guide="prospect-intro" onClick={onContinue}
           style={{ flex: 1, backgroundColor: 'var(--accent)', color: 'white', padding: '0.9rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
           Continuar al formulario ➡️
         </button>
@@ -378,248 +412,7 @@ function formToPayload(f) {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // ─── MATERIAL SELECTOR COMPONENT ───────────────────────────────
-const MATERIAL_CATEGORIES = [
-  {
-    category: 'Triplay y enchapados',
-    icon: '🪵',
-    color: '#7C4A1E',
-    items: [
-      {
-        id: 'BirchNatural34',
-        label: 'Triplay Birch Natural 3/4',
-        img: '/enchapados/birch_natural.jpg',
-        badge: '#E8D9B5',
-        desc: 'Triplay de abedul natural 3/4", capas uniformes y finas. Alta resistencia y superficie lisa ideal para lacas y enchapes.'
-      },
-      {
-        id: 'Alder',
-        label: 'Aliso (Alder)',
-        img: '/enchapados/alder.jpg',
-        badge: '#C39A6B',
-        desc: 'Madera suave con veta recta, toma el tinte muy bien.'
-      },
-      {
-        id: 'Walnut',
-        label: 'Nogal (Walnut)',
-        img: '/enchapados/walnut.jpg',
-        badge: '#5C3A21',
-        desc: 'Tonos oscuros y lujosos, grano fino y muy elegante.'
-      },
-      {
-        id: 'Cherry',
-        label: 'Cerezo (Cherry)',
-        img: '/enchapados/cherry.jpg',
-        badge: '#9F5B36',
-        desc: 'Color cálido y rojizo que se enriquece con el tiempo.'
-      },
-      {
-        id: 'HardMaple',
-        label: 'Maple Duro',
-        img: '/enchapados/hard_maple.jpg',
-        badge: '#E4CC9C',
-        desc: 'Muy denso y claro, excelente resistencia y apariencia limpia.'
-      },
-      {
-        id: 'Mahogany',
-        label: 'Caoba (Mahogany)',
-        img: '/enchapados/mahogany.jpg',
-        badge: '#7B3F2A',
-        desc: 'Acabado premium rojizo suave y vetas clásicas.'
-      },
-      {
-        id: 'RedOak',
-        label: 'Roble Rojo',
-        img: '/enchapados/red_oak.jpg',
-        badge: '#C79A73',
-        desc: 'Patrón de veta muy pronunciado y cálido.'
-      },
-      {
-        id: 'SoftMaple',
-        label: 'Maple Suave',
-        img: '/enchapados/soft_maple.jpg',
-        badge: '#DFD1B3',
-        desc: 'Similar al Maple duro pero más ligero.'
-      },
-      {
-        id: 'WhiteOak',
-        label: 'Roble Blanco',
-        img: '/enchapados/white_oak.jpg',
-        badge: '#D3B88A',
-        desc: 'Veta fuerte, color más grisáceo/dorado que el roble rojo.'
-      },
-      {
-        id: 'WhitePine',
-        label: 'Pino Blanco',
-        img: '/enchapados/white_pine.jpg',
-        badge: '#EBDCB9',
-        desc: 'Muy claro, ligero y de grano sutil.'
-      }
-    ]
-  },
-,
-  {
-    category: 'Melamina (Catálogo Real)',
-    icon: '🍀',
-    color: '#2E7D32',
-    hasFilters: true,
-    items: [
-      // Maderas Claras / Escandinavas
-      { id: 'Melamina - Espiga', label: 'Espiga', subcat: 'Maderas Claras', img: '/melaminas/espiga.jpg', desc: 'Patrón espiga / herringbone en roble claro escandinavo.' },
-      { id: 'Melamina - Chardonnay', label: 'Chardonnay', subcat: 'Maderas Claras', img: '/melaminas/chardonnay.jpg', desc: 'Tono crema cálido con suave veta lineal.' },
-      { id: 'Melamina - Encino Polar', label: 'Encino Polar', subcat: 'Maderas Claras', img: '/melaminas/encino_polar.jpg', desc: 'Roble polar blanqueado de alta luminosidad.' },
-      { id: 'Melamina - Fresno Bruma', label: 'Fresno Bruma', subcat: 'Maderas Claras', img: '/melaminas/fresno_bruma.jpg', desc: 'Grisáceo nórdico con poro suave.' },
 
-      // Maderas Cálidas / Naturales
-      { id: 'Melamina - Roble Santana', label: 'Roble Santana', subcat: 'Maderas Cálidas', img: '/melaminas/roble_santana.jpg', desc: 'Roble natural de veta amplia y cálida.' },
-      { id: 'Melamina - Nogal Británico', label: 'Nogal Británico', subcat: 'Maderas Cálidas', img: '/melaminas/nogal_britanico.jpg', desc: 'Nogal clásico de tono medio balanceado.' },
-      { id: 'Melamina - Malta', label: 'Malta', subcat: 'Maderas Cálidas', img: '/melaminas/malta.jpg', desc: 'Madera miel con vetas sutiles elegantes.' },
-      { id: 'Melamina - Latte', label: 'Latte', subcat: 'Maderas Cálidas', img: '/melaminas/latte.jpg', desc: 'Tono café latte con nudos y vetas rústicas.' },
-      { id: 'Melamina - Monarca', label: 'Monarca', subcat: 'Maderas Cálidas', img: '/melaminas/monarca.jpg', desc: 'Tono tostado suave muy versátil.' },
-      { id: 'Melamina - Durango', label: 'Durango', subcat: 'Maderas Cálidas', img: '/melaminas/durango.jpg', desc: 'Madera oscura rústica con carácter marcado.' },
-      { id: 'Melamina - Cerezo', label: 'Cerezo', subcat: 'Maderas Cálidas', img: '/melaminas/cerezo.jpg', desc: 'Cálido rojizo con textura tradicional.' },
-      { id: 'Melamina - Rioja', label: 'Rioja', subcat: 'Maderas Cálidas', img: '/melaminas/rioja.jpg', desc: 'Madera rojiza profunda de gran elegancia.' },
-      { id: 'Melamina - Dakota', label: 'Dakota', subcat: 'Maderas Cálidas', img: '/melaminas/dakota.jpg', desc: 'Efecto duelas ensambladas estilo rústico.' },
-      { id: 'Melamina - Roble Mérida', label: 'Roble Mérida', subcat: 'Maderas Cálidas', img: '/melaminas/roble_merida.jpg', desc: 'Roble dorado clásico y luminoso.' },
-
-      // Maderas Oscuras / Contemporáneas
-      { id: 'Melamina - Wengué', label: 'Wengué', subcat: 'Maderas Oscuras', img: '/melaminas/wengue.jpg', desc: 'Tono chocolate muy oscuro casi negro.' },
-      { id: 'Melamina - Ébano Indi', label: 'Ébano Indi', subcat: 'Maderas Oscuras', img: '/melaminas/ebano_indi.jpg', desc: 'Veta vertical negra carbón profunda.' },
-      { id: 'Melamina - Nogal Neo', label: 'Nogal Neo', subcat: 'Maderas Oscuras', img: '/melaminas/nogal_neo.jpg', desc: 'Nogal contemporáneo de veta definida.' },
-      { id: 'Melamina - Oporto', label: 'Oporto', subcat: 'Maderas Oscuras', img: '/melaminas/oporto.jpg', desc: 'Café ahumado con estilo arquitectónico.' },
-      { id: 'Melamina - Anáhuac', label: 'Anáhuac', subcat: 'Maderas Oscuras', img: '/melaminas/anahuac.jpg', desc: 'Azul noche con veta profunda contemporánea.' },
-
-      // Lisos / Unicolores
-      { id: 'Melamina - Blanco Absoluto', label: 'Blanco Absoluto', subcat: 'Lisos y Unicolores', img: '/melaminas/blanco_absoluto.jpg', desc: 'Blanco puro mate de máxima pulcritud.' },
-      { id: 'Melamina - Blanco Frosty', label: 'Blanco Frosty', subcat: 'Lisos y Unicolores', img: '/melaminas/blanco_frosty.jpg', desc: 'Blanco frío reflectante de fácil limpieza.' },
-      { id: 'Melamina - Negro', label: 'Negro', subcat: 'Lisos y Unicolores', img: '/melaminas/negro.jpg', desc: 'Negro profundo sobrio de alto impacto.' },
-      { id: 'Melamina - Zafiro', label: 'Zafiro', subcat: 'Lisos y Unicolores', img: '/melaminas/zafiro.jpg', desc: 'Azul marino zafiro intenso de tendencia.' },
-      { id: 'Melamina - Jade', label: 'Jade', subcat: 'Lisos y Unicolores', img: '/melaminas/jade.jpg', desc: 'Verde bosque profundo contemporáneo.' },
-      { id: 'Melamina - Terra', label: 'Terra', subcat: 'Lisos y Unicolores', img: '/melaminas/terra.jpg', desc: 'Terracota tierra cálido y acogedor.' },
-      { id: 'Melamina - Gris Claro', label: 'Gris Claro', subcat: 'Lisos y Unicolores', img: '/melaminas/gris_claro.jpg', desc: 'Gris neutro suave y minimalista.' },
-      { id: 'Melamina - Gris', label: 'Gris', subcat: 'Lisos y Unicolores', img: '/melaminas/gris.jpg', desc: 'Gris medio neutro ideal para contrastes.' },
-      { id: 'Melamina - Visón', label: 'Visón', subcat: 'Lisos y Unicolores', img: '/melaminas/vison.jpg', desc: 'Gris topo / visón cálido europeo.' },
-      { id: 'Melamina - Oxford', label: 'Oxford', subcat: 'Lisos y Unicolores', img: '/melaminas/oxford.jpg', desc: 'Gris carbón oscuro formal.' },
-      { id: 'Melamina - Níquel', label: 'Níquel', subcat: 'Lisos y Unicolores', img: '/melaminas/niquel.jpg', desc: 'Grafito metálico / níquel vanguardista.' },
-
-      // Texturas y Diseños Especiales
-      { id: 'Melamina - Turmalina', label: 'Turmalina', subcat: 'Piedra y Especiales', img: '/melaminas/turmalina.jpg', desc: 'Piedra turmalina gris volcánica mineral.' },
-      { id: 'Melamina - Cairo', label: 'Cairo', subcat: 'Piedra y Especiales', img: '/melaminas/cairo.jpg', desc: 'Textura textil tipo lino cálido tramado.' },
-      { id: 'Melamina - Precompuesto Ceniza', label: 'Precompuesto Ceniza', subcat: 'Piedra y Especiales', img: '/melaminas/precompuesto_ceniza.jpg', desc: 'Diseño lineal fino con gradiente cenizo.' }
-    ]
-  },
-  {
-    category: 'Madera Sólida',
-    icon: '🌳',
-    color: '#4E342E',
-    items: [
-      {
-        id: 'Roble',
-        label: 'Roble',
-        img: '/maderas/roble.jpg',
-        badge: '#C8A96E',
-        desc: 'Fuerte y duradero, conocido por sus patrones de veta clásicos.'
-      },
-      {
-        id: 'Maple',
-        label: 'Maple',
-        img: '/maderas/maple.jpg',
-        badge: '#E2C98A',
-        desc: 'Madera de grano fino y superficie lisa, aspecto claro y limpio.'
-      },
-      {
-        id: 'Cerezo',
-        label: 'Cerezo',
-        img: '/maderas/cerezo.jpg',
-        badge: '#A0522D',
-        desc: 'Color rojizo que se intensifica con el tiempo, textura suave y elegante.'
-      },
-      {
-        id: 'Nogal',
-        label: 'Nogal',
-        img: '/maderas/nogal.jpg',
-        badge: '#5C3A1E',
-        desc: 'Tonos oscuros y lujosos con veta fina y elegante. Muy premium.'
-      },
-      {
-        id: 'Caoba',
-        label: 'Caoba',
-        img: '/maderas/caoba.jpg',
-        badge: '#7B3F2A',
-        desc: 'Madera premium con acabado rojizo suave y tonos cálidos.'
-      },
-      {
-        id: 'Teca',
-        label: 'Teca',
-        img: '/maderas/teca.jpg',
-        badge: '#8B6914',
-        desc: 'Naturalmente aceitosa, muy resistente a la humedad y la intemperie.'
-      },
-      {
-        id: 'Pino',
-        label: 'Pino',
-        img: '/maderas/pino.jpg',
-        badge: '#D4B483',
-        desc: 'Ligero y asequible con veta recta, ideal para muebles funcionales.'
-      },
-      {
-        id: 'Abedul',
-        label: 'Abedul',
-        img: '/maderas/abedul.jpg',
-        badge: '#F0E0B0',
-        desc: 'Claro en color, textura uniforme y veta sutil. Ligero y resistente.'
-      },
-      {
-        id: 'Fresno',
-        label: 'Fresno',
-        img: '/maderas/fresno.jpg',
-        badge: '#C9A96E',
-        desc: 'Fuerte y flexible con un patrón de veta pronunciado y llamativo.'
-      },
-      {
-        id: 'Haya',
-        label: 'Haya',
-        img: '/maderas/haya.jpg',
-        badge: '#D2A679',
-        desc: 'Dura, pesada y excelente para uso cotidiano y mobiliario resistente.'
-      },
-      {
-        id: 'Cecia',
-        label: 'Cecia',
-        img: '/maderas/cecia.jpg',
-        badge: '#C49A6C',
-        desc: 'Fuerte y durable con un cálido tinte rojizo y veta fina.'
-      },
-      {
-        id: 'Cedro',
-        label: 'Cedro',
-        img: '/maderas/cedro.jpg',
-        badge: '#B5651D',
-        desc: 'Naturalmente fragante y resistente a insectos. Ideal para clósets.'
-      },
-      {
-        id: 'Nogal Americano',
-        label: 'Nogal Americano',
-        img: '/maderas/nogal_americano.jpg',
-        badge: '#6B4226',
-        desc: 'Extremadamente fuerte con un patrón de veta llamativo y contrastante.'
-      },
-      {
-        id: 'Ébano',
-        label: 'Ébano',
-        img: '/maderas/ebano.jpg',
-        badge: '#1C0F0A',
-        desc: 'Madera excepcionalmente densa, color negro profundo y acabado lujoso.'
-      },
-      {
-        id: 'Palo de Rosa',
-        label: 'Palo de Rosa',
-        img: '/maderas/palo_de_rosa.jpg',
-        badge: '#C17B6F',
-        desc: 'Exótico y bello, con veta única y colores rojizos intensos.'
-      }
-    ]
-  }
-];
 
 
 // ─── Natural Wood Grain Swatch (SVG feTurbulence) ─────────────────────────
@@ -1233,15 +1026,7 @@ function MaterialSelector({ value, value2, value3, value4, onChange }) {
   );
 }
 // ─── WOOD TONES SELECTOR ──────────────────────────────────────
-const WOOD_TONES = [
-  { id: 'natural', label: 'Natural' },
-  { id: 'golden_honey', label: 'Miel Dorada' },
-  { id: 'warm_chestnut', label: 'Castaño Cálido' },
-  { id: 'cinnamon', label: 'Canela' },
-  { id: 'nutmeg', label: 'Nuez' },
-  { id: 'merlot', label: 'Merlot' },
-  { id: 'tuscan_coffee', label: 'Café Toscano' }
-];
+
 
 const WOOD_MAP = {
   'Roble': 'roble',
@@ -1316,46 +1101,7 @@ function WoodTonesSelector({ woodType, value, onChange }) {
 
 
 // ─── COLOR SELECTOR COMPONENT ─────────────────────────────────
-const STAIN_COLORS = [
-  { name: 'Blanca', code: 'TS-6101', hex: '#EBE4D5', img: '/manchas/ts_6101.jpg' },
-  { name: 'Negra', code: 'TS-6102', hex: '#2A2A2A', img: '/manchas/ts_6102.jpg' },
-  { name: 'Ocre', code: 'TS-6103', hex: '#C98D26', img: '/manchas/ts_6103.jpg' },
-  { name: 'Amarillo Oro', code: 'TS-6105', hex: '#EBB414', img: '/manchas/ts_6105.jpg' },
-  { name: 'Rojo Colonial', code: 'TS-6106', hex: '#9B3331', img: '/manchas/ts_6106.jpg' },
-  { name: 'Rojo Vivo', code: 'TS-6107', hex: '#B8282E', img: '/manchas/ts_6107.jpg' },
-  { name: 'Naranja', code: 'TS-6108', hex: '#CD4C1B', img: '/manchas/ts_6108.jpg' },
-  { name: 'Azul', code: 'TS-6109', hex: '#2A467F', img: '/manchas/ts_6109.jpg' },
-  { name: 'Verde', code: 'TS-6110', hex: '#379057', img: '/manchas/ts_6110.jpg' },
-  { name: 'Royal Marrón', code: 'TS-6111', hex: '#632731', img: '/manchas/ts_6111.jpg' },
-  { name: 'Early American', code: 'TS-6112', hex: '#583D22', img: '/manchas/ts_6112.jpg' },
-  { name: 'Verde Ficus', code: 'TS-6113', hex: '#394A30', img: '/manchas/ts_6113.jpg' },
-  { name: 'Nogal americano', code: 'TS-6114', hex: '#5E412A', img: '/manchas/ts_6114.jpg' },
-  { name: 'Nogal clásico', code: 'TS-6115', hex: '#51371B', img: '/manchas/ts_6115.jpg' },
-  { name: 'Maple', code: 'TS-6116', hex: '#A8573E', img: '/manchas/ts_6116.jpg' },
-  { name: 'Caoba inglés', code: 'TS-6117', hex: '#7A2C34', img: '/manchas/ts_6117.jpg' },
-  { name: 'Caoba comercial', code: 'TS-6118', hex: '#652321', img: '/manchas/ts_6118.jpg' },
-  { name: 'Caoba clásico', code: 'TS-6119', hex: '#763124', img: '/manchas/ts_6119.jpg' },
-  { name: 'Roble', code: 'TS-6120', hex: '#633B18', img: '/manchas/ts_6120.jpg' },
-  { name: 'Arce', code: 'TS-6121', hex: '#D89018', img: '/manchas/ts_6121.jpg' },
-  { name: 'Cedro', code: 'TS-6122', hex: '#AD591B', img: '/manchas/ts_6122.jpg' },
-  { name: 'Olmo', code: 'TS-6123', hex: '#AC8324', img: '/manchas/ts_6123.jpg' },
-  { name: 'Oyamel', code: 'TS-6124', hex: '#752A26', img: '/manchas/ts_6124.jpg' },
-  { name: 'Magnolia', code: 'TS-6125', hex: '#B15918', img: '/manchas/ts_6125.jpg' },
-  { name: 'Ciprés', code: 'TS-6126', hex: '#583918', img: '/manchas/ts_6126.jpg' },
-  { name: 'Amaranto', code: 'TS-6127', hex: '#672733', img: '/manchas/ts_6127.jpg' },
-  { name: 'Palo de rosa', code: 'TS-6128', hex: '#481932', img: '/manchas/ts_6128.jpg' },
-  { name: 'Chocolate', code: 'TS-6129', hex: '#2C2729', img: '/manchas/ts_6129.jpg' },
-  { name: 'Avellana', code: 'TS-6130', hex: '#491E1C', img: '/manchas/ts_6130.jpg' },
-  { name: 'Cherry', code: 'TS-6131', hex: '#5E1B28', img: '/manchas/ts_6131.jpg' },
-  { name: 'Nogal claro', code: 'TS-6132', hex: '#4B2F1C', img: '/manchas/ts_6132.jpg' },
-  { name: 'Encino americano', code: 'TS-6133', hex: '#7A3521', img: '/manchas/ts_6133.jpg' },
-  { name: 'Gris Perla', code: 'TS-6134', hex: '#C5C0B8', img: '/manchas/ts_6134.jpg' },
-  { name: 'Gris Titanio', code: 'TS-6135', hex: '#7C7872', img: '/manchas/ts_6135.jpg' },
-  { name: 'Gris Grafito', code: 'TS-6136', hex: '#3A3836', img: '/manchas/ts_6136.jpg' },
-  { name: 'Álamo', code: 'TS-6137', hex: '#8A7A6A', img: '/manchas/ts_6137.jpg' },
-  { name: 'Cacao', code: 'TS-6138', hex: '#3C2E27', img: '/manchas/ts_6138.jpg' },
-  { name: 'Abeto', code: 'TS-6139', hex: '#5B6E52', img: '/manchas/ts_6139.jpg' }
-];
+
 
 const SOLID_FAMILIES = {
   'Amarillo': [
@@ -1623,17 +1369,9 @@ const PROJECT_TYPES = [
   { id: 'OTROS', label: 'OTROS', icon: '✨', desc: 'Muebles de baño, TV, repisas, cantinas...' },
 ];
 
-const KITCHEN_LAYOUTS = [
-  { id: 'LINEAL', label: 'Lineal', img: '/layouts/cocina_lineal.png', desc: 'Sobre una sola pared' },
-  { id: 'EN L', label: 'En "L"', img: '/layouts/cocina_l.png', desc: 'En escuadra de dos muros' },
-  { id: 'PARALELO', label: 'Paralelo', img: '/layouts/cocina_paralelo.png', desc: 'Dos frentes enfrentados' },
-  { id: 'EN U', label: 'En "U"', img: '/layouts/cocina_u.png', desc: 'En tres paredes contiguas' },
-];
 
-const KITCHEN_ADDONS = [
-  { id: 'CON ISLA', label: 'Con Isla', icon: '🏝️', img: '/layouts/cocina_isla.png', desc: 'Módulo central exento de trabajo o barra' },
-  { id: 'CON PENÍNSULA', label: 'Con Península', icon: '🍹', img: '/layouts/cocina_peninsula.png', desc: 'Extensión fija unida a un lateral o muro' },
-];
+
+
 
 const CLOSET_LAYOUTS = [
   { id: 'LINEAL', label: 'Lineal', img: '/layouts/closet_lineal.png', desc: 'Frontal a lo largo de un muro' },
@@ -1729,19 +1467,19 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
         </h2>
         <span />
       </div>
-      <form onSubmit={handleSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') e.preventDefault(); }} style={{ display: 'grid', gap: '1.5rem' }}>
+      <form data-guide="prospect-form" onSubmit={handleSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') e.preventDefault(); }} style={{ display: 'grid', gap: '1.5rem' }}>
 
         {/* Cliente */}
         <div style={sectionStyle}>
           <p style={sectionTitleStyle}> Información del Cliente</p>
           <div>
             <label style={labelStyle}>Nombre de prospecto *</label>
-            <input type="text" name="name" required value={formData.name} onChange={handleChange} style={inputStyle} />
+            <input data-guide="prospect-name" type="text" name="name" required value={formData.name} onChange={handleChange} style={inputStyle} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={labelStyle}>Número o correo</label>
-              <input required type="text" name="contact_info" value={formData.contact_info} onChange={handleChange} style={inputStyle} />
+              <input data-guide="prospect-contact" required type="text" name="contact_info" value={formData.contact_info} onChange={handleChange} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Ubicación</label>
@@ -2884,7 +2622,7 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
 
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button
-            type="submit"
+            data-guide="prospect-save" type="submit"
             disabled={submitting}
             style={{
               flex: 1,
@@ -3506,7 +3244,7 @@ function Prospects() {
       {view === 'list' && (() => {
         const txt = filterText.toLowerCase().trim();
         const filtered = prospects.filter(p => {
-          if (p.is_contract) return false;
+          if (!isInProspects(p)) return false;
           if (showPapelera ? !p.is_papelera : p.is_papelera) return false;
           if (txt && !(
             (p.name         || '').toLowerCase().includes(txt) ||
@@ -3594,7 +3332,7 @@ function Prospects() {
                           ? <><IconUsers style={{ width:'16px', height:'16px', marginRight:0 }} /> Volver a Prospectos</>
                           : <><IconTrash style={{ width:'16px', height:'16px', marginRight:0 }} /> Ver Papelera</>}
                       </button>
-                      <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                      <button data-guide="prospect-new" onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
                         <><IconPlusCircle style={{ width:'16px', height:'16px', marginRight:0 }} /> Nuevo Prospecto</>
                 </button>
               </div>
@@ -3603,10 +3341,10 @@ function Prospects() {
             {/* ── ETAPAS PIPELINE ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
               {[
-                { key: '', label: 'Todos', count: prospects.filter(p => !p.is_contract && !p.is_papelera).length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: IconUsers },
-                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => !p.is_contract && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconUsers },
-                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => !p.is_contract && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconTrendingUp },
-                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => !p.is_contract && !p.is_papelera && p.status === 'Cotización').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconFileText },
+                { key: '', label: 'Todos', count: prospects.filter(p => isInProspects(p) && !p.is_papelera).length, color: '#475569', bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', icon: IconUsers },
+                { key: 'Prospecto',  label: 'Prospecto',  count: prospects.filter(p => isInProspects(p) && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto')).length,  color: '#2563eb', bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', icon: IconUsers },
+                { key: 'Valoración', label: 'Valoración', count: prospects.filter(p => isInProspects(p) && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion')).length, color: '#d97706', bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', icon: IconTrendingUp },
+                { key: 'Cotización', label: 'Cotización', count: prospects.filter(p => isInProspects(p) && !p.is_papelera && p.status === 'Cotización').length,  color: '#16a34a', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', icon: IconFileText },
               ].map(({ key, label, count, color, bg, icon }) => {
                 const isActive = filterStatus === key;
                 const StageIcon = icon;
@@ -3774,7 +3512,7 @@ function Prospects() {
                             </button>
                           </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem', color: '#1e293b', fontWeight: '500' }}>
-                            {p.project_type || '-'}
+                            {p.work_flow ? cascadeWorks(p).filter(item => ['ACTIVE', 'PAUSED'].includes(item.status)).map(item => `${item.name}${item.status === 'PAUSED' ? ' (pausado)' : ''}`).join(', ') : p.project_type || '-'}
                           </td>
                           <td style={{ padding: '0.6rem', fontSize: '0.9rem' }}>{p.contact_info || '-'}</td>
                           <td style={{ padding: '0.6rem', fontSize: '0.85rem' }}>
@@ -3840,7 +3578,7 @@ function Prospects() {
                               </button>
 
                               {/* 2. VALORACION */}
-                              <button onClick={() => setViewingValuation(p)}
+                              <button data-guide="valuation-open" onClick={() => setViewingValuation(p)}
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
@@ -3851,7 +3589,7 @@ function Prospects() {
                               </button>
 
                               {/* 3. COTIZACION */}
-                              <button onClick={() => {
+                              <button data-guide="quote-open" onClick={() => {
                                 if (!p.valuation_data && !p.has_quote) {
                                   alert("⚠️ Primero debe agregar una valoración para poder cotizar.");
                                   return;
@@ -3869,7 +3607,7 @@ function Prospects() {
 
                               {/* 4. APROBADO */}
                               {p.has_quote && p.valuation_data && !p.is_contract && !p.is_papelera && (
-                                <button onClick={() => setApproveModalFor(p)}
+                                <button data-guide="approval-open" onClick={() => setApproveModalFor(p)}
                                   style={{ padding: '0.2rem 0.4rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
                                   onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
@@ -3992,6 +3730,11 @@ function Prospects() {
         <ValuationModal 
           prospect={viewingValuation}
           onClose={() => setViewingValuation(null)}
+          onDeleteWork={async (id) => {
+            const result = await cascadeAction(viewingValuation.id, 'delete', [id]);
+            setViewingValuation(previous => ({ ...previous, ...result }));
+            await fetchProspects();
+          }}
           onSave={async (updatedData) => {
             try {
               const numVal = parseFloat(updatedData.totalToPay || updatedData.grandTotal || 0);
@@ -4015,40 +3758,6 @@ function Prospects() {
               alert('Error al guardar valoración.');
             }
           }}
-          onDelete={async () => {
-            if(!window.confirm("¿Seguro que deseas eliminar la valoración de este prospecto?")) return;
-            try {
-              const updated = { 
-                ...viewingValuation, 
-                estimated_price: null, 
-                valuation_data: null, 
-                status: 'Prospecto',
-                has_quote: false,
-                quote_saludo: null,
-                quote_title: null,
-                quote_description: null,
-                quote_total_price: null,
-                quote_delivery_time: null,
-                quote_validez: null,
-                quote_anticipo: null,
-                quote_image_1: null,
-                quote_image_2: null,
-                quote_image_3: null,
-                quote_image_4: null
-              };
-              await fetch(`${API}/api/prospects/${viewingValuation.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated)
-              });
-              alert("Valoración eliminada.");
-              setViewingValuation(null);
-              window.location.reload(); 
-            } catch(e) {
-              console.error(e);
-              alert("Error al eliminar valoración.");
-            }
-          }}
         />
       )}
     </div>
@@ -4056,7 +3765,7 @@ function Prospects() {
 }
 
 // ─── MODAL DE VALORACIÓN MULTI-HOJA ─────────────────────────────────────────
-function ValuationModal({ prospect, onClose, onDelete, onSave }) {
+export function ValuationModal({ prospect, onClose, onDeleteWork, onSave }) {
   if (!prospect.valuation_data) return null;
   let parsed;
   try { parsed = JSON.parse(prospect.valuation_data); } catch(e) { return <div>Error leyendo datos.</div>; }
@@ -4075,17 +3784,41 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
         labor:     raw.labor     || [],
         concepts:  raw.concepts  || [],
       }]),
-      globalMargin: raw.margin || 30,
+      globalMargin: raw.margin ?? 30,
       grandTotal:   raw.totalToPay || 0,
     };
   };
 
   const [data,     setData]     = React.useState(() => normalizeToSheets(JSON.parse(JSON.stringify(parsed))));
   const [editing,  setEditing]  = React.useState(false);
-  const [activeIdx, setActiveIdx] = React.useState(0); // tab activo
+  const [selectedIdx, setActiveIdx] = React.useState(0);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState('');
 
   const sheets = data.sheets || [];
-  const margin = parseFloat(data.globalMargin) || 30;
+  const workflow = JSON.parse(prospect.work_flow || '{}');
+  const visibleSheets = sheets.map((sheet, idx) => ({ sheet, idx })).filter(({ idx }) => {
+    if (prospect.is_contract) return true;
+    const status = workflow.items?.[`work-${idx + 1}`]?.status;
+    return status !== 'DELETED' && status !== 'TRANSFERRED';
+  });
+  const activeIdx = visibleSheets.some(item => item.idx === selectedIdx) ? selectedIdx : visibleSheets[0]?.idx;
+  const margin = Number(data.globalMargin ?? 30);
+
+  const deleteActiveWork = async () => {
+    const sheet = sheets[activeIdx];
+    if (!sheet || !window.confirm(`¿Eliminar la valoración de "${sheet.type}"? Se quitará de los trabajos pendientes y de la cotización, sin afectar los demás proyectos. Se conservará su historial.`)) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await onDeleteWork(`work-${activeIdx + 1}`);
+    } catch (error) {
+      console.error(error);
+      setDeleteError(error.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // ── Cálculos ──────────────────────────────────────────────────────────────
   const sheetTotals = (sheet) => {
@@ -4096,7 +3829,7 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
     const cost = mat + lab + con;
     return { mat, lab, con, cost, mg: cost * (margin / 100), total: cost + cost * (margin / 100) };
   };
-  const grandCost  = sheets.reduce((s, sh) => s + sheetTotals(sh).cost, 0);
+  const grandCost  = visibleSheets.reduce((s, { sheet }) => s + sheetTotals(sheet).cost, 0);
   const grandMg    = grandCost * (margin / 100);
   const grandTotal = grandCost + grandMg;
 
@@ -4165,10 +3898,10 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
           <h2 style={{ color: '#8b5a2b', margin: 0, fontSize: '1.1rem' }}>
             📋 Valoración: {prospect.name}
             <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '10px', fontWeight: '400' }}>
-              {sheets.length} hoja{sheets.length !== 1 ? 's' : ''}
+              {visibleSheets.length} hoja{visibleSheets.length !== 1 ? 's' : ''}
             </span>
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>✖</button>
+          <button disabled={deleting} onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>✖</button>
         </div>
 
         {editing && (
@@ -4177,14 +3910,26 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
           </div>
         )}
 
+        {deleteError && <p role="alert" style={{ color: '#b91c1c' }}>{deleteError}</p>}
+        {!visibleSheets.length && <p>No quedan valoraciones pendientes para este prospecto.</p>}
+        {!prospect.is_contract && activeSheet && (
+          <div style={{ marginBottom: '1rem' }}>
+            <button data-guide="valuation-delete" type="button" disabled={deleting || editing} onClick={deleteActiveWork}
+              style={{ color: '#b91c1c', padding: '8px 12px', border: '1px solid #fca5a5', borderRadius: '6px', background: '#fef2f2', cursor: 'pointer' }}>
+              {deleting ? 'Eliminando...' : `Eliminar valoración de ${activeSheet.type}`}
+            </button>
+            {editing && <p>Guarda o cancela los cambios antes de eliminar un proyecto.</p>}
+          </div>
+        )}
+
         {/* ── TABS DE HOJAS ── */}
-        {sheets.length > 1 && (
+        {visibleSheets.length > 1 && (
           <div style={{ display: 'flex', gap: '4px', borderBottom: '2px solid #8b5a2b', marginBottom: '0', overflowX: 'auto' }}>
-            {sheets.map((sheet, idx) => {
+            {visibleSheets.map(({ sheet, idx }) => {
               const t = sheetTotals(sheet);
               const isActive = activeIdx === idx;
               return (
-                <div key={idx} onClick={() => setActiveIdx(idx)} style={{
+                <div key={idx} onClick={() => { if (!deleting) setActiveIdx(idx); }} style={{
                   padding: '8px 16px 10px 16px', cursor: 'pointer', fontWeight: '600', fontSize: '0.87rem',
                   borderRadius: '8px 8px 0 0', flexShrink: 0,
                   background: isActive ? '#8b5a2b' : '#f1f5f9',
@@ -4210,7 +3955,7 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
         {/* ── TABLA DE LA HOJA ACTIVA ── */}
         {activeSheet && (
           <div style={{ border: '1px solid #e2e8f0', borderTop: sheets.length > 1 ? 'none' : '1px solid #e2e8f0', borderRadius: sheets.length > 1 ? '0 0 8px 8px' : '8px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-            {sheets.length > 1 && (
+            {visibleSheets.length > 1 && (
               <div style={{ background: '#fff7ed', padding: '8px 12px', fontSize: '0.82rem', fontWeight: '700', color: '#92400e', borderBottom: '1px solid #fed7aa' }}>
                 Hoja {activeIdx + 1}: {activeSheet.type}
               </div>
@@ -4256,7 +4001,7 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
                 </tr>
               </thead>
               <tbody>
-                {sheets.map((sheet, idx) => {
+                {visibleSheets.map(({ sheet, idx }) => {
                   const t = sheetTotals(sheet);
                   return (
                     <tr key={idx} onClick={() => setActiveIdx(idx)}
@@ -4302,10 +4047,6 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
 
         {/* ── ACCIONES ── */}
         <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button onClick={onDelete}
-            style={{ backgroundColor: '#dc2626', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-            Eliminar valoración
-          </button>
           {editing ? (
             <>
               <button onClick={() => { setData(normalizeToSheets(JSON.parse(JSON.stringify(parsed)))); setEditing(false); }}
@@ -4323,11 +4064,11 @@ function ValuationModal({ prospect, onClose, onDelete, onSave }) {
             </>
           ) : (
             <>
-              <button onClick={() => setEditing(true)}
+              <button disabled={deleting || !visibleSheets.length} onClick={() => setEditing(true)}
                 style={{ backgroundColor: '#eab308', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                 ✏️ Editar Cantidades
               </button>
-              <button onClick={onClose}
+              <button disabled={deleting} onClick={onClose}
                 style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                 Cerrar
               </button>

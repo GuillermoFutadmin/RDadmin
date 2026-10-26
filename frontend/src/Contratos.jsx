@@ -5,6 +5,7 @@ import { CotizacionView } from './Cotizacion';
 import { IconUsers, IconCheckCircle, IconPalette, IconPenTool, IconFileText, IconSearch, IconXCircle } from './icons';
 import ProjectTracking from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
+import { getProductionWorkOptions, getPendingContractWork, isInContracts, parseStoredData, startSelectedProductionWork } from './productionWorkItems';
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
 
@@ -58,6 +59,50 @@ function ConfirmModal({ prospect, onApprove, onReject, onClose }) {
           style={{ width:'100%', marginTop:'0.6rem', padding:'0.55rem', background:'#f1f5f9', border:'none', borderRadius:'8px', cursor:'pointer', color:'#64748b', fontSize:'0.85rem' }}>
           Cancelar
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ProductionSelectionModal({ prospect, selectedIds, onToggle, onCancel, onConfirm, saving }) {
+  if (!prospect) return null;
+  const production = parseStoredData(prospect.production_data);
+  const workItems = Array.isArray(production.work_items) ? production.work_items : [];
+  const options = getProductionWorkOptions(prospect);
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="production-selection-title" style={{ position:'fixed', inset:0, zIndex:10000, background:'rgba(15,23,42,0.62)', display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
+      <div style={{ width:'min(620px, 100%)', maxHeight:'90vh', overflowY:'auto', background:'#fff', borderRadius:16, padding:'1.4rem', boxShadow:'0 24px 70px rgba(0,0,0,0.3)' }}>
+        <h2 data-guide="production-confirm" id="production-selection-title" style={{ margin:'0 0 0.35rem', color:'#172b4d', fontSize:'1.15rem' }}>Seleccionar trabajos para producción</h2>
+        <p style={{ margin:'0 0 1rem', color:'#64748b', fontSize:'0.85rem' }}>
+          {prospect.name}: marca los trabajos que comienzan ahora. Los demás permanecerán pendientes en Contratos y conservarán su valoración.
+        </p>
+        <div style={{ display:'grid', gap:'0.55rem' }}>
+          {options.map(item => {
+            const saved = workItems.find(work => work.id === item.id);
+            const checked = selectedIds.includes(item.id);
+            const alreadyStarted = saved?.status === 'PRODUCCION' || saved?.status === 'ENTREGADO';
+            return (
+              <label key={item.id} style={{ display:'flex', gap:'0.7rem', alignItems:'flex-start', padding:'0.75rem', border:`1px solid ${checked ? '#93c5fd' : '#e2e8f0'}`, borderRadius:10, background:checked ? '#eff6ff' : '#fff', cursor:alreadyStarted ? 'not-allowed' : 'pointer', opacity:alreadyStarted ? 0.75 : 1 }}>
+                <input type="checkbox" checked={checked} disabled={alreadyStarted} onChange={() => onToggle(item.id)} style={{ marginTop:3 }} />
+                <span style={{ flex:1 }}>
+                  <strong style={{ display:'block', color:'#1e293b', fontSize:'0.88rem' }}>{item.name}</strong>
+                  {item.measurements && <span style={{ display:'block', marginTop:3, color:'#64748b', fontSize:'0.77rem' }}>Medidas: {item.measurements}</span>}
+                  {item.valuation && <span style={{ display:'block', marginTop:3, color:'#1d4ed8', fontSize:'0.73rem' }}>Valoración: {item.valuation}</span>}
+                </span>
+                {saved && <span style={{ padding:'0.2rem 0.45rem', borderRadius:999, background:saved.status === 'STANDBY' ? '#fef3c7' : saved.status === 'ENTREGADO' ? '#dcfce7' : '#dbeafe', color:saved.status === 'STANDBY' ? '#92400e' : saved.status === 'ENTREGADO' ? '#166534' : '#1d4ed8', fontSize:'0.68rem', fontWeight:800 }}>{saved.status === 'STANDBY' ? 'En espera' : saved.status === 'ENTREGADO' ? 'Entregado' : 'En producción'}</span>}
+              </label>
+            );
+          })}
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginTop:'1.1rem' }}>
+          <span style={{ color:'#64748b', fontSize:'0.78rem' }}>{selectedIds.length} seleccionado(s)</span>
+          <div style={{ display:'flex', gap:8 }}>
+            <button type="button" onClick={onCancel} disabled={saving} style={{ padding:'0.55rem 0.9rem', border:'1px solid #cbd5e1', borderRadius:8, background:'#fff', color:'#475569', cursor:'pointer' }}>Cancelar</button>
+            <button type="button" onClick={onConfirm} disabled={saving || selectedIds.length === 0} style={{ padding:'0.55rem 0.9rem', border:0, borderRadius:8, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:saving ? 'wait' : 'pointer', opacity:saving || selectedIds.length === 0 ? 0.6 : 1 }}>
+              {saving ? 'Guardando…' : 'Iniciar selección'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -281,7 +326,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
           {!productionMode && <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconFileText style={{ width:'14px', height:'14px', marginRight:0 }} /> Descargar Cotización
           </button>}
-          {!productionMode && <button onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
+          {!productionMode && <button data-guide="production-send" onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
             🏭 {prospect.production_data ? 'Ver Producción' : 'Enviar a Producción'}
           </button>}
           {!productionMode && <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>}
@@ -598,6 +643,9 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const [renderFiles, setRenderFiles] = useState([]);
   const [renderPdf, setRenderPdf] = useState(null);
   const [uploadingRender, setUploadingRender] = useState(false);
+  const [productionSelectionFor, setProductionSelectionFor] = useState(null);
+  const [selectedWorkIds, setSelectedWorkIds] = useState([]);
+  const [startingProduction, setStartingProduction] = useState(false);
 
   const fetchContratos = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -605,7 +653,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
       const res = await fetch(`${API}/api/prospects?light=true`);
       if (!res.ok) throw new Error(`No se pudieron actualizar los contratos (${res.status})`);
       const data = await res.json();
-      setContratos(data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
+      setContratos(data.filter(isInContracts));
       if (selected) {
         const updatedSelected = data.find(item => item.id === selected.id);
         if (updatedSelected) setSelected(prev => mergeHeavy(updatedSelected, prev));
@@ -648,30 +696,32 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
     setSelected(null);
   };
 
-  const handleStartProduction = async (p) => {
-    let productionData = p.production_data;
-    if (!productionData) {
-      const now = new Date().toISOString();
-      productionData = JSON.stringify({
-        current_stage: 0,
-        started_at: now,
-        stages: [
-          'Generando información',
-          'Preparación de materiales',
-          'Producción iniciada',
-          'Avance 1',
-          'Avance 2 / revisión',
-          'Entrega del proyecto'
-        ].map((name, index) => ({
-          name,
-          entered_at: index === 0 ? now : null,
-          note: '',
-          photos: []
-        }))
-      });
-    }
+  const handleStartProduction = async (prospect) => {
     try {
-      const response = await fetch(`${API}/api/prospects/${p.id}`, {
+      const fullProspect = prospect.is_light ? await fetchFullProspect(prospect.id) : prospect;
+      if (!fullProspect) throw new Error('No se pudo cargar la valoración del contrato.');
+      const existing = parseStoredData(fullProspect.production_data);
+      const startedIds = (existing.work_items || []).filter(item => ['PRODUCCION', 'ENTREGADO'].includes(item.status)).map(item => item.id);
+      setProductionSelectionFor(fullProspect);
+      setSelectedWorkIds(fullProspect.contract_work_item_ids
+        ? JSON.parse(fullProspect.contract_work_item_ids).filter(id => !startedIds.includes(id))
+        : []);
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || 'No se pudo cargar la valoración.');
+    }
+  };
+
+  const handleConfirmProduction = async () => {
+    if (!productionSelectionFor || selectedWorkIds.length === 0) {
+      window.alert('Selecciona al menos un trabajo para iniciar producción.');
+      return;
+    }
+    setStartingProduction(true);
+    try {
+      const prospect = productionSelectionFor;
+      const productionData = JSON.stringify(startSelectedProductionWork(prospect, selectedWorkIds, new Date().toISOString()));
+      const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ production_data: productionData, status: 'PRODUCCION' })
@@ -680,10 +730,13 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
       const updated = await response.json();
       setContratos(current => current.map(item => item.id === updated.id ? updated : item));
       setSelected(updated);
+      setProductionSelectionFor(null);
       onProductionStarted();
     } catch (error) {
       console.error(error);
       window.alert(error.message || 'No se pudo iniciar Producción.');
+    } finally {
+      setStartingProduction(false);
     }
   };
 
@@ -707,7 +760,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
         onSaveStatus={async () => {
           const response = await fetch(`${API}/api/prospects/${selected.id}`, {
             method: 'PUT', headers:{'Content-Type':'application/json'}, 
-            body: JSON.stringify({ status: 'CONTRATO' }) 
+            body: JSON.stringify({ status: ['PRODUCCION', 'ENTREGADO'].includes(selected.status) ? selected.status : 'CONTRATO' })
           });
           if (!response.ok) throw new Error(`No se pudo guardar el contrato (${response.status})`);
           fetchContratos();
@@ -727,6 +780,14 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   if (view === 'detail' && selected) {
     return (
       <div style={{ padding:'1rem' }}>
+        <ProductionSelectionModal
+          prospect={productionSelectionFor}
+          selectedIds={selectedWorkIds}
+          onToggle={(id) => setSelectedWorkIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
+          onCancel={() => setProductionSelectionFor(null)}
+          onConfirm={handleConfirmProduction}
+          saving={startingProduction}
+        />
         <ContratoDetail
           prospect={selected}
           onBack={() => { setView('list'); setSelected(null); }}
@@ -738,7 +799,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
             // Recargar lista de contratos y actualizar el selected con datos frescos del servidor
             const res = await fetch(`${API}/api/prospects?light=true`);
             const data = await res.json();
-            const freshContratos = data.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status));
+            const freshContratos = data.filter(isInContracts);
             setContratos(freshContratos);
             const freshFull = await fetchFullProspect(selected.id);
             if (freshFull) setSelected(freshFull);
@@ -800,6 +861,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
   const txt = filterText.toLowerCase().trim();
 
   const getStatus = (c) => {
+    if (getPendingContractWork(c).length && ['PRODUCCION', 'ENTREGADO'].includes(c.status)) return 'CONTRATO';
     const validStates = ['APROBADO', 'RENDER SI/NO', 'ESTIMACIÓN', 'CONTRATO', 'CONTRATO PENDIENTE'];
     if (c.status && validStates.includes(c.status)) return c.status;
     return 'APROBADO';
@@ -872,7 +934,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
             </p>
 
             {/* SI / NO buttons */}
-            <div style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
+            <div data-guide="render-options" style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
               {[{val: true, label:'SÍ — Aplica Render', bg:'#10b981', Icon:IconCheckCircle}, {val: false, label:'NO — Sin Render', bg:'#64748b', Icon:IconXCircle}].map(opt => (
                 <button key={String(opt.val)}
                   onClick={() => setRenderApplies(opt.val)}
@@ -1038,6 +1100,14 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
         <div>
+          <ProductionSelectionModal
+            prospect={productionSelectionFor}
+            selectedIds={selectedWorkIds}
+            onToggle={(id) => setSelectedWorkIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
+            onCancel={() => setProductionSelectionFor(null)}
+            onConfirm={handleConfirmProduction}
+            saving={startingProduction}
+          />
           <h2 style={{ margin:0, color:'#1e293b', fontSize:'1.4rem', fontWeight:'800', display:'flex', alignItems:'center', gap:'0.5rem' }}>
             <IconFileText style={{ width:'22px', height:'22px', marginRight:0 }} /> Clientes
           </h2>
@@ -1151,30 +1221,34 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                   onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.85rem', fontWeight:'bold', color:'#64748b' }}>{c.public_id}</td>
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', left:0, background:'white', zIndex:1, boxShadow:'2px 0 4px rgba(0,0,0,0.06)' }}>
-                    <button onClick={() => { setSelected(c); setView('detail'); }}
+                    <button data-guide="client-open" onClick={() => { setSelected(c); setView('detail'); }}
                       style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontWeight:'600', fontSize:'0.95rem', textDecoration:'underline', padding:0, whiteSpace:'nowrap' }}>
                       {c.name}
                     </button>
+                    {c.source_prospect_id && <div style={{ marginTop: 4, fontSize: '0.72rem', color: '#64748b' }}>Vinculado a Prospecto #{c.source_prospect_id}</div>}
                   </td>
-                  <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.9rem', color:'#475569' }}>{c.project_type || '-'}</td>
+                  <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.9rem', color:'#475569' }}>
+                    {getPendingContractWork(c).length > 0 ? getPendingContractWork(c).map(item => item.name).join(', ') : c.project_type || '-'}
+                    {getPendingContractWork(c).length > 0 && <div style={{ marginTop: 4, fontSize:'0.75rem', color:'#92400e' }}>{getPendingContractWork(c).length} pendiente(s) en Contratos</div>}
+                  </td>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.9rem' }}>{c.contact_info || '-'}</td>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.85rem', color:'#64748b' }}>{fmtDate(c.contract_date)}</td>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.88rem' }}>{c.material_type_2 ? `${c.material_type} + ${c.material_type_2}` : (c.material_type || '-')}</td>
-                  <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(c.status)}</td>
+                  <td style={{ padding:'0.7rem 0.8rem' }}>{statusBadge(getStatus(c))}</td>
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', right:0, background:'white', zIndex:1, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
                       {getStatus(c) === 'CONTRATO' && (
-                        <button onClick={() => handleStartProduction(c)} style={{
+                        <button data-guide="production-send" onClick={() => handleStartProduction(c)} style={{
                           padding:'0.2rem 0.4rem', background:'#1d4ed8', color:'white',
                           border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'700',
                           fontSize:'0.7rem', whiteSpace:'nowrap'
                         }}>
-                          🏭 {c.production_data ? 'Producción' : 'Enviar a Producción'}
+                          🏭 {getPendingContractWork(c).length ? 'Enviar pendientes a Producción' : 'Enviar a Producción'}
                         </button>
                       )}
                       {/* Render button - shows on APROBADO, changes color when filled */}
                       { (getStatus(c) === 'APROBADO' || getStatus(c) === 'RENDER SI/NO') && (
-                        <button onClick={() => {
+                        <button data-guide="render-choice" onClick={() => {
                           setRenderModalFor(c);
                           setRenderApplies(c.render_applies ?? null);
                           setRenderPrice(c.render_price ? String(c.render_price) : '');
@@ -1190,7 +1264,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                         </button>
                       )}
                       {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
-                      <button
+                      <button data-guide="estimate-open"
                         disabled={getStatus(c) === 'APROBADO'}
                         onClick={() => {
                           if (getStatus(c) === 'APROBADO') return;
@@ -1214,7 +1288,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                       
                       {/* Contrato button - disabled until estimation_data is filled */}
                       { (getStatus(c) === 'ESTIMACIÓN' || getStatus(c) === 'CONTRATO' || getStatus(c) === 'CONTRATO PENDIENTE') && (
-                        <button
+                        <button data-guide="contract-open"
                           disabled={!c.estimation_data}
                           onClick={async () => {
                             if (!c.estimation_data) return;
@@ -2767,7 +2841,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           {saveMsg}
         </div>
       )}
-      <button onClick={handleSave} disabled={saving}
+      <button data-guide="estimate-save" onClick={handleSave} disabled={saving}
        style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
        {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
       </button>

@@ -75,8 +75,12 @@ const formatDate = (value) => {
 export function getProjectTrackingProgress(prospect) {
   const production = normalizeProduction(prospect.production_data);
   const status = String(prospect.status || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const workItems = Array.isArray(production.work_items) ? production.work_items : [];
+  const firstTrackedWork = workItems.find(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
   const delivered = status === 'ENTREGADO' || !!production.delivered_at;
-  const inProduction = !!prospect.production_data || status === 'PRODUCCION' || delivered;
+  const inProduction = status === 'PRODUCCION' || delivered
+    || workItems.some(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO')
+    || (!!prospect.production_data && workItems.length === 0);
   const underContract = !!prospect.is_contract || !!prospect.contract_date || [
     'APROBADO', 'CONTRATO', 'CONTRATO PENDIENTE', 'PRODUCCION', 'ENTREGADO'
   ].includes(status);
@@ -85,18 +89,26 @@ export function getProjectTrackingProgress(prospect) {
     || status === 'VALORACION';
   const currentIndex = delivered ? 5 : inProduction ? 4 : underContract ? 3
     : quoteSent ? 2 : valuationDone ? 1 : 0;
-  const currentProductionStage = Number.isInteger(production.current_stage)
-    ? Math.max(0, Math.min(production.current_stage, PRODUCTION_STAGES.length - 1))
+  const productionStage = Number.isInteger(production.current_stage)
+    ? production.current_stage
+    : firstTrackedWork?.production_data?.current_stage;
+  const currentProductionStage = Number.isInteger(productionStage)
+    ? Math.max(0, Math.min(productionStage, PRODUCTION_STAGES.length - 1))
     : 0;
+  const activeWorkCount = workItems.filter(item => item.status === 'PRODUCCION').length;
+  const standbyWorkCount = workItems.filter(item => item.status === 'STANDBY').length;
 
   return {
     production,
+    workItems,
     delivered,
     currentIndex,
     currentProductionStage,
     completion: delivered ? 100 : Math.round((currentIndex / (TRACKING_STAGES.length - 1)) * 100),
     stageLabel: delivered
       ? 'Proyecto entregado'
+      : workItems.length
+        ? `${activeWorkCount} en producción · ${standbyWorkCount} en espera`
       : currentIndex === 4
         ? PRODUCTION_STAGES[currentProductionStage]
         : TRACKING_STAGES[currentIndex].label
@@ -115,8 +127,11 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
   const [galleryLightboxIndex, setGalleryLightboxIndex] = useState(null);
 
   const progress = getProjectTrackingProgress(prospect);
-  const { production, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
-  const productionStages = production.stages;
+  const { production, workItems, delivered, currentIndex, currentProductionStage, completion, stageLabel } = progress;
+  const firstTrackedWork = workItems.find(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
+  const productionStages = production.stages.length
+    ? production.stages
+    : firstTrackedWork?.production_data?.stages || [];
   const stages = TRACKING_STAGES.map((stage, index) => ({
     ...stage,
     complete: delivered || index < currentIndex,
@@ -213,7 +228,12 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
   const pProdPct = Math.min(100, Math.round((pElapsedProdDays / pPlannedDays) * 100));
   const pTotalDays = (pProspectDays || 0) + (pClientPrepDays || 0) + pElapsedProdDays;
 
-  const dailyPublished = (production.daily_advances || []).filter(a => a.published !== false);
+  const dailyPublished = [
+    ...(production.daily_advances || []),
+    ...workItems.flatMap(item => (item.production_data?.daily_advances || [])
+      .filter(advance => advance.published !== false)
+      .map(advance => ({ ...advance, work_item_name: item.name })))
+  ].filter(a => a.published !== false);
 
   return (
     <section style={{
@@ -247,6 +267,31 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
           )}
         </div>
       </div>
+
+      {workItems.length > 0 && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:8, marginTop:12 }}>
+          {workItems.map(item => {
+            const itemProduction = item.production_data || {};
+            const itemStage = Number.isInteger(itemProduction.current_stage)
+              ? Math.max(0, Math.min(itemProduction.current_stage, PRODUCTION_STAGES.length - 1))
+              : 0;
+            const itemStatus = item.status === 'STANDBY' ? 'En espera'
+              : item.status === 'ENTREGADO' ? 'Entregado'
+                : PRODUCTION_STAGES[itemStage];
+            const itemColor = item.status === 'STANDBY' ? '#92400e'
+              : item.status === 'ENTREGADO' ? '#166534' : '#1d4ed8';
+            const itemBackground = item.status === 'STANDBY' ? '#fffbeb'
+              : item.status === 'ENTREGADO' ? '#f0fdf4' : '#eff6ff';
+            return (
+              <div key={item.id} style={{ minWidth:0, padding:'0.65rem 0.75rem', border:`1px solid ${item.status === 'STANDBY' ? '#fde68a' : item.status === 'ENTREGADO' ? '#bbf7d0' : '#bfdbfe'}`, borderRadius:9, background:itemBackground }}>
+                <strong style={{ display:'block', color:'#334155', fontSize:'0.78rem', overflowWrap:'anywhere' }}>{item.name}</strong>
+                <span style={{ display:'block', marginTop:4, color:itemColor, fontSize:'0.7rem', fontWeight:800 }}>{itemStatus}</span>
+                {item.measurements && <span style={{ display:'block', marginTop:3, color:'#64748b', fontSize:'0.66rem' }}>{item.measurements}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {!compact && (
         <>
@@ -338,7 +383,7 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
               ...stageDailyAdvances.map((adv, idx) => ({
                 id: adv.id || `daily-${idx}`,
                 url: adv.url,
-                badge: adv.date ? `📅 ${adv.date}` : 'Taller',
+                badge: [adv.work_item_name, adv.date ? `📅 ${adv.date}` : 'Taller'].filter(Boolean).join(' · '),
                 date: adv.date || null,
                 comment: adv.comment || null,
                 source: 'daily'
@@ -498,7 +543,6 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                             />
                           </div>
                         ) : null}
-
                         {renderPdfUrl ? (
                           <div style={{
                             width: '100%',

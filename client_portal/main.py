@@ -46,6 +46,8 @@ _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_applies BOOLE
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;")
 
 app = FastAPI(title="RDadmin Client Portal")
+from web_security import security_headers
+app.middleware("http")(security_headers)
 
 app.add_middleware(
     CORSMiddleware,
@@ -387,6 +389,8 @@ def client_portal_render_pdf(public_id: str, request: Request):
     has_data = bool(row.get("has_data")) if has_bytea else False
     pdf_url = row.get("render_pdf_path") or prod_dict.get("render_pdf_path")
     img_url = row.get("render_image_path") or prod_dict.get("render_image_path")
+    if img_url:
+        img_url = img_url.split(",")[0].strip()
     pdf_data = row.get("render_pdf_data") if has_bytea else None
 
     if not has_data and not pdf_url and not img_url and not pdf_data:

@@ -8,6 +8,18 @@ import time
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi import HTTPException
+
+
+def require_modules(request, db, *modules):
+    from models import User
+    user = db.get(User, request.state.user_id)
+    if not user or user.status != "Activo":
+        raise HTTPException(status_code=401, detail="Cuenta no válida o inactiva")
+    permissions = json.loads(user.permissions or "[]")
+    if user.role != "Administrador" and not set(modules).intersection(str(item).lower() for item in permissions):
+        raise HTTPException(status_code=403, detail="No tienes permiso para esta operación")
+    return user
 
 TOKEN_TTL_SECONDS = 12 * 60 * 60
 PBKDF2_ITERATIONS = 200_000

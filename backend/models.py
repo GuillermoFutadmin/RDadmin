@@ -25,6 +25,8 @@ class Order(Base):
 class Prospect(Base):
     __tablename__ = "prospects"
     id = Column(Integer, primary_key=True, index=True)
+    work_flow = Column(String, nullable=True)
+    source_prospect_id = Column(Integer, nullable=True)
     name = Column(String, index=True)
     project_type = Column(String, nullable=True)
     project_type_other = Column(String, nullable=True)
@@ -97,6 +99,7 @@ class Prospect(Base):
     quote_title = Column(String, nullable=True)
     quote_description = Column(String, nullable=True)
     quote_total_price = Column(String, nullable=True)
+    contract_work_item_ids = Column(String, nullable=True)
     quote_delivery_time = Column(String, nullable=True)
     quote_validez = Column(String, nullable=True)
     quote_anticipo = Column(String, nullable=True)

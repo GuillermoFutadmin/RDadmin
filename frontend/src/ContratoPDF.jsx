@@ -3,6 +3,8 @@ const API = import.meta.env.VITE_API_URL || '';
 import { FIRMA_ROGER_B64 } from './firmaRogerB64.js';
 import { SignaturePad } from './SignaturePad';
 import { PhotoCapture } from './PhotoCapture';
+import WorkSelectionPanel from './WorkSelectionPanel.jsx';
+import { getWorkSheets, getSheetPrice, getSelectedWorkIds, getSelectedTotal, getWorkSelectionPayload, workId } from './workSelection';
 
 const formatCurrency = (val) => {
   const num = Number(val);
@@ -181,40 +183,30 @@ function ProjectMaterials({ prospect }) {
   );
 }
 
-function ContractPriceBreakdown({ estimate, prospect, projectTotal, renderTotal, contractTotal }) {
-  let sheets = Array.isArray(estimate.sheets) ? estimate.sheets : [];
-  if (!sheets.length && (estimate.materials || estimate.labor || estimate.concepts)) {
-    sheets = [{
-      type: prospect.project_type || 'Proyecto',
-      materials: estimate.materials || [],
-      labor: estimate.labor || [],
-      concepts: estimate.concepts || []
-    }];
-  }
-
+function ContractPriceBreakdown({ estimate, prospect, selectedIds, projectTotal, renderTotal, contractTotal, onSelectionChange, disabled }) {
+  const sheets = getWorkSheets(estimate, prospect.project_type);
+  const includedSheets = sheets.map((sheet, index) => ({ sheet, index })).filter(({ index }) => selectedIds.includes(workId(index)));
   const margin = Number(estimate.margin) || 0;
   const format = value => formatCurrency(value);
-  const sheetTotal = sheet => {
-    const rows = [...(sheet.materials || []), ...(sheet.labor || []), ...(sheet.concepts || [])];
-    const subtotal = rows.reduce((sum, row) => sum + (Number(row.qty) || 0) * (Number(row.price) || 0), 0);
-    return subtotal * (1 + margin / 100);
-  };
 
   return (
     <div style={{ margin:'0 0 14px', border:'1px solid #cbd5e1', borderRadius:'7px', overflow:'hidden', pageBreakInside:'avoid', breakInside:'avoid' }}>
+      {onSelectionChange && sheets.length > 0 && (
+        <WorkSelectionPanel prospect={prospect} sheets={sheets} margin={margin} selectedIds={selectedIds} onChange={onSelectionChange} disabled={disabled} />
+      )}
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
         <tbody>
           <tr style={{ background:'#f1f5f9', color:'#334155' }}>
             <td colSpan="2" style={{ padding:'7px 9px', fontWeight:'800', textTransform:'uppercase' }}>
-              Desglose del proyecto{(sheets.length + (renderTotal > 0 ? 1 : 0)) > 1 ? ` — ${sheets.length + (renderTotal > 0 ? 1 : 0)} conceptos` : ''}
+              Desglose del proyecto{(includedSheets.length + (renderTotal > 0 ? 1 : 0)) > 1 ? ` — ${includedSheets.length + (renderTotal > 0 ? 1 : 0)} conceptos` : ''}
             </td>
           </tr>
-          {sheets.map((sheet, index) => (
+          {includedSheets.map(({ sheet, index }) => (
             <tr key={`${sheet.type || 'proyecto'}-${index}`} style={{ borderTop:'1px solid #e2e8f0' }}>
               <td style={{ padding:'7px 9px', fontWeight:'700', color:'#475569', background:'#f8fafc' }}>
                 #{index + 1} {sheet.type || prospect.project_type || 'Proyecto'}
               </td>
-              <td style={{ padding:'7px 9px', textAlign:'right', fontWeight:'700' }}>{format(sheetTotal(sheet))}</td>
+              <td style={{ padding:'7px 9px', textAlign:'right', fontWeight:'700' }}>{format(getSheetPrice(sheet, margin))}</td>
             </tr>
           ))}
           {renderTotal > 0 && (
@@ -248,11 +240,20 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     } catch(e) {}
   }
   const projectDetails = estData.projectDetails || {};
-  const estimatedTotal = Number(estData.totalWithMargin) || 0;
+  const sheets = getWorkSheets(estData, prospect.project_type);
+  const [selectedIds, setSelectedIds] = useState(() => getSelectedWorkIds(prospect, sheets));
+  const estimatedTotal = sheets.length
+    ? getSelectedTotal(sheets, Number(estData.margin) || 0, selectedIds)
+    : Number(estData.totalWithMargin) || 0;
+  const selectedNames = sheets.filter((_, index) => selectedIds.includes(workId(index))).map(sheet => sheet.type || 'Proyecto');
+  const projectTitle = selectedNames.length ? selectedNames.join(', ') : prospect.project_type || 'PROYECTO';
   const renderTotal = prospect.render_applies ? Math.max(0, Number(prospect.render_price) || 0) : 0;
   const contractTotal = estimatedTotal + renderTotal;
 
   const getInitialDescription = () => {
+    if (prospect.contract_work_item_ids && selectedIds.length < sheets.length) {
+      return estData.obsText || `Fabricación e instalación de: ${projectTitle}.`;
+    }
     const estimateDescription = typeof estData.obsText === 'string' ? estData.obsText.trim() : '';
     if (estimateDescription) return estimateDescription;
     if (prospect.quote_description) return prospect.quote_description;
@@ -267,6 +268,12 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
     ].filter(Boolean).join('\n\n');
   };
   const [description, setDescription] = useState(getInitialDescription());
+  const handleSelectionChange = ids => {
+    setSelectedIds(ids);
+    setSaved(false);
+    const names = sheets.filter((_, index) => ids.includes(workId(index))).map(sheet => sheet.type || 'Proyecto');
+    setDescription(`Fabricación e instalación de: ${names.join(', ')}.`);
+  };
   const deliveryTimeMatch = String(prospect.quote_delivery_time || '').match(/\d+/);
   const initialDeliveryDays = projectDetails.production_days || prospect.production_days || (deliveryTimeMatch && deliveryTimeMatch[0]);
   const [diasEntrega, setDiasEntrega] = useState(String(initialDeliveryDays || '15'));
@@ -364,6 +371,25 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   const handleGeneratePDF = async () => {
     setSaving(true);
     try {
+      if (!Number.isFinite(Number(anticipoPct)) || Number(anticipoPct) < 0 || Number(anticipoPct) > 100) {
+        throw new Error('El anticipo debe estar entre 0 y 100%.');
+      }
+      const selectionPayload = sheets.length ? getWorkSelectionPayload(prospect, selectedIds, estimatedTotal) : {};
+      const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...selectionPayload,
+          estimation_data: JSON.stringify({
+            ...estData,
+            obsText: description,
+            anticipoPct: Number(anticipoPct),
+            projectDetails: { ...projectDetails, production_days: Number(diasEntrega) }
+          })
+        })
+      });
+      if (!response.ok) throw new Error(`No se pudo guardar la selección (${response.status})`);
+      Object.assign(prospect, await response.json());
       await onSaveStatus();
       setSaved(true);
     } catch (e) {
@@ -473,14 +499,14 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         <span style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>📄 Vista Previa del Contrato</span>
         <button
           onClick={handleGeneratePDF}
-          disabled={saving}
+          disabled={saving || (sheets.length > 0 && selectedIds.length === 0)}
           style={{ padding: '0.55rem 1.4rem', background: saving ? '#94a3b8' : saved ? '#16a34a' : '#8b5cf6', color: 'white', border: 'none', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           {saving ? '⏳ Procesando...' : saved ? '✅ Guardado — Descargar PDF' : '💾 Guardar y Descargar PDF'}
         </button>
       </div>
 
       {/* Preview View (Editable) */}
-      <div style={{ background: 'white', padding: '40px 48px', maxWidth: '860px', margin: '0 auto', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', borderRadius: '6px', color: '#000', fontFamily: 'Arial, sans-serif', fontSize: '10.5pt' }}>
+      <div data-guide="contract-document" style={{ background: 'white', padding: '40px 48px', maxWidth: '860px', margin: '0 auto', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', borderRadius: '6px', color: '#000', fontFamily: 'Arial, sans-serif', fontSize: '10.5pt' }}>
         
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #b45309', paddingBottom: '12px', marginBottom: '20px' }}>
@@ -508,7 +534,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
 
         {/* Project */}
         <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
-          FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
+          FABRICACIÓN E INSTALACIÓN DE {projectTitle.toUpperCase()}
         </h3>
         <ProjectMaterials prospect={prospect} />
         <div style={{ marginBottom: '14px' }}>
@@ -519,7 +545,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
             style={{ width: '100%', minHeight: '110px', padding: '0.5rem', marginTop: '6px', fontFamily: 'inherit', fontSize: '0.9rem', border: '1px solid #cbd5e1', borderRadius: '4px', resize: 'vertical' }}
           />
         </div>
-        <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
+        <ContractPriceBreakdown estimate={estData} prospect={prospect} selectedIds={selectedIds} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} onSelectionChange={handleSelectionChange} disabled={saving} />
 
         {/* Totals */}
         <div style={{ fontSize: '0.9rem', lineHeight: '1.7', marginBottom: '14px' }}>
@@ -579,14 +605,16 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         <p style={{ fontSize: '13px', marginBottom: '16px' }}>A continuación se establecen las especificaciones, características y condiciones correspondientes al proyecto contratado:</p>
 
         <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase', breakAfter: 'avoid', pageBreakAfter: 'avoid' }}>
-          FABRICACIÓN E INSTALACIÓN DE {(prospect.project_type || 'PROYECTO').toUpperCase()}
+          FABRICACIÓN E INSTALACIÓN DE {projectTitle.toUpperCase()}
         </h3>
         <ProjectMaterials prospect={prospect} />
         <div style={{ marginBottom: '16px', fontSize: '13px' }}>
           <strong>Descripción:</strong><br/>
-          <div dangerouslySetInnerHTML={{ __html: description.split('\n').map(l => l.trim() ? `<p style="margin:0 0 4px; break-inside: avoid; page-break-inside: avoid">${l}</p>` : '<br/>').join('') }}></div>
+          <div>{description.split('\n').map((line, index) => line.trim()
+            ? <p key={index} style={{ margin: '0 0 4px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>{line}</p>
+            : <br key={index} />)}</div>
         </div>
-        <ContractPriceBreakdown estimate={estData} prospect={prospect} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
+        <ContractPriceBreakdown estimate={estData} prospect={prospect} selectedIds={selectedIds} projectTotal={estimatedTotal} renderTotal={renderTotal} contractTotal={contractTotal} />
 
         <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '16px' }}>
           <strong>Total: {formatCurrency(contractTotal)} MXN (+IVA del 8% en caso de requerir factura).</strong>

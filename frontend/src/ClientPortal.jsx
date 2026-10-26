@@ -154,7 +154,9 @@ export default function ClientPortal() {
     ['Prioridades', project.project_priorities],
     ['Lo que esperas del proyecto', project.expectations]
   ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
-  const hasProductionStages = getProjectTrackingProgress(project).production.stages.length > 0;
+  const tracking = getProjectTrackingProgress(project);
+  const hasProductionStages = tracking.production.stages.length > 0
+    || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0);
 
   return (
     <main style={{

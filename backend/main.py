@@ -7,9 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime, timedelta
-import models, os, shutil, uuid
+import json, models, os, shutil, uuid
 import imagestore
 import auth
+from web_security import security_headers
 from database import engine, get_db
 import cloudinary
 import cloudinary.uploader
@@ -36,6 +37,9 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN papelera_reason VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_date TIMESTAMP;")
     safe_alter("ALTER TABLE prospects ADD COLUMN estimation_data VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN contract_work_item_ids VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN work_flow VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN source_prospect_id INTEGER;")
     safe_alter("ALTER TABLE prospects ADD COLUMN production_data VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_applies BOOLEAN;")
     safe_alter("ALTER TABLE prospects ADD COLUMN render_price REAL;")
@@ -64,6 +68,7 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="RDadmin API")
+app.middleware("http")(security_headers)
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.middleware("http")(auth.auth_middleware)
@@ -96,7 +101,10 @@ async def run_db_migrations():
         "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_path VARCHAR;",
         "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;",
         "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS other_projects VARCHAR;",
-        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;"
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS production_days INTEGER;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS contract_work_item_ids VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS work_flow VARCHAR;",
+        "ALTER TABLE prospects ADD COLUMN IF NOT EXISTS source_prospect_id INTEGER;"
     ]
     for sql in statements:
         try:
@@ -280,6 +288,8 @@ if os.path.exists(FRONTEND_DIST):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         # Check if it's a file request that might exist in dist (like /melaminas/espiga.jpg)
         file_path = os.path.join(FRONTEND_DIST, request.url.path.lstrip("/"))
+        if os.path.commonpath([os.path.realpath(FRONTEND_DIST), os.path.realpath(file_path)]) != os.path.realpath(FRONTEND_DIST):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         # Fallback to index.html for SPA routing
@@ -296,6 +306,8 @@ def health_check():
 
 
 class ProspectCreate(BaseModel):
+    work_flow: Optional[str] = None
+    source_prospect_id: Optional[int] = None
     name: Optional[str] = None
     project_type: Optional[str] = None
     project_type_other: Optional[str] = None
@@ -359,6 +371,7 @@ class ProspectCreate(BaseModel):
     quote_title: Optional[str] = None
     quote_description: Optional[str] = None
     quote_total_price: Optional[str] = None
+    contract_work_item_ids: Optional[str] = None
     quote_delivery_time: Optional[str] = None
     quote_validez: Optional[str] = None
     quote_anticipo: Optional[str] = None
@@ -566,14 +579,193 @@ def create_prospect(prospect: ProspectCreate, db: Session = Depends(get_db)):
     return db_prospect
 
 
+class CascadeQuoteFields(BaseModel):
+    quote_saludo: Optional[str] = None
+    quote_title: Optional[str] = None
+    quote_description: Optional[str] = None
+    quote_delivery_time: Optional[str] = None
+    quote_validez: Optional[str] = None
+    quote_anticipo: Optional[str] = None
+
+
+class WorkCascadeAction(BaseModel):
+    action: str
+    ids: List[str]
+    quote_fields: Optional[CascadeQuoteFields] = None
+
+
+@app.post("/api/prospects/{prospect_id}/work-cascade")
+def work_cascade_action(prospect_id: int, data: WorkCascadeAction, db: Session = Depends(get_db), request: Request = None):
+    if request is not None:
+        auth.require_modules(request, db, "prospectos")
+        if data.action == "approve":
+            auth.require_modules(request, db, "contratos")
+    from work_cascade import load_data, sheets_for, ensure_sheet_ids, validate_ids, quote_selection, selected_data
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).with_for_update().first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospecto no encontrado")
+    if prospect.is_contract:
+        raise HTTPException(status_code=409, detail="Esta selección corresponde a Prospectos")
+    try:
+        raw = load_data(prospect.valuation_data)
+        sheets = sheets_for(raw, prospect.project_type)
+        state = load_data(prospect.work_flow)
+        types = [sheet.get("type") for sheet in sheets]
+        if state.get("sheet_types") and types[:len(state["sheet_types"])] != state["sheet_types"]:
+            raise ValueError("Los trabajos cambiaron de orden; revisa la valoración antes de continuar")
+        state["sheet_types"] = types
+        if "sheets" not in raw:
+            raw["sheets"] = sheets
+        ensure_sheet_ids(sheets, state)
+        if data.action not in ("pause", "resume", "delete", "quote", "approve"):
+            raise ValueError("Acción no válida")
+        validate_ids(data.ids, sheets, state, ("PAUSED",) if data.action == "resume" else ("ACTIVE", "PAUSED") if data.action == "delete" else ("ACTIVE",))
+        if data.action == "approve":
+            quoted = state.get("quoted", []) if prospect.work_flow else [f"work-{index + 1}" for index in range(len(sheets))]
+            if not prospect.has_quote or any(item not in quoted for item in data.ids):
+                raise ValueError("Solo se pueden aprobar trabajos de la cotización guardada")
+            selected = selected_data(raw, prospect.project_type, data.ids)
+            values = {column.name: getattr(prospect, column.name) for column in models.Prospect.__table__.columns
+                      if column.name not in ("id", "public_id", "updated_at", "capture_date")}
+            total = selected["grandTotal"]
+            names = [sheet.get("type") or "Proyecto" for sheet in selected["sheets"]]
+            values.update(
+                source_prospect_id=prospect.id, work_flow=None, is_contract=True,
+                contract_date=datetime.utcnow(), status="APROBADO", contract_password=uuid.uuid4().hex[:10].upper(),
+                production_data=None, contract_work_item_ids=None,
+                contract_signature_rep=None, contract_signature_client=None,
+                contract_photo_rep=None, contract_photo_client=None,
+                valuation_data=json.dumps(selected, ensure_ascii=False),
+                project_type=", ".join(names), other_projects=None,
+                quote_title="FABRICACIÓN DE " + ", ".join(names).upper(),
+                quote_description="Fabricación e instalación de: " + ", ".join(names) + ".",
+                quote_total_price=f"{total:,.2f}", estimated_price=str(total),
+                render_applies=None, render_price=None, render_total_price=None,
+                render_image_path=None, render_pdf_path=None, render_pdf_data=None,
+            )
+            if prospect.estimation_data:
+                estimate = load_data(prospect.estimation_data)
+                estimate_sheets = sheets_for(estimate, prospect.project_type)
+                if len(estimate_sheets) != len(sheets):
+                    raise ValueError("La estimación y valoración no coinciden; revisa sus trabajos antes de aprobar")
+                selected_estimate = selected_data(estimate, prospect.project_type, data.ids)
+                selected_estimate["obsText"] = values["quote_description"]
+                values["estimation_data"] = json.dumps(selected_estimate, ensure_ascii=False)
+            child = models.Prospect(**values, public_id=generate_public_id(), capture_date=prospect.capture_date, updated_at=datetime.utcnow())
+            db.add(child)
+            db.flush()
+            for item in data.ids:
+                state.setdefault("items", {})[item] = {"status": "TRANSFERRED", "client_id": child.id, "public_id": child.public_id}
+            remaining_quote = [item for item in quoted if item not in data.ids]
+            state["quoted"] = remaining_quote
+            prospect.has_quote = bool(remaining_quote)
+            prospect.status = "Cotización" if remaining_quote else "Valoración"
+            prospect.quote_total_price = f"{quote_selection(raw, prospect.project_type, remaining_quote, state):,.2f}" if remaining_quote else None
+            result = {"client_id": child.id, "public_id": child.public_id}
+        elif data.action == "quote":
+            total = quote_selection(raw, prospect.project_type, data.ids, state)
+            state["quoted"] = data.ids
+            prospect.has_quote = True
+            prospect.status = "Cotización"
+            prospect.quote_total_price = f"{total:,.2f}"
+            names = [sheet.get("type") or "Proyecto" for index, sheet in enumerate(sheets) if f"work-{index + 1}" in data.ids]
+            prospect.quote_title = "FABRICACIÓN DE " + ", ".join(names).upper()
+            prospect.quote_description = "Fabricación e instalación de: " + ", ".join(names) + "."
+            if data.quote_fields:
+                for key, value in data.quote_fields.model_dump(exclude_unset=True).items():
+                    setattr(prospect, key, value)
+            result = {"total": total}
+        else:
+            quoted = state.get("quoted", []) if prospect.work_flow else [
+                f"work-{index + 1}" for index in range(len(sheets))
+            ] if prospect.has_quote else []
+            for item in data.ids:
+                state.setdefault("items", {})[item] = {"status": {"pause": "PAUSED", "resume": "ACTIVE", "delete": "DELETED"}[data.action]}
+            state["quoted"] = [item for item in quoted if item not in data.ids]
+            prospect.has_quote = bool(state["quoted"])
+            prospect.status = "Cotización" if prospect.has_quote else "Valoración"
+            prospect.quote_total_price = f"{quote_selection(raw, prospect.project_type, state['quoted'], state):,.2f}" if prospect.has_quote else None
+            if data.action == "delete":
+                remaining = [f"work-{index + 1}" for index in range(len(sheets))
+                             if state.get("items", {}).get(f"work-{index + 1}", {}).get("status", "ACTIVE") in ("ACTIVE", "PAUSED")]
+                prospect.estimated_price = str(selected_data(raw, prospect.project_type, remaining)["grandTotal"])
+            result = {}
+        prospect.work_flow = json.dumps(state, ensure_ascii=False)
+        prospect.valuation_data = json.dumps(raw, ensure_ascii=False)
+        if data.action != "quote" and state.get("quoted"):
+            names = [sheet.get("type") or "Proyecto" for index, sheet in enumerate(sheets)
+                     if f"work-{index + 1}" in state["quoted"]]
+            prospect.quote_title = "FABRICACIÓN DE " + ", ".join(names).upper()
+            prospect.quote_description = "Fabricación e instalación de: " + ", ".join(names) + "."
+        prospect.updated_at = datetime.utcnow()
+        db.commit()
+        return {**result, "work_flow": prospect.work_flow, "has_quote": prospect.has_quote, "status": prospect.status,
+                "estimated_price": prospect.estimated_price,
+                "quote_total_price": prospect.quote_total_price, "quote_title": prospect.quote_title, "quote_description": prospect.quote_description}
+    except (ValueError, TypeError, KeyError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.put("/api/prospects/{prospect_id}", response_model=ProspectResponse)
-def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = Depends(get_db)):
+def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = Depends(get_db), request: Request = None):
+    update_fields = prospect.model_dump(exclude_unset=True)
+    if request is not None:
+        fields = update_fields
+        auth.require_modules(request, db, "prospectos", "ventas", "contratos", "pedidos", "produccion")
+        if "production_data" in fields or fields.get("status") in ("PRODUCCION", "ENTREGADO"):
+            auth.require_modules(request, db, "pedidos", "produccion")
+        if any(key.startswith(("contract_", "render_")) or key in ("estimation_data", "is_contract") for key in fields):
+            auth.require_modules(request, db, "contratos")
+        if any(key.startswith("quote_") or key in ("valuation_data", "work_flow", "has_quote") for key in fields):
+            auth.require_modules(request, db, "prospectos", "ventas", "contratos")
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not db_prospect:
         raise HTTPException(status_code=404, detail="Prospect not found")
-    for key, value in prospect.dict(exclude_unset=True).items():
+    if prospect.work_flow is not None and prospect.work_flow != db_prospect.work_flow:
+        raise HTTPException(status_code=409, detail="Administra los trabajos desde su selección en Cotización")
+    if db_prospect.work_flow and not db_prospect.is_contract:
+        from work_cascade import load_data, sheets_for, ensure_sheet_ids, quote_selection
+        state = load_data(db_prospect.work_flow)
+        if prospect.is_contract:
+            raise HTTPException(status_code=409, detail="Aprueba únicamente los trabajos cotizados desde Prospectos")
+        if prospect.valuation_data is not None:
+            raw = load_data(prospect.valuation_data)
+            sheets = sheets_for(raw, db_prospect.project_type)
+            types = [sheet.get("type") for sheet in sheets]
+            if types[:len(state.get("sheet_types", []))] != state.get("sheet_types", []):
+                raise HTTPException(status_code=409, detail="No reordenes ni borres hojas con seguimiento; pausa o elimina el trabajo desde Cotización")
+            if "valuation_data" in update_fields:
+                if "sheets" not in raw:
+                    raw["sheets"] = sheets
+                try:
+                    ensure_sheet_ids(sheets, state)
+                except ValueError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
+                update_fields["valuation_data"] = json.dumps(raw, ensure_ascii=False)
+                db_prospect.work_flow = json.dumps(state, ensure_ascii=False)
+            quoted = state.get("quoted", [])
+            prospect.quote_total_price = f"{quote_selection(raw, db_prospect.project_type, quoted, state):,.2f}" if quoted else None
+    if prospect.contract_work_item_ids is not None:
+        try:
+            selected_ids = json.loads(prospect.contract_work_item_ids)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="La selección de trabajos no es válida") from exc
+        if not isinstance(selected_ids, list) or not selected_ids or any(
+            not isinstance(item, str) or not item.startswith("work-") or not item[5:].isdigit()
+            for item in selected_ids
+        ) or len(set(selected_ids)) != len(selected_ids):
+            raise HTTPException(status_code=400, detail="Selecciona al menos un trabajo válido, sin duplicados")
+        try:
+            production = json.loads(db_prospect.production_data or "{}")
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=409, detail="Los datos de producción no son válidos") from exc
+        if any(item.get("status") in ("PRODUCCION", "ENTREGADO") and item.get("id") not in selected_ids
+               for item in production.get("work_items", [])):
+            raise HTTPException(status_code=409, detail="No se puede quitar un trabajo que ya inició producción")
+    for key, value in update_fields.items():
         # Prevent overriding read-only fields on update if they happen to be in the payload
-        if key not in ['id', 'public_id', 'capture_date', 'updated_at']:
+        if key not in ['id', 'public_id', 'capture_date', 'updated_at', 'source_prospect_id', 'work_flow']:
             if key == 'estimation_data' and isinstance(value, str) and 'data:image' in value:
                 # Las fotos y croquis nuevos se guardan en Cloudinary; si fallan, se conserva el base64.
                 value, _, _ = imagestore.externalize_json(value, prospect_id)
@@ -799,6 +991,7 @@ async def upload_daily_advance(
     comment: str = Form(""),
     published: bool = Form(True),
     stage: Optional[int] = Form(None),
+    work_item_id: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -817,7 +1010,17 @@ async def upload_daily_advance(
         except Exception:
             production = {}
 
-    current_stage = production.get("current_stage", 0)
+    work_production = production
+    if work_item_id:
+        work_items = production.get("work_items", [])
+        work_item = next((item for item in work_items if item.get("id") == work_item_id), None)
+        if not work_item:
+            raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
+        if work_item.get("status") != "PRODUCCION":
+            raise HTTPException(status_code=409, detail="El trabajo no está activo en producción")
+        work_production = work_item.setdefault("production_data", {})
+
+    current_stage = work_production.get("current_stage", 0)
     assigned_stage = stage if stage is not None else current_stage
     try:
         assigned_stage = max(0, min(int(assigned_stage), 5))
@@ -826,7 +1029,7 @@ async def upload_daily_advance(
 
     clean_date = date.strip()[:10]
     image_url = await upload_to_storage(file, f"advance_{prospect_id}_{clean_date}")
-    advances = production.setdefault("daily_advances", [])
+    advances = work_production.setdefault("daily_advances", [])
     advance_entry = {
         "id": str(uuid.uuid4()),
         "date": clean_date,
@@ -843,8 +1046,57 @@ async def upload_daily_advance(
     return {"advance": advance_entry, "production_data": prospect.production_data}
 
 
+class ProductionWorkStageUpdate(BaseModel):
+    current_stage: int
+
+
+@app.put("/api/prospects/{prospect_id}/production-work-items/{work_item_id}/stage")
+def update_production_work_stage(
+    prospect_id: int,
+    work_item_id: str,
+    data: ProductionWorkStageUpdate,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    if request is not None:
+        auth.require_modules(request, db, "pedidos", "produccion")
+    if data.current_stage < 0 or data.current_stage > 5:
+        raise HTTPException(status_code=400, detail="Invalid production stage")
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    try:
+        production = json.loads(prospect.production_data or "{}")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=409, detail="Production data is invalid") from exc
+    work_items = production.get("work_items", [])
+    work_item = next((item for item in work_items if item.get("id") == work_item_id), None)
+    if not work_item:
+        raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
+    if work_item.get("status") not in ("PRODUCCION", "ENTREGADO"):
+        raise HTTPException(status_code=409, detail="El trabajo no está activo en producción")
+
+    work_production = work_item.setdefault("production_data", {})
+    stages = work_production.get("stages", [])
+    if not isinstance(stages, list) or len(stages) != 6:
+        raise HTTPException(status_code=409, detail="Production stages are invalid")
+    now = datetime.utcnow().isoformat() + "Z"
+    stages[data.current_stage]["entered_at"] = now
+    work_production["current_stage"] = data.current_stage
+    work_item["status"] = "ENTREGADO" if data.current_stage == 5 else "PRODUCCION"
+    if data.current_stage == 5:
+        work_production["delivered_at"] = now
+    else:
+        work_production.pop("delivered_at", None)
+    prospect.status = "ENTREGADO" if work_items and all(item.get("status") == "ENTREGADO" for item in work_items) else "PRODUCCION"
+    prospect.production_data = json.dumps(production, ensure_ascii=False)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {"production_data": prospect.production_data, "status": prospect.status}
+
+
 @app.delete("/api/prospects/{prospect_id}/daily-advances/{advance_id}")
-def delete_daily_advance(prospect_id: int, advance_id: str, db: Session = Depends(get_db)):
+def delete_daily_advance(prospect_id: int, advance_id: str, work_item_id: Optional[str] = None, db: Session = Depends(get_db)):
     prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
@@ -857,8 +1109,14 @@ def delete_daily_advance(prospect_id: int, advance_id: str, db: Session = Depend
         except Exception:
             production = {}
 
-    advances = production.get("daily_advances", [])
-    production["daily_advances"] = [a for a in advances if str(a.get("id")) != advance_id and a.get("url") != advance_id]
+    target = production
+    if work_item_id:
+        work_item = next((item for item in production.get("work_items", []) if item.get("id") == work_item_id), None)
+        if not work_item:
+            raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
+        target = work_item.setdefault("production_data", {})
+    advances = target.get("daily_advances", [])
+    target["daily_advances"] = [a for a in advances if str(a.get("id")) != advance_id and a.get("url") != advance_id]
     prospect.production_data = json.dumps(production, ensure_ascii=False)
     prospect.updated_at = datetime.utcnow()
     db.commit()
@@ -871,7 +1129,7 @@ class DailyAdvanceUpdate(BaseModel):
 
 
 @app.put("/api/prospects/{prospect_id}/daily-advances/{advance_id}")
-def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUpdate, db: Session = Depends(get_db)):
+def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUpdate, work_item_id: Optional[str] = None, db: Session = Depends(get_db)):
     prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
     if not prospect:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
@@ -884,7 +1142,13 @@ def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUp
         except Exception:
             production = {}
 
-    advances = production.get("daily_advances", [])
+    target = production
+    if work_item_id:
+        work_item = next((item for item in production.get("work_items", []) if item.get("id") == work_item_id), None)
+        if not work_item:
+            raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
+        target = work_item.setdefault("production_data", {})
+    advances = target.get("daily_advances", [])
     updated = False
     for a in advances:
         if str(a.get("id")) == advance_id or a.get("url") == advance_id:
@@ -950,6 +1214,52 @@ async def upload_reference_image(prospect_id: int, files: List[UploadFile] = Fil
     db.commit()
     db.refresh(db_prospect)
     return {"image_path": db_prospect.reference_image_path}
+
+@app.post("/api/prospects/{prospect_id}/linked-quote-photo")
+async def edit_linked_quote_photo(
+    prospect_id: int,
+    group: str = Form(...),
+    image_url: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    if group not in ("space", "reference"):
+        raise HTTPException(status_code=400, detail="Tipo de foto no válido")
+    prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not prospect:
+        raise HTTPException(status_code=404, detail="Prospecto no encontrado")
+    field = "space_image_path" if group == "space" else "reference_image_path"
+    value = getattr(prospect, field)
+    if group == "reference" and not value:
+        value = prospect.design_image_path
+    urls = [url.strip() for url in (value or "").split(",") if url.strip()]
+    if image_url not in urls:
+        raise HTTPException(status_code=409, detail="La foto ya cambió. Actualiza la cotización")
+    replacement = ""
+    if file:
+        if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Selecciona una foto JPG, PNG o WebP")
+        replacement = await upload_to_storage(file, f"{group}_{prospect_id}")
+        if not replacement:
+            raise HTTPException(status_code=502, detail="No se pudo almacenar la foto")
+    updated = [replacement if url == image_url else url for url in urls]
+    setattr(prospect, field, ",".join(url for url in updated if url) or None)
+    if group == "reference" and prospect.design_image_path == image_url:
+        prospect.design_image_path = replacement or next((url for url in updated if url), None)
+    for index in range(1, 5):
+        key = f"quote_image_{index}"
+        if getattr(prospect, key) == image_url:
+            setattr(prospect, key, replacement)
+    prospect.updated_at = datetime.utcnow()
+    db.commit()
+    return {
+        "space_image_path": prospect.space_image_path,
+        "reference_image_path": prospect.reference_image_path,
+        "design_image_path": prospect.design_image_path,
+        **{f"quote_image_{index}": getattr(prospect, f"quote_image_{index}") for index in range(1, 5)},
+        "replacement": replacement,
+    }
+
 
 @app.post("/api/prospects/{prospect_id}/upload-quote-image/{index}")
 async def upload_quote_image(prospect_id: int, index: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
