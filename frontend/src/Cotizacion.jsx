@@ -312,18 +312,16 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
     estData.anticipoPct ?? p.quote_anticipo ?? '60'
   ));
 
-  // Imágenes: usa las de la cotización si existen, si no las del formulario del prospecto
+  // Las fotos de Prospectos se agregan por separado para evitar duplicarlas en el anexo.
   const API = ''; // Relativo al host actual
   // Helper: si la URL ya es absoluta (Cloudinary) no le agrega el prefijo
   const resolveUrl = (path) => !path ? null : (path.startsWith('http') ? path : `${API}${path}`);
-  const spacePaths = p.space_image_path ? p.space_image_path.split(',') : [];
-  const refPaths = p.reference_image_path ? p.reference_image_path.split(',') : (p.design_image_path ? [p.design_image_path] : []);
   
   const [imagePreview, setImagePreview] = React.useState([
-    resolveUrl(p.quote_image_1 ?? spacePaths[0]),
-    resolveUrl(p.quote_image_2 ?? spacePaths[1]),
-    resolveUrl(p.quote_image_3 ?? refPaths[0]),
-    resolveUrl(p.quote_image_4 ?? refPaths[1])
+    resolveUrl(p.quote_image_1),
+    resolveUrl(p.quote_image_2),
+    resolveUrl(p.quote_image_3),
+    resolveUrl(p.quote_image_4)
   ]);
 
   const editLinkedPhoto = async (group, src, file = null) => {
@@ -1194,7 +1192,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           spaceList.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
-              annexImages.push({ src, label: `Foto del Espacio ${idx + 1}` });
+              annexImages.push({ src, label: `Foto del Espacio ${idx + 1}`, group: 'space' });
             }
           });
 
@@ -1202,7 +1200,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           refList.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
-              annexImages.push({ src, label: `Imagen de Referencia ${idx + 1}` });
+              annexImages.push({ src, label: `Imagen de Referencia ${idx + 1}`, group: 'reference' });
             }
           });
 
@@ -1210,7 +1208,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           imagePreview.forEach((src, idx) => {
             if (src && !seen.has(src)) {
               seen.add(src);
-              annexImages.push({ src, label: `Foto Adicional ${idx + 1}` });
+              annexImages.push({ src, label: `Foto Adicional ${idx + 1}`, quoteIndex: idx });
             }
           });
 
@@ -1245,52 +1243,58 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
                 </div>
                 {photoBusy && <p role="status">Guardando foto...</p>}
                 {photoError && <p role="alert" style={{ color: '#b91c1c' }}>{photoError}</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.8rem' }}>
-                  {[0, 1, 2, 3].map(idx => (
-                    <div key={idx} style={{ position: 'relative', border: '2px dashed #cbd5e1', borderRadius: '6px', overflow: 'hidden', aspectRatio: '1', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      {imagePreview[idx] ? (
+                <p style={{ margin: '0 0 0.8rem', color: '#64748b', fontSize: '0.76rem' }}>
+                  Las fotos de Prospectos aparecen aquí una sola vez. Reemplazar o eliminar una foto vinculada también actualiza Prospectos.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.7rem' }}>
+                  {annexImages.map((image, index) => (
+                    <div key={`${image.src}-${index}`} style={{ minWidth: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1', background: '#fff' }}>
+                      <img src={image.src} alt={image.label} style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                      <div style={{ padding: '0.45rem 0.5rem', color: '#334155', fontSize: '0.72rem', fontWeight: 700 }}>{image.label}</div>
+                      {image.group ? (
                         <>
-                          <label style={{ width: '100%', height: '100%', cursor: 'pointer' }} title="Reemplazar foto adicional">
-                            <img src={imagePreview[idx]} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            <input aria-label={`Reemplazar foto adicional ${idx + 1}`} disabled={photoBusy} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
+                          <label style={{ display: 'block', padding: '0.35rem 0.5rem', color: '#1d4f91', fontSize: '0.72rem', cursor: photoBusy ? 'wait' : 'pointer' }}>
+                            Reemplazar
+                            <input
+                              aria-label={`Reemplazar ${image.label}`}
+                              disabled={photoBusy}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={event => {
+                                const file = event.target.files[0];
+                                if (file) editLinkedPhoto(image.group, image.src, file);
+                                event.target.value = '';
+                              }}
+                              style={{ display: 'block', width: '100%', marginTop: 4 }}
+                            />
                           </label>
-                          <button disabled={photoBusy} onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                          <button type="button" disabled={photoBusy} onClick={() => editLinkedPhoto(image.group, image.src)} style={{ width: '100%', padding: 6, border: 0, borderTop: '1px solid #e2e8f0', background: '#fff', color: '#b91c1c', cursor: photoBusy ? 'wait' : 'pointer' }}>
+                            Eliminar
+                          </button>
                         </>
-                      ) : (
-                        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.75rem', padding: '0.5rem' }}>
-                          <span style={{ fontSize: '1.5rem' }}>📷</span>
-                          <span>Subir {idx + 1}</span>
-                          <input disabled={photoBusy} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageChange(idx, e)} />
-                        </label>
-                      )}
+                      ) : Number.isInteger(image.quoteIndex) ? (
+                        <>
+                          <label style={{ display: 'block', padding: '0.35rem 0.5rem', color: '#1d4f91', fontSize: '0.72rem', cursor: photoBusy ? 'wait' : 'pointer' }}>
+                            Reemplazar
+                            <input aria-label={`Reemplazar ${image.label}`} disabled={photoBusy} type="file" accept="image/*" onChange={event => { handleImageChange(image.quoteIndex, event); event.target.value = ''; }} style={{ display: 'block', width: '100%', marginTop: 4 }} />
+                          </label>
+                          <button type="button" disabled={photoBusy} onClick={() => removeImage(image.quoteIndex)} style={{ width: '100%', padding: 6, border: 0, borderTop: '1px solid #e2e8f0', background: '#fff', color: '#b91c1c', cursor: photoBusy ? 'wait' : 'pointer' }}>
+                            Eliminar
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   ))}
                 </div>
-
-                {(spaceList.length > 0 || refList.length > 0) && (
-                  <div style={{ marginTop: '1rem', paddingTop: '0.8rem', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#64748b' }}>
-                    <div style={{ fontWeight: '700', color: '#334155', marginBottom: '0.4rem' }}>
-                      ✨ Fotos vinculadas desde Prospectos ({spaceList.length + refList.length}) que se imprimirán a 2 fotos por hoja:
-                    </div>
-                    <p>Reemplazar o eliminar aquí también actualiza los originales de Prospectos. Los cambios se guardan automáticamente.</p>
+                {imagePreview.some(src => !src) && (
+                  <div style={{ marginTop: '0.8rem', paddingTop: '0.7rem', borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ marginBottom: '0.4rem', color: '#334155', fontSize: '0.76rem', fontWeight: 700 }}>Agregar fotos al anexo</div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {spaceList.map((src, i) => (
-                        <div key={`sp-${src}`} style={{ width: 130, borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                          <img src={src} alt={`Espacio ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover' }} />
-                          <label style={{ display: 'block', padding: 6, cursor: 'pointer' }}>Reemplazar
-                            <input aria-label={`Reemplazar Espacio ${i + 1}`} disabled={photoBusy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files[0]; if (file) editLinkedPhoto('space', src, file); e.target.value = ''; }} style={{ width: '100%' }} />
-                          </label>
-                          <button disabled={photoBusy} onClick={() => editLinkedPhoto('space', src)} style={{ width: '100%', color: '#b91c1c', padding: 6 }}>Eliminar Espacio {i + 1}</button>
-                        </div>
-                      ))}
-                      {refList.map((src, i) => (
-                        <div key={`rf-${src}`} style={{ width: 130, borderRadius: 6, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                          <img src={src} alt={`Referencia ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover' }} />
-                          <label style={{ display: 'block', padding: 6, cursor: 'pointer' }}>Reemplazar
-                            <input aria-label={`Reemplazar Referencia ${i + 1}`} disabled={photoBusy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files[0]; if (file) editLinkedPhoto('reference', src, file); e.target.value = ''; }} style={{ width: '100%' }} />
-                          </label>
-                          <button disabled={photoBusy} onClick={() => editLinkedPhoto('reference', src)} style={{ width: '100%', color: '#b91c1c', padding: 6 }}>Eliminar Referencia {i + 1}</button>
-                        </div>
+                      {imagePreview.map((src, idx) => !src && (
+                        <label key={`add-quote-image-${idx}`} style={{ padding: '0.45rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', color: '#1d4f91', fontSize: '0.74rem', cursor: photoBusy ? 'wait' : 'pointer' }}>
+                          + Cargar foto
+                          <input aria-label={`Agregar foto al anexo ${idx + 1}`} disabled={photoBusy} type="file" accept="image/*" onChange={event => { handleImageChange(idx, event); event.target.value = ''; }} style={{ display: 'none' }} />
+                        </label>
                       ))}
                     </div>
                   </div>
