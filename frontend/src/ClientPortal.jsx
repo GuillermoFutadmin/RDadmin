@@ -1,6 +1,129 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ProjectTracking, { getProjectTrackingProgress } from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
+
+const MONTHLY_HIGHLIGHTS = [
+  {
+    month: 'enero',
+    theme: 'winter',
+    icon: '✨',
+    celebrations: [
+      { date: '1 de enero', title: 'Año Nuevo', detail: 'Un momento para compartir buenos deseos y nuevos proyectos.' },
+      { date: '6 de enero', title: 'Día de Reyes', detail: 'En México se comparte la tradicional Rosca de Reyes.' }
+    ],
+    curiosity: 'La figura del niño escondida en la rosca se relaciona con la celebración del Día de la Candelaria, el 2 de febrero.'
+  },
+  {
+    month: 'febrero',
+    theme: 'candle',
+    icon: '🕯️',
+    celebrations: [
+      { date: '2 de febrero', title: 'Día de la Candelaria', detail: 'Una tradición mexicana para reunirse y compartir tamales.' },
+      { date: '5 de febrero', title: 'Día de la Constitución', detail: 'Se conmemora la Constitución mexicana de 1917.' }
+    ],
+    curiosity: 'La Constitución de 1917 se promulgó en Querétaro y fue pionera en incluir derechos sociales.'
+  },
+  {
+    month: 'marzo',
+    theme: 'spring',
+    icon: '🌱',
+    celebrations: [
+      { date: '21 de marzo', title: 'Natalicio de Benito Juárez', detail: 'Una fecha para recordar al expresidente mexicano nacido en Oaxaca.' },
+      { date: '20 o 21 de marzo', title: 'Equinoccio de primavera', detail: 'La fecha exacta puede variar cada año.' }
+    ],
+    curiosity: 'Benito Juárez nació en 1806 en San Pablo Guelatao, en el estado de Oaxaca.'
+  },
+  {
+    month: 'abril',
+    theme: 'earth',
+    icon: '🌼',
+    celebrations: [
+      { date: '22 de abril', title: 'Día de la Tierra', detail: 'Una invitación a cuidar el planeta y sus recursos.' },
+      { date: '30 de abril', title: 'Día de la Niña y el Niño', detail: 'En México se celebra a las infancias.' }
+    ],
+    curiosity: 'El Día de la Tierra se conmemora internacionalmente cada 22 de abril.'
+  },
+  {
+    month: 'mayo',
+    theme: 'family',
+    icon: '🌷',
+    celebrations: [
+      { date: '1 de mayo', title: 'Día del Trabajo', detail: 'Una fecha dedicada a reconocer los derechos laborales.' },
+      { date: '10 de mayo', title: 'Día de las Madres', detail: 'En México se celebra en una fecha fija cada año.' }
+    ],
+    curiosity: 'A diferencia de muchos países, en México el Día de las Madres se celebra cada 10 de mayo.'
+  },
+  {
+    month: 'junio',
+    theme: 'ocean',
+    icon: '☀️',
+    celebrations: [
+      { date: '5 de junio', title: 'Día Mundial del Medio Ambiente', detail: 'Una fecha para impulsar el cuidado de la naturaleza.' },
+      { date: 'Tercer domingo', title: 'Día del Padre', detail: 'En México se celebra el tercer domingo de junio.' }
+    ],
+    curiosity: 'El solsticio de junio marca el inicio del verano astronómico en el hemisferio norte.'
+  },
+  {
+    month: 'julio',
+    theme: 'summer',
+    icon: '🌞',
+    celebrations: [
+      { date: '20 de julio', title: 'Llegada a la Luna', detail: 'En 1969, la misión Apollo 11 llegó a la superficie lunar.' },
+      { date: '30 de julio', title: 'Día Internacional de la Amistad', detail: 'Una ocasión para celebrar los lazos que nos unen.' }
+    ],
+    curiosity: 'El 20 de julio de 1969, Neil Armstrong fue la primera persona en caminar sobre la Luna.'
+  },
+  {
+    month: 'agosto',
+    theme: 'sunflower',
+    icon: '🌻',
+    celebrations: [
+      { date: '12 de agosto', title: 'Día Internacional de la Juventud', detail: 'La ONU reconoce la participación de las juventudes.' },
+      { date: '28 de agosto', title: 'Día de las Personas Adultas Mayores', detail: 'En México se reconoce su experiencia y aportaciones.' }
+    ],
+    curiosity: 'El nombre agosto honra al emperador romano Augusto.'
+  },
+  {
+    month: 'septiembre',
+    theme: 'independence',
+    icon: '🎉',
+    celebrations: [
+      { date: '15 de septiembre', title: 'Noche del Grito', detail: 'La celebración cívica se realiza la noche previa al día de la Independencia.' },
+      { date: '16 de septiembre', title: 'Día de la Independencia', detail: 'Se conmemora el inicio de la lucha por la Independencia de México.' }
+    ],
+    curiosity: 'El Grito de Dolores, que dio inicio al movimiento de Independencia, ocurrió en 1810.'
+  },
+  {
+    month: 'octubre',
+    theme: 'autumn',
+    icon: '🍁',
+    celebrations: [
+      { date: '12 de octubre', title: 'Día de la Nación Pluricultural', detail: 'Una fecha para reconocer la diversidad cultural de México.' },
+      { date: '31 de octubre', title: 'Noche de Halloween', detail: 'En México coincide con los días previos a las celebraciones de Día de Muertos.' }
+    ],
+    curiosity: 'Octubre debe su nombre a octo, que significa ocho: en el antiguo calendario romano era el octavo mes.'
+  },
+  {
+    month: 'noviembre',
+    theme: 'remembrance',
+    icon: '🕯️',
+    celebrations: [
+      { date: '1 y 2 de noviembre', title: 'Día de Muertos', detail: 'Tradiciones para recordar y honrar a quienes ya no están.' },
+      { date: '20 de noviembre', title: 'Revolución Mexicana', detail: 'Se conmemora el inicio del movimiento revolucionario de 1910.' }
+    ],
+    curiosity: 'La celebración indígena dedicada a los muertos en México fue inscrita por la UNESCO en 2008 como Patrimonio Cultural Inmaterial de la Humanidad.'
+  },
+  {
+    month: 'diciembre',
+    theme: 'holidays',
+    icon: '⭐',
+    celebrations: [
+      { date: 'Del 16 al 24', title: 'Las Posadas', detail: 'Nueve noches de reuniones y tradiciones populares mexicanas.' },
+      { date: '25 de diciembre', title: 'Navidad', detail: 'Una fecha para compartir en familia y comunidad.' }
+    ],
+    curiosity: 'Las Posadas mexicanas se celebran durante los nueve días previos a la Navidad.'
+  }
+];
 
 const displayValue = (value) => {
   if (value === null || value === undefined || value === '') return '';
@@ -16,6 +139,21 @@ export default function ClientPortal() {
   const [syncError, setSyncError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showMonthlyCuriosity, setShowMonthlyCuriosity] = useState(false);
+  const [monthlyContext, setMonthlyContext] = useState(null);
+
+  useEffect(() => {
+    const updateMonthlyContext = () => {
+      const today = new Date();
+      const isPreviewingNextMonth = today.getDate() >= 25;
+      const monthIndex = (today.getMonth() + Number(isPreviewingNextMonth)) % MONTHLY_HIGHLIGHTS.length;
+      setMonthlyContext({ isPreviewingNextMonth, monthIndex });
+    };
+
+    updateMonthlyContext();
+    const intervalId = window.setInterval(updateMonthlyContext, 60 * 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const refreshProject = useCallback(async () => {
     if (!credentials) return;
@@ -113,6 +251,7 @@ export default function ClientPortal() {
   const tracking = getProjectTrackingProgress(project);
   const hasProductionStages = tracking.production.stages.length > 0
     || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0);
+  const monthlyHighlight = monthlyContext ? MONTHLY_HIGHLIGHTS[monthlyContext.monthIndex] : null;
 
   return (
     <main style={{
@@ -162,6 +301,42 @@ export default function ClientPortal() {
             )}
           </section>
         )}
+
+        {monthlyHighlight && <section className={`client-monthly-highlight client-monthly-highlight--${monthlyHighlight.theme}`} aria-labelledby="client-monthly-title">
+          <div className="client-monthly-heading">
+            <span className="client-monthly-icon" aria-hidden="true">{monthlyHighlight.icon}</span>
+            <div>
+              <div className="client-monthly-eyebrow">{monthlyContext.isPreviewingNextMonth ? 'Se acerca' : 'Este mes'}</div>
+              <h2 id="client-monthly-title">Tradiciones de {monthlyHighlight.month}</h2>
+            </div>
+          </div>
+          <div className="client-monthly-events">
+            {monthlyHighlight.celebrations.map(event => (
+              <article className="client-monthly-event" key={event.title}>
+                <span className="client-monthly-date">{event.date}</span>
+                <div>
+                  <h3>{event.title}</h3>
+                  <p>{event.detail}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="client-monthly-toggle"
+            aria-expanded={showMonthlyCuriosity}
+            aria-controls="client-monthly-curiosity"
+            onClick={() => setShowMonthlyCuriosity(value => !value)}
+          >
+            {showMonthlyCuriosity ? 'Ocultar dato curioso' : 'Descubrir dato curioso'}
+            <span aria-hidden="true">{showMonthlyCuriosity ? '−' : '+'}</span>
+          </button>
+          {showMonthlyCuriosity && (
+            <p className="client-monthly-curiosity" id="client-monthly-curiosity">
+              <strong>¿Sabías que?</strong> {monthlyHighlight.curiosity}
+            </p>
+          )}
+        </section>}
 
         <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
           La información de avance se actualiza automáticamente.
