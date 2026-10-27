@@ -32,6 +32,7 @@ function App() {
   const [logoFrame, setLogoFrame] = useState(1);
   const [logoAnimation, setLogoAnimation] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('rd_sidebar_collapsed') === '1');
 
   // Logo panel / cambiar contraseña
   const [showLogoPanel, setShowLogoPanel] = useState(false);
@@ -269,7 +270,20 @@ function App() {
     setSidebarOpen(false);
   };
 
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('rd_sidebar_collapsed', next ? '1' : '0');
+      if (next) {
+        setShowLogoPanel(false);
+        setChangingPassword(false);
+      }
+      return next;
+    });
+  };
+
   const toggleLogoPanel = () => {
+    if (sidebarCollapsed && !showLogoPanel) toggleSidebarCollapsed();
     const opening = !showLogoPanel;
     setShowLogoPanel(opening);
     setLogoAnimation(opening ? 'logo-turn-open' : 'logo-turn-close');
@@ -289,7 +303,16 @@ function App() {
           }}
         />
       )}
-      <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
+      <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}${sidebarCollapsed ? ' sidebar--collapsed' : ''}`}>
+        <button
+          type="button"
+          className="sidebar-collapse-btn"
+          onClick={toggleSidebarCollapsed}
+          aria-label={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+          title={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+        >
+          <IconChevronRight style={{ marginRight: 0, transform: sidebarCollapsed ? 'none' : 'rotate(180deg)' }} />
+        </button>
         {/* ── LOGO CLICKABLE – arriba del sidebar ── */}
         <div
           className={`sidebar-logo-toggle ${logoAnimation}`}
@@ -424,6 +447,8 @@ function App() {
         {/* ── Brand Header (Dashboard Link) ── */}
         {hasAccess('Dashboard') && (
           <div 
+            className="sidebar-brand"
+            title="Dashboard"
             onClick={() => { setActiveTab('Dashboard'); setProspectsOpen(false); setContratosOpen(false); setColaboradoresOpen(false); }}
             style={{
               padding: '0.75rem 0.5rem',
@@ -456,7 +481,7 @@ function App() {
               </div>
 
               {/* Brand Title & Subtitle */}
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="sidebar-brand-text" style={{ display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
                   <span style={{
                     fontSize: '1.45rem',
@@ -489,58 +514,35 @@ function App() {
           </div>
         )}
 
-        <nav style={{ paddingBottom: '2rem' }}>
+        <nav className="sidebar-nav">
           <ul>
-
-            {/* Prospectos (con submenú) */}
             {hasAccess('Prospectos') && (
-              <li
-                className={activeTab === 'Prospectos' || activeTab === 'Ventas' ? 'active' : ''}
-                onClick={handleProspectosClick}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center' }}><IconUsers /> Prospectos</span>
-                <IconChevronRight style={{ transform: prospectsOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
+              <li title="Prospectos" className={activeTab === 'Prospectos' || activeTab === 'Ventas' ? 'active' : ''} onClick={handleProspectosClick}>
+                <span className="sidebar-item-main"><IconUsers className="sidebar-icon" /><span className="sidebar-label">Prospectos</span></span>
+                <IconChevronRight className="sidebar-chevron" style={{ transform: prospectsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
               </li>
             )}
-
-            {/* Submenú: Valoración */}
             {prospectsOpen && hasAccess('Ventas') && (
-              <li
-                className={activeTab === 'Ventas' ? 'active' : ''}
-                onClick={() => setActiveTab('Ventas')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Ventas' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconTrendingUp /> Valoración
+              <li title="Valoración" className={`sidebar-subitem${activeTab === 'Ventas' ? ' active' : ''}`} onClick={() => setActiveTab('Ventas')}>
+                <span className="sidebar-item-main"><IconTrendingUp className="sidebar-icon" /><span className="sidebar-label">Valoración</span></span>
               </li>
             )}
 
-            {/* Contratos (con submenú) */}
             {hasAccess('Contratos') && (
-              <li
-                className={activeTab === 'Contratos' || activeTab === 'Estimacion' ? 'active' : ''}
-                onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center' }}><IconFileText /> Clientes</span>
-                <IconChevronRight style={{ transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
+              <li title="Clientes" className={activeTab === 'Contratos' || activeTab === 'Estimacion' ? 'active' : ''} onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}>
+                <span className="sidebar-item-main"><IconFileText className="sidebar-icon" /><span className="sidebar-label">Clientes</span></span>
+                <IconChevronRight className="sidebar-chevron" style={{ transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
               </li>
             )}
-
-            {/* Submenú: Estimación */}
             {contratosOpen && hasAccess('Contratos') && (
-              <li
-                className={activeTab === 'Estimacion' ? 'active' : ''}
-                onClick={() => setActiveTab('Estimacion')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Estimacion' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconPenTool /> Estimación
+              <li title="Estimación" className={`sidebar-subitem${activeTab === 'Estimacion' ? ' active' : ''}`} onClick={() => setActiveTab('Estimacion')}>
+                <span className="sidebar-item-main"><IconPenTool className="sidebar-icon" /><span className="sidebar-label">Estimación</span></span>
               </li>
             )}
 
-            {/* Producción (con submenú Avances) */}
             {hasProductionAccess && (
               <li
+                title="Producción"
                 className={['Produccion', 'Avances'].includes(activeTab) ? 'active' : ''}
                 onClick={() => {
                   setProduccionOpen(prev => !prev);
@@ -549,87 +551,48 @@ function App() {
                   setContratosOpen(false);
                   setColaboradoresOpen(false);
                 }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               >
-                <span style={{ display: 'flex', alignItems: 'center' }}><IconPackage /> Producción</span>
-                <IconChevronRight style={{ transform: produccionOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
+                <span className="sidebar-item-main"><IconPackage className="sidebar-icon" /><span className="sidebar-label">Producción</span></span>
+                <IconChevronRight className="sidebar-chevron" style={{ transform: produccionOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
               </li>
             )}
-
-            {/* Submenú: Avances */}
             {produccionOpen && hasProductionAccess && (
-              <li
-                className={activeTab === 'Avances' ? 'active' : ''}
-                onClick={() => setActiveTab('Avances')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Avances' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconCamera /> Avances
+              <li title="Avances" className={`sidebar-subitem${activeTab === 'Avances' ? ' active' : ''}`} onClick={() => setActiveTab('Avances')}>
+                <span className="sidebar-item-main"><IconCamera className="sidebar-icon" /><span className="sidebar-label">Avances</span></span>
               </li>
             )}
 
             {hasAccess('Proveedores') && (
-              <li
-                className={activeTab === 'Proveedores' ? 'active' : ''}
-                onClick={() => goTo('Proveedores')}
-                style={{ display: 'flex', alignItems: 'center' }}
-              >
-                <IconPackage /> Proveedores
+              <li title="Proveedores" className={activeTab === 'Proveedores' ? 'active' : ''} onClick={() => goTo('Proveedores')}>
+                <span className="sidebar-item-main"><IconPackage className="sidebar-icon" /><span className="sidebar-label">Proveedores</span></span>
               </li>
             )}
 
-            {/* Colaboradores (con submenú) */}
             {(hasAccess('Colaboradores') || hasAccess('Asistencia') || hasAccess('Nomina')) && (
-              <li
-                className={['Colaboradores','Asistencia','Nomina','Tarifas'].includes(activeTab) ? 'active' : ''}
-                onClick={() => { setColaboradoresOpen(prev => !prev); setActiveTab('Colaboradores'); setProspectsOpen(false); }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center' }}><IconHardHat /> Colaboradores</span>
-                <IconChevronRight style={{ transform: colaboradoresOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: '14px', height: '14px' }} />
+              <li title="Colaboradores" className={['Colaboradores','Asistencia','Nomina','Tarifas'].includes(activeTab) ? 'active' : ''} onClick={() => { setColaboradoresOpen(prev => !prev); setActiveTab('Colaboradores'); setProspectsOpen(false); }}>
+                <span className="sidebar-item-main"><IconHardHat className="sidebar-icon" /><span className="sidebar-label">Colaboradores</span></span>
+                <IconChevronRight className="sidebar-chevron" style={{ transform: colaboradoresOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
               </li>
             )}
-
-            {/* Submenú: Asistencia / Registro Diario */}
             {colaboradoresOpen && hasAccess('Asistencia') && (
-              <li
-                className={activeTab === 'Asistencia' ? 'active' : ''}
-                onClick={() => setActiveTab('Asistencia')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Asistencia' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconClock /> Asistencia
+              <li title="Asistencia" className={`sidebar-subitem${activeTab === 'Asistencia' ? ' active' : ''}`} onClick={() => setActiveTab('Asistencia')}>
+                <span className="sidebar-item-main"><IconClock className="sidebar-icon" /><span className="sidebar-label">Asistencia</span></span>
               </li>
             )}
-
-            {/* Submenú: Corte de Nómina */}
             {colaboradoresOpen && hasAccess('Nomina') && (
-              <li
-                className={activeTab === 'Nomina' ? 'active' : ''}
-                onClick={() => setActiveTab('Nomina')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Nomina' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconWallet /> Corte de Nómina
+              <li title="Corte de Nómina" className={`sidebar-subitem${activeTab === 'Nomina' ? ' active' : ''}`} onClick={() => setActiveTab('Nomina')}>
+                <span className="sidebar-item-main"><IconWallet className="sidebar-icon" /><span className="sidebar-label">Corte de Nómina</span></span>
               </li>
             )}
-
-            {/* Submenú: Tarifas por Hora */}
             {colaboradoresOpen && hasAccess('Nomina') && (
-              <li
-                className={activeTab === 'Tarifas' ? 'active' : ''}
-                onClick={() => setActiveTab('Tarifas')}
-                style={{ paddingLeft: '2rem', fontSize: '0.9rem', opacity: activeTab === 'Tarifas' ? 1 : 0.85, display: 'flex', alignItems: 'center' }}
-              >
-                <IconSettings /> Tarifas por Hora
+              <li title="Tarifas por Hora" className={`sidebar-subitem${activeTab === 'Tarifas' ? ' active' : ''}`} onClick={() => setActiveTab('Tarifas')}>
+                <span className="sidebar-item-main"><IconSettings className="sidebar-icon" /><span className="sidebar-label">Tarifas por Hora</span></span>
               </li>
             )}
 
-            {/* Accesos */}
             {hasAccess('Accesos') && (
-              <li
-                className={activeTab === 'Accesos' ? 'active' : ''}
-                onClick={() => { setActiveTab('Accesos'); setProspectsOpen(false); }}
-                style={{ display: 'flex', alignItems: 'center' }}
-              >
-                <IconLock /> Accesos
+              <li title="Accesos" className={activeTab === 'Accesos' ? 'active' : ''} onClick={() => { setActiveTab('Accesos'); setProspectsOpen(false); }}>
+                <span className="sidebar-item-main"><IconLock className="sidebar-icon" /><span className="sidebar-label">Accesos</span></span>
               </li>
             )}
           </ul>
