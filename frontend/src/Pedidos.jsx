@@ -353,6 +353,9 @@ function Pedidos() {
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
     filteredProjects.filter(project => productionStageIndex(project) === index)
   ), [filteredProjects]);
+  const workItemsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
+    semaforoWorkProjects.filter(project => productionStageIndex(project) === index)
+  ), [semaforoWorkProjects]);
   const flowStageCounts = useMemo(() => {
     const workItemCounts = getSemaforoWorkItemStageCounts(semaforoWorkProjects);
     return projectsByStage.map((stageProjects, index) => stageProjects.length + workItemCounts[index]);
@@ -365,8 +368,8 @@ function Pedidos() {
     ? filteredProjects
     : overviewStage === -1
       ? projectsWithoutSchedule
-      : projectsByStage[overviewStage] || [],
-  [overviewStage, filteredProjects, projectsWithoutSchedule, projectsByStage]);
+    : [...(projectsByStage[overviewStage] || []), ...(workItemsByStage[overviewStage] || [])],
+  [overviewStage, filteredProjects, projectsWithoutSchedule, projectsByStage, workItemsByStage]);
   const selectedCalendarDate = calendarDate(selectedCalendarDay);
   const calendarDays = useMemo(() => {
     if (calendarView === 'day') return selectedCalendarDate ? [selectedCalendarDate] : [];
@@ -2628,11 +2631,23 @@ function Pedidos() {
                 {calendarProjects.length ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 8 }}>
                     {calendarProjects.map(project => (
-                      <button data-guide="production-open" key={project.id} type="button" onClick={() => selectProductionProject(project)}
+                      <button data-guide="production-open" key={getSemaforoProjectKey(project)} type="button" onClick={() => {
+                        if (project.workItemName) {
+                          setShowSemaforo(true);
+                          setSemaforoSelected(project);
+                          setSemaforoSelectedDayKey(null);
+                          setSemaforoAdvanceFiles([]);
+                          setSemaforoAdvanceComment('');
+                          return;
+                        }
+                        selectProductionProject(project);
+                      }}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                         <span style={{ minWidth: 0 }}>
                           <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.8rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
-                          <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem' }}>{project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}</span>
+                          <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem' }}>
+                            {project.workItemName ? `Área: ${project.workItemName}` : project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}
+                          </span>
                         </span>
                         <span aria-hidden="true" style={{ flexShrink: 0, color: '#2563eb', fontSize: '1rem' }}>›</span>
                       </button>
