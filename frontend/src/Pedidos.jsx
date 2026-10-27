@@ -742,10 +742,34 @@ function Pedidos() {
 
   const saveMaterialPurchase = async (materialKey, record) => {
     const nextPurchases = { ...purchaseRecords, [materialKey]: record };
-    const updated = await persist({ ...production, materialPurchases: nextPurchases });
-    if (updated) {
+    const targetContractId = selectedContract?.id || selected?.id;
+    if (!targetContractId) return;
+
+    const contractProd = parseJson(selectedContract?.production_data || selected?.production_data, {});
+    const nextProduction = { ...contractProd, materialPurchases: nextPurchases };
+
+    setSaving(true);
+    setMessage('');
+    try {
+      const response = await fetch(`${API}/api/prospects/${targetContractId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          production_data: JSON.stringify(nextProduction)
+        })
+      });
+      if (!response.ok) throw new Error(`No se pudo guardar la compra (${response.status})`);
+      const updated = await response.json();
+      updateContractRecord(targetContractId, item => ({
+        ...item,
+        production_data: updated.production_data
+      }));
       setPurchaseDrafts(nextPurchases);
       setMessage('Compra del material guardada.');
+    } catch (error) {
+      setMessage(error.message || 'No se pudo guardar la compra del material.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -2974,7 +2998,7 @@ function Pedidos() {
 
             {activeStage === 1 && (() => {
               const pendingMaterialsCount = projectMaterials.filter(material => !(purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired).length;
-              const materialsNeedAction = !isAreaSelection && pendingMaterialsCount > 0;
+              const materialsNeedAction = pendingMaterialsCount > 0;
               return (
               <section style={{ ...(materialsNeedAction ? SECTION_BLOCK_STYLES.action : SECTION_BLOCK_STYLES.info), borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
@@ -2986,7 +3010,7 @@ function Pedidos() {
                     </h3>
                     <div style={{ color: '#64748b', fontSize: '0.78rem' }}>
                       {isAreaSelection
-                        ? 'Las compras pertenecen al contrato completo; en la ficha del área solo se consultan.'
+                        ? `Materiales asignados a ${selected.workItemName || 'esta área'}. Marca las compras conforme se adquieran.`
                         : 'Lista tomada de Estimación o del cotizador en vivo. Marca las compras conforme lleguen.'}
                     </div>
                   </div>
@@ -3005,9 +3029,9 @@ function Pedidos() {
                         Boolean((purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired) === acquired
                       );
                       return (
-                        <section key={String(acquired)} style={{ minWidth: 0, padding: '0.65rem', background: acquired ? '#f0fdf4' : isAreaSelection ? '#f8fafc' : '#fff', border: `1px solid ${acquired ? '#bbf7d0' : isAreaSelection ? '#e2e8f0' : '#fdba74'}`, borderRadius: 10 }}>
+                        <section key={String(acquired)} style={{ minWidth: 0, padding: '0.65rem', background: acquired ? '#f0fdf4' : '#fff', border: `1px solid ${acquired ? '#bbf7d0' : '#fdba74'}`, borderRadius: 10 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                            <strong style={{ color: acquired ? '#166534' : isAreaSelection ? '#475569' : '#c2410c', fontSize: '0.8rem' }}>{acquired ? 'Comprado' : 'Por comprar'}</strong>
+                            <strong style={{ color: acquired ? '#166534' : '#c2410c', fontSize: '0.8rem' }}>{acquired ? 'Comprado' : 'Por comprar'}</strong>
                             <span style={{ padding: '0.2rem 0.45rem', borderRadius: 20, background: acquired ? '#dcfce7' : '#e2e8f0', color: acquired ? '#166534' : '#475569', fontSize: '0.68rem', fontWeight: 800 }}>{materials.length}</span>
                           </div>
                           {materials.length ? (
@@ -3019,7 +3043,7 @@ function Pedidos() {
                       return (
                         <article key={material.purchaseKey} style={{ overflow: 'hidden', background: '#fff', border: `1px solid ${expanded ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8 }}>
                           <button type="button" aria-expanded={expanded}
-                            onClick={() => { if (!isAreaSelection) setExpandedMaterialKey(current => current === material.purchaseKey ? null : material.purchaseKey); }}
+                            onClick={() => setExpandedMaterialKey(current => current === material.purchaseKey ? null : material.purchaseKey)}
                             style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0.48rem 0.65rem', border: 0, background: expanded ? '#eff6ff' : '#f8fafc', textAlign: 'left', cursor: 'pointer' }}>
                             <span style={{ minWidth: 0 }}>
                               <span style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 750 }}>{material.sheetName} · </span>
@@ -3032,10 +3056,10 @@ function Pedidos() {
                                 {record.store_price ? ` · $${record.store_price}` : ''}
                               </span>
                             </span>
-                            {!isAreaSelection && <span aria-hidden="true" style={{ flexShrink: 0, color: '#64748b', fontSize: '0.85rem' }}>{expanded ? '−' : '+'}</span>}
+                            <span aria-hidden="true" style={{ flexShrink: 0, color: '#64748b', fontSize: '0.85rem' }}>{expanded ? '−' : '+'}</span>
                           </button>
 
-                          {expanded && !isAreaSelection && (
+                          {expanded && (
                             <div style={{ padding: '0.65rem', borderTop: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: record.acquired ? '#15803d' : '#475569', fontSize: '0.74rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
@@ -3112,9 +3136,9 @@ function Pedidos() {
                   </div>
                 )}
 
-                {!isAreaSelection && <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
+                <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
                   Puedes iniciar Producción aunque falten materiales; marca las compras pendientes conforme se vayan adquiriendo.
-                </div>}
+                </div>
               </section>
               );
             })()}
