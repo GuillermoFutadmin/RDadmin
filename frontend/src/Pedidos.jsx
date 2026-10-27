@@ -230,6 +230,57 @@ function InfoCard({ label, children }) {
 
 const getSemaforoProjectKey = project => project.semaforoKey || String(project.id);
 
+const getProjectDisplayName = project => project.workItemName
+  ? `${project.name || 'Cliente sin nombre'} · ${project.workItemName}`
+  : project.name || 'Cliente sin nombre';
+
+const getProjectStaleInfo = (project, now = Date.now()) => {
+  if (project.status === 'ENTREGADO') return { isStale: false, hours: 0 };
+  const prod = normalizeProduction(project.production_data);
+  const timestamps = [];
+  if (prod.started_at) timestamps.push(new Date(prod.started_at).getTime());
+  if (Array.isArray(prod.stages)) {
+    prod.stages.forEach(stg => {
+      if (stg.entered_at) timestamps.push(new Date(stg.entered_at).getTime());
+      if (Array.isArray(stg.photos)) {
+        stg.photos.forEach(ph => {
+          const u = ph.uploaded_at || ph.created_at;
+          if (u) timestamps.push(new Date(u).getTime());
+        });
+      }
+    });
+  }
+  if (Array.isArray(prod.daily_advances)) {
+    prod.daily_advances.forEach(adv => {
+      const u = adv.created_at || (adv.date ? `${adv.date}T12:00:00` : null);
+      if (u) timestamps.push(new Date(u).getTime());
+    });
+  }
+  if (!timestamps.length && project.updated_at) {
+    timestamps.push(new Date(project.updated_at).getTime());
+  }
+  if (!timestamps.length && project.contract_date) {
+    timestamps.push(new Date(project.contract_date).getTime());
+  }
+  const validTimestamps = timestamps.filter(Number.isFinite);
+  const lastTs = validTimestamps.length ? Math.max(...validTimestamps) : 0;
+  if (!lastTs) return { isStale: true, hours: 24 };
+  const hours = Math.floor((now - lastTs) / (3600 * 1000));
+  return { isStale: hours >= 24, hours };
+};
+
+const getCalendarEventLabel = (event, compact = false) => {
+  if (event.isStale) return `Sin avance · ${event.hours}h sin registro`;
+  if (event.isDeadline) return compact ? 'Entregado · avance 6 de 6' : 'Entrega registrada · proyecto completo';
+  if (event.isDailyAdvance) {
+    const photos = `${event.photoCount} ${event.photoCount === 1 ? 'foto' : 'fotos'}`;
+    return event.comment && !compact ? `Avance diario · ${photos} · ${event.comment}` : `Avance diario · ${photos}`;
+  }
+  return compact
+    ? `Avance ${event.stageIndex + 1} de ${STAGE_NAMES.length} · ${STAGE_NAMES[event.stageIndex]}`
+    : `${STAGE_NAMES[event.stageIndex]} · avance ${event.stageIndex + 1} de ${STAGE_NAMES.length}`;
+};
+
 function Pedidos() {
   const [projects, setProjects] = useState([]);
   const [workItemContracts, setWorkItemContracts] = useState([]);
@@ -346,10 +397,6 @@ function Pedidos() {
     getSemaforoProjectKey(project),
     getProductionSchedule(project, scheduleNow)
   ])), [semaforoProjects, scheduleNow]);
-  const projectSchedules = useMemo(() => new Map(filteredProjects.map(project => [
-    project.id,
-    getProductionSchedule(project, scheduleNow)
-  ])), [filteredProjects, scheduleNow]);
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
     filteredProjects.filter(project => productionStageIndex(project) === index)
   ), [filteredProjects]);
@@ -361,15 +408,15 @@ function Pedidos() {
     return projectsByStage.map((stageProjects, index) => stageProjects.length + workItemCounts[index]);
   }, [projectsByStage, semaforoWorkProjects]);
   const projectsWithoutSchedule = useMemo(
-    () => filteredProjects.filter(project => !projectSchedules.get(project.id)),
-    [filteredProjects, projectSchedules]
+    () => semaforoProjects.filter(project => !semaforoProjectSchedules.get(getSemaforoProjectKey(project))),
+    [semaforoProjects, semaforoProjectSchedules]
   );
   const calendarProjects = useMemo(() => overviewStage === null
-    ? filteredProjects
+    ? semaforoProjects
     : overviewStage === -1
       ? projectsWithoutSchedule
     : [...(projectsByStage[overviewStage] || []), ...(workItemsByStage[overviewStage] || [])],
-  [overviewStage, filteredProjects, projectsWithoutSchedule, projectsByStage, workItemsByStage]);
+  [overviewStage, semaforoProjects, projectsWithoutSchedule, projectsByStage, workItemsByStage]);
   const selectedCalendarDate = calendarDate(selectedCalendarDay);
   const calendarDays = useMemo(() => {
     if (calendarView === 'day') return selectedCalendarDate ? [selectedCalendarDate] : [];
@@ -383,6 +430,23 @@ function Pedidos() {
       `hsl(${Math.round((index * 137.508) % 360)} 76% 36%)`
     ]));
   }, [projects]);
+  const getProjectColor = project => {
+    const color = projectColors.get(project.id);
+    if (color) return color;
+    const seed = [...getSemaforoProjectKey(project)].reduce((total, char) => total + char.charCodeAt(0), 0);
+    return `hsl(${Math.round((seed * 137.508) % 360)} 70% 36%)`;
+  };
+  const openCalendarProject = project => {
+    if (project.workItemName) {
+      setShowSemaforo(true);
+      setSemaforoSelected(project);
+      setSemaforoSelectedDayKey(null);
+      setSemaforoAdvanceFiles([]);
+      setSemaforoAdvanceComment('');
+      return;
+    }
+    selectProductionProject(project);
+  };
   const calendarEvents = useMemo(() => {
     const events = new Map();
     const addEvent = (dateValue, event) => {
@@ -393,53 +457,87 @@ function Pedidos() {
       events.get(key).push(event);
     };
     calendarProjects.forEach(project => {
+      const projectKey = getSemaforoProjectKey(project);
       const production = normalizeProduction(project.production_data);
       const stages = Array.isArray(production.stages) ? production.stages : [];
       stages.forEach((stage, stageIndex) => {
         const enteredAt = stage.entered_at || (stageIndex === 0 ? production.started_at : null);
         if (!enteredAt) return;
         addEvent(enteredAt, {
-          id: `${project.id}-stage-${stageIndex}`,
+          id: `${projectKey}-stage-${stageIndex}`,
           project,
-          label: `${STAGE_NAMES[stageIndex]} · avance ${stageIndex + 1} de ${STAGE_NAMES.length}`,
           stageIndex,
           capturedAt: enteredAt,
           isMilestone: true
         });
       });
+      const dailyAdvances = Array.isArray(production.daily_advances) ? production.daily_advances : [];
+      const advancesByDay = new Map();
+      dailyAdvances.forEach(advance => {
+        const capturedAt = advance.created_at || (advance.date ? `${advance.date}T12:00:00` : null);
+        const dayKey = advance.date || (capturedAt ? getDateKey(new Date(capturedAt)) : null);
+        if (!dayKey) return;
+        const group = advancesByDay.get(dayKey) || { capturedAt, photoCount: 0, comments: [] };
+        if (advance.url) group.photoCount += 1;
+        if (advance.comment) group.comments.push(advance.comment);
+        if (capturedAt && (!group.capturedAt || new Date(capturedAt) > new Date(group.capturedAt))) group.capturedAt = capturedAt;
+        advancesByDay.set(dayKey, group);
+      });
+      advancesByDay.forEach((group, dayKey) => {
+        addEvent(`${dayKey}T12:00:00`, {
+          id: `${projectKey}-advance-${dayKey}`,
+          project,
+          stageIndex: productionStageIndex(project),
+          capturedAt: group.capturedAt || `${dayKey}T12:00:00`,
+          photoCount: group.photoCount,
+          comment: group.comments.join(' · '),
+          isDailyAdvance: true
+        });
+      });
       if (production.delivered_at) {
         addEvent(production.delivered_at, {
-          id: `${project.id}-delivered`,
+          id: `${projectKey}-delivered`,
           project,
-          label: 'Entrega registrada',
           capturedAt: production.delivered_at,
           stageIndex: STAGE_NAMES.length - 1,
           isDeadline: true
         });
       }
+      const staleInfo = getProjectStaleInfo(project, scheduleNow.getTime());
+      if (staleInfo.isStale) {
+        addEvent(scheduleNow, {
+          id: `${projectKey}-stale`,
+          project,
+          stageIndex: productionStageIndex(project),
+          capturedAt: scheduleNow,
+          hours: staleInfo.hours,
+          isStale: true
+        });
+      }
     });
+    events.forEach(dayEvents => dayEvents.sort((left, right) =>
+      Number(Boolean(right.isStale)) - Number(Boolean(left.isStale))
+      || new Date(right.capturedAt).getTime() - new Date(left.capturedAt).getTime()
+    ));
     return events;
-  }, [calendarProjects]);
+  }, [calendarProjects, scheduleNow]);
   const selectedDayActions = selectedCalendarDate
     ? calendarEvents.get(getDateKey(selectedCalendarDate)) || []
     : [];
-  const lateProjectsCount = filteredProjects.filter(project => {
-    const schedule = projectSchedules.get(project.id);
-    if (!schedule) return false;
-    return project.status === 'ENTREGADO'
-      ? schedule.daysRemaining < 0
-      : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage;
+  const isProjectLate = (project, schedule) => project.status === 'ENTREGADO'
+    ? schedule.daysRemaining < 0
+    : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage;
+  const lateProjectsCount = semaforoProjects.filter(project => {
+    const schedule = semaforoProjectSchedules.get(getSemaforoProjectKey(project));
+    return schedule && isProjectLate(project, schedule);
   }).length;
-  const onTimeProjectsCount = filteredProjects.filter(project => {
-    const schedule = projectSchedules.get(project.id);
-    return schedule && !(
-      project.status === 'ENTREGADO'
-        ? schedule.daysRemaining < 0
-        : schedule.daysRemaining < 0 || productionStageIndex(project) < schedule.expectedStage
-    );
+  const onTimeProjectsCount = semaforoProjects.filter(project => {
+    const schedule = semaforoProjectSchedules.get(getSemaforoProjectKey(project));
+    return schedule && !isProjectLate(project, schedule);
   }).length;
-  const activeProjectsCount = filteredProjects.filter(project => project.status !== 'ENTREGADO').length;
-  const deliveredProjectsCount = filteredProjects.length - activeProjectsCount;
+  const activeProjectsCount = semaforoProjects.filter(project => project.status !== 'ENTREGADO').length;
+  const deliveredProjectsCount = semaforoProjects.length - activeProjectsCount;
+  const staleProjectsCount = semaforoProjects.filter(project => getProjectStaleInfo(project, scheduleNow.getTime()).isStale).length;
   const stagesWithProjects = flowStageCounts.reduce((indexes, count, index) => {
     if (count) indexes.push(index);
     return indexes;
@@ -1200,41 +1298,6 @@ function Pedidos() {
             {/* ── SEMÁFORO DE PRODUCCIÓN ── */}
             {showSemaforo && (() => {
               const SEMAFORO_ETAPAS = STAGE_NAMES;
-
-              const getProjectStaleInfo = (project) => {
-                if (project.status === 'ENTREGADO') return { isStale: false, hours: 0 };
-                const prod = normalizeProduction(project.production_data);
-                const timestamps = [];
-                if (prod.started_at) timestamps.push(new Date(prod.started_at).getTime());
-                if (Array.isArray(prod.stages)) {
-                  prod.stages.forEach(stg => {
-                    if (stg.entered_at) timestamps.push(new Date(stg.entered_at).getTime());
-                    if (Array.isArray(stg.photos)) {
-                      stg.photos.forEach(ph => {
-                        const u = ph.uploaded_at || ph.created_at;
-                        if (u) timestamps.push(new Date(u).getTime());
-                      });
-                    }
-                  });
-                }
-                if (Array.isArray(prod.daily_advances)) {
-                  prod.daily_advances.forEach(adv => {
-                    const u = adv.created_at || (adv.date ? `${adv.date}T12:00:00` : null);
-                    if (u) timestamps.push(new Date(u).getTime());
-                  });
-                }
-                if (!timestamps.length && project.updated_at) {
-                  timestamps.push(new Date(project.updated_at).getTime());
-                }
-                if (!timestamps.length && project.contract_date) {
-                  timestamps.push(new Date(project.contract_date).getTime());
-                }
-                const lastTs = timestamps.length ? Math.max(...timestamps) : 0;
-                if (!lastTs) return { isStale: true, hours: 24 };
-                const diffMs = Date.now() - lastTs;
-                const hours = Math.floor(diffMs / (3600 * 1000));
-                return { isStale: hours >= 24, hours };
-              };
 
               const getProjectBusinessDaysList = (startDate, plannedDays) => {
                 if (!startDate || !Number.isFinite(plannedDays) || plannedDays <= 0) return [];
@@ -2541,16 +2604,17 @@ function Pedidos() {
                       </span>
                       <span style={{ display: 'grid', gap: 2, marginTop: 3 }}>
                         {visibleEvents.map(event => {
-                          const color = projectColors.get(event.project.id);
-                          const progressLabel = event.isDeadline
-                            ? 'Entregado · avance 6 de 6'
-                            : `Avance ${event.stageIndex + 1} de ${STAGE_NAMES.length} · ${event.label.split(' · ')[0]}`;
+                          const color = event.isStale ? '#dc2626' : getProjectColor(event.project);
+                          const progressLabel = getCalendarEventLabel(event, true);
+                          const displayName = getProjectDisplayName(event.project);
                           return (
                             <span key={event.id}
-                              title={`${event.project.name || 'Proyecto'} · ${progressLabel} · Capturado: ${formatDate(event.capturedAt)}`}
-                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                              {!event.isDeadline && <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 3, padding: 1, background: '#fff', borderRadius: 3 }}><StageIcon stage={event.stageIndex} size={11} /></span>}
-                              {event.project.name || 'Proyecto'} · {progressLabel}
+                              title={`${displayName} · ${progressLabel} · Capturado: ${formatDate(event.capturedAt)}`}
+                              style={{ display: 'block', overflow: 'hidden', padding: calendarView === 'month' ? '3px 4px' : '5px 7px', borderRadius: 4, background: color, color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.18)', fontSize: calendarView === 'month' ? '0.6rem' : '0.72rem', lineHeight: 1.3, textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700, border: event.isDailyAdvance ? '1px dashed #fff' : 0 }}>
+                              {event.isStale && <span aria-hidden="true" style={{ marginRight: 3 }}>⚠</span>}
+                              {event.isDailyAdvance && <span aria-hidden="true" style={{ marginRight: 3 }}>📷</span>}
+                              {event.isMilestone && <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 3, padding: 1, background: '#fff', borderRadius: 3 }}><StageIcon stage={event.stageIndex} size={11} /></span>}
+                              {displayName} · {progressLabel}
                             </span>
                           );
                         })}
@@ -2571,10 +2635,11 @@ function Pedidos() {
                 {selectedCalendarDay === getDateKey(scheduleNow) && (
                   <div aria-label="Indicadores de producción de hoy" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 6, marginBottom: 8 }}>
                     {[
-                      { label: 'Total de proyectos', value: filteredProjects.length, color: '#1d4ed8', background: '#eff6ff' },
+                      { label: 'Total de proyectos', value: semaforoProjects.length, color: '#1d4ed8', background: '#eff6ff' },
                       { label: 'En producción', value: activeProjectsCount, color: '#475569', background: '#f1f5f9' },
                       { label: 'En tiempo', value: onTimeProjectsCount, color: '#15803d', background: '#f0fdf4' },
                       { label: 'Atrasados', value: lateProjectsCount, color: '#b91c1c', background: '#fef2f2' },
+                      { label: 'Sin avance >24h', value: staleProjectsCount, color: '#dc2626', background: '#fee2e2' },
                       { label: 'Entregados', value: deliveredProjectsCount, color: '#6d28d9', background: '#f5f3ff' },
                       { label: 'Sin cronograma', value: projectsWithoutSchedule.length, color: '#9a3412', background: '#fff7ed' }
                     ].map(kpi => (
@@ -2588,20 +2653,20 @@ function Pedidos() {
                 {selectedDayActions.length ? (
                   <div style={{ display: 'grid', gap: 4 }}>
                     {selectedDayActions.map(action => {
-                      const progressLabel = action.isDeadline
-                        ? 'Entrega registrada · proyecto completo'
-                        : `${STAGE_NAMES[action.stageIndex]} · avance ${action.stageIndex + 1} de ${STAGE_NAMES.length}`;
+                      const progressLabel = getCalendarEventLabel(action);
                       return (
-                        <button data-guide="production-open" key={action.id} type="button" onClick={() => selectProductionProject(action.project)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(action.project.id)}`, borderRadius: 7, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                        <button data-guide="production-open" key={action.id} type="button" onClick={() => openCalendarProject(action.project)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${action.isStale ? '#dc2626' : getProjectColor(action.project)}`, borderRadius: 7, background: action.isStale ? '#fef2f2' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
                           <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {!action.isDeadline && <span style={{ flexShrink: 0, display: 'inline-flex' }}><StageIcon stage={action.stageIndex} size={22} /></span>}
+                            {action.isStale && <span aria-hidden="true" style={{ flexShrink: 0, fontSize: '1rem' }}>⚠</span>}
+                            {action.isDailyAdvance && <span aria-hidden="true" style={{ flexShrink: 0, fontSize: '1rem' }}>📷</span>}
+                            {action.isMilestone && <span style={{ flexShrink: 0, display: 'inline-flex' }}><StageIcon stage={action.stageIndex} size={22} /></span>}
                             <span style={{ minWidth: 0 }}>
-                            <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.project.name || 'Cliente sin nombre'}</strong>
-                            <small style={{ color: '#475569', fontSize: '0.65rem' }}>{progressLabel}</small>
+                            <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.7rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getProjectDisplayName(action.project)}</strong>
+                            <small style={{ color: action.isStale ? '#b91c1c' : '#475569', fontSize: '0.65rem' }}>{progressLabel}</small>
                             </span>
                           </span>
-                          <span style={{ flexShrink: 0, color: '#64748b', fontSize: '0.63rem' }}>{formatDate(action.capturedAt)}</span>
+                          <span style={{ flexShrink: 0, color: '#64748b', fontSize: '0.63rem' }}>{action.isStale ? STAGE_NAMES[action.stageIndex] : formatDate(action.capturedAt)}</span>
                         </button>
                       );
                     })}
@@ -2631,18 +2696,8 @@ function Pedidos() {
                 {calendarProjects.length ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 8 }}>
                     {calendarProjects.map(project => (
-                      <button data-guide="production-open" key={getSemaforoProjectKey(project)} type="button" onClick={() => {
-                        if (project.workItemName) {
-                          setShowSemaforo(true);
-                          setSemaforoSelected(project);
-                          setSemaforoSelectedDayKey(null);
-                          setSemaforoAdvanceFiles([]);
-                          setSemaforoAdvanceComment('');
-                          return;
-                        }
-                        selectProductionProject(project);
-                      }}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${projectColors.get(project.id)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                      <button data-guide="production-open" key={getSemaforoProjectKey(project)} type="button" onClick={() => openCalendarProject(project)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${getProjectColor(project)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                         <span style={{ minWidth: 0 }}>
                           <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.8rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
                           <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.7rem' }}>
