@@ -125,6 +125,218 @@ const MONTHLY_HIGHLIGHTS = [
   }
 ];
 
+const SEASONAL_DECORATIONS = {
+  winter: { colors: ['#38bdf8', '#e0f2fe', '#818cf8', '#ffffff'], flower: 'snowflake' },
+  candle: { colors: ['#f59e0b', '#fef3c7', '#c2410c', '#ffffff'], flower: 'candle' },
+  spring: { colors: ['#16a34a', '#f472b6', '#facc15', '#7dd3fc'], flower: 'flower' },
+  family: { colors: ['#be185d', '#fb7185', '#facc15', '#ffffff'], flower: 'flower' },
+  summer: { colors: ['#0284c7', '#38bdf8', '#facc15', '#fb923c'], flower: 'sun' },
+  independence: { colors: ['#15803d', '#ffffff', '#dc2626', '#15803d'], flower: 'star' },
+  autumn: { colors: ['#c2410c', '#d97706', '#854d0e', '#fbbf24'], flower: 'leaf' },
+  remembrance: { colors: ['#ea580c', '#c026d3', '#16a34a', '#2563eb'], flower: 'marigold' },
+  revolution: { colors: ['#15803d', '#f8fafc', '#dc2626', '#d4a373'], flower: 'star' },
+  holidays: { colors: ['#15803d', '#dc2626', '#facc15', '#ffffff'], flower: 'star' }
+};
+
+function getMexicoCalendarDate(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City',
+    month: 'numeric',
+    day: 'numeric'
+  }).formatToParts(date);
+  return {
+    month: Number(parts.find(part => part.type === 'month')?.value),
+    day: Number(parts.find(part => part.type === 'day')?.value)
+  };
+}
+
+function getSeasonalDecoration(date) {
+  const { month, day } = getMexicoCalendarDate(date);
+  if ((month === 10 && day >= 25) || (month === 11 && day <= 2)) return 'remembrance';
+  if (month === 11 && day <= 20) return 'revolution';
+  if ((month === 12 && day >= 16) || (month === 1 && day <= 6)) return 'holidays';
+  if (month === 9 && day >= 1 && day <= 16) return 'independence';
+  if (month === 2 && day >= 1 && day <= 5) return 'candle';
+  if ((month === 3 && day >= 20) || month === 4 || (month === 5 && day <= 10)) {
+    return month === 5 ? 'family' : 'spring';
+  }
+  if ((month === 6 && day <= 5) || (month === 6 && day >= 21) || month === 7 || month === 8) return 'summer';
+  if (month === 9 || month === 10 || (month === 11 && day > 20)) return 'autumn';
+  if (month === 12 || month === 1) return 'winter';
+  if (month === 2 || month === 3) return 'spring';
+  return 'summer';
+}
+
+function PortalSeasonalDecor({ theme }) {
+  const decoration = SEASONAL_DECORATIONS[theme];
+  const flags = Array.from({ length: 14 }, (_, index) => {
+    const x = 12 + index * 70;
+    const position = x / 1000;
+    const y = 7 + 48 * position * (1 - position);
+    return (
+      <g key={x} transform={`translate(${x} ${y})`}>
+        <g
+          className="client-papel-picado-flag"
+          style={{ '--flag-index': index }}
+        >
+          <path
+            d="M0 0h60v27c-6-4-10-3-13 3l-5 7c-3 5-9 5-12 0l-5-7c-3-6-8-7-13-3L0 27Z"
+            fill={decoration.colors[index % decoration.colors.length]}
+          />
+          <path d="M30 5c-5-6-10 0 0 7 10-7 5-13 0-7Z" fill="#fff8ed" opacity=".92" />
+          <path d="M30 14v10m-9-5h18m-14-4 10 10m0-10L25 25" stroke="#fff8ed" strokeWidth="1.8" opacity=".9" />
+          <circle cx="30" cy="19" r="3.3" fill={decoration.colors[index % decoration.colors.length]} />
+          <path d="M7 24c4-5 7-5 11 0m35 0c-4-5-7-5-11 0M10 8l5 4m35-4-5 4" fill="none" stroke="#fff8ed" strokeLinecap="round" strokeWidth="1.6" opacity=".9" />
+          <circle cx="11" cy="18" r="1.4" fill="#fff8ed" />
+          <circle cx="49" cy="18" r="1.4" fill="#fff8ed" />
+        </g>
+      </g>
+    );
+  });
+
+  return (
+    <div className={`client-season-decor client-season-decor--${theme}`} aria-hidden="true">
+      <svg className="client-season-garland" viewBox="0 0 1000 60" preserveAspectRatio="none">
+        <path d="M8 7 Q500 31 992 7" fill="none" stroke="#7c5c43" strokeWidth="2.5" />
+        {flags.map((flag, index) => (
+          <path
+            key={`string-${index}`}
+            d={`M${12 + index * 70} ${7 + 48 * (12 + index * 70) / 1000 * (1 - (12 + index * 70) / 1000)} v4`}
+            stroke="#7c5c43"
+            strokeWidth="1.4"
+          />
+        ))}
+        {flags}
+      </svg>
+      {(theme === 'remembrance' || theme === 'spring' || theme === 'family') && (
+        <>
+          <span className="client-season-flower client-season-flower--left"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--right"><SeasonalFlower /></span>
+        </>
+      )}
+      {theme === 'remembrance' && (
+        <>
+          <span className="client-season-flower client-season-flower--lower-left"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--lower-right"><SeasonalFlower /></span>
+          <span className="client-season-skull"><SugarSkull /></span>
+          <span className="client-season-butterfly client-season-butterfly--upper"><MonarchButterfly /></span>
+          <span className="client-season-butterfly client-season-butterfly--lower"><MonarchButterfly /></span>
+        </>
+      )}
+      {theme === 'revolution' && (
+        <span className="client-season-rosette client-season-rosette--left">✦</span>
+      )}
+      {theme === 'holidays' && (
+        <>
+          <span className="client-season-ornament client-season-ornament--left">✦</span>
+          <span className="client-season-ornament client-season-ornament--right">✦</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SeasonalFlower() {
+  return (
+    <svg viewBox="0 0 100 100">
+      <path d="M50 68c-1 12-4 20-12 27m12-19c8 2 15 6 20 13M49 81c-9-5-16-4-24 0" fill="none" stroke="#3f7d3b" strokeWidth="4" strokeLinecap="round" />
+      <path d="M46 81c-12-11-18-8-23-3 7 8 14 9 23 3Zm9 3c11-10 18-7 22-2-7 8-14 8-22 2Z" fill="#5b963f" />
+      <circle cx="50" cy="48" r="32" fill="#b94a0c" />
+      {Array.from({ length: 20 }, (_, index) => (
+        <ellipse
+          key={index}
+          cx="50"
+          cy="25"
+          rx="5.6"
+          ry="17"
+          transform={`rotate(${index * 18} 50 48)`}
+          fill={index % 3 ? '#f97316' : '#fbbf24'}
+        />
+      ))}
+      {Array.from({ length: 12 }, (_, index) => (
+        <ellipse
+          key={`inner-${index}`}
+          cx="50"
+          cy="35"
+          rx="3.8"
+          ry="10"
+          transform={`rotate(${index * 30 + 15} 50 48)`}
+          fill={index % 2 ? '#fbbf24' : '#fb923c'}
+        />
+      ))}
+      <circle cx="50" cy="48" r="12" fill="#7c2d12" />
+      <circle cx="50" cy="48" r="8" fill="#a34b17" />
+      {Array.from({ length: 9 }, (_, index) => (
+        <circle
+          key={`seed-${index}`}
+          cx={50 + Math.cos(index * Math.PI * 2 / 9) * 5}
+          cy={48 + Math.sin(index * Math.PI * 2 / 9) * 5}
+          r="1.2"
+          fill="#fde68a"
+        />
+      ))}
+    </svg>
+  );
+}
+
+function SugarSkull() {
+  const eyePetals = Array.from({ length: 8 }, (_, index) => (
+    <ellipse
+      key={index}
+      cx="0"
+      cy="-8"
+      rx="3.2"
+      ry="5.2"
+      transform={`rotate(${index * 45})`}
+      fill={index % 2 ? '#ec4899' : '#fbbf24'}
+    />
+  ));
+
+  return (
+    <svg viewBox="0 0 90 104">
+      <path d="M45 5C23 5 10 20 11 43c0 12 3 21 9 27 4 4 8 6 13 7l2 13c1 5 5 6 10 1 5 5 9 4 10-1l2-13c5-1 9-3 13-7 6-6 9-15 9-27C79 20 66 5 45 5Z" fill="#fff8e9" stroke="#624331" strokeWidth="3" />
+      <path d="M20 32c5-7 12-9 20-7m10 0c8-2 15 0 20 7M22 60c6 4 13 5 20 5m6 0c7 0 14-1 20-5" fill="none" stroke="#f97316" strokeWidth="2.4" strokeLinecap="round" />
+      <g transform="translate(30 43)">
+        <circle r="12" fill="#7c2d12" />
+        {eyePetals}
+        <circle r="3.5" fill="#fef3c7" />
+      </g>
+      <g transform="translate(60 43)">
+        <circle r="12" fill="#7c2d12" />
+        {eyePetals}
+        <circle r="3.5" fill="#fef3c7" />
+      </g>
+      <path d="m45 51-5 8h10Z" fill="#7c2d12" />
+      <path d="M31 70h28m-24 0v8m8-8v10m8-10v10m8-10v8" stroke="#624331" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 45c-5 1-7 4-6 8m60-8c5 1 7 4 6 8M35 17c3-4 7-5 10-2 3-3 7-2 10 2" fill="none" stroke="#7e22ce" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M45 15v7m-4-3h8" stroke="#15803d" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="17" cy="57" r="2" fill="#2563eb" />
+      <circle cx="73" cy="57" r="2" fill="#2563eb" />
+    </svg>
+  );
+}
+
+function MonarchButterfly() {
+  return (
+    <svg viewBox="0 0 90 76">
+      <g className="client-butterfly-wing client-butterfly-wing--left">
+        <path d="M43 36C31 12 10 3 6 15c-5 14 7 28 32 30-17 0-26 13-18 22 8 8 20-2 25-20Z" fill="#f97316" stroke="#38251c" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M39 38C27 26 17 18 8 16m28 23C24 39 16 43 12 51m26-10c-7 7-11 14-13 21" fill="none" stroke="#38251c" strokeWidth="2.5" />
+        <path d="M13 18c2-3 5-3 7 0m4 5c2-3 5-3 7 0m-16 7c2-3 5-3 7 0m8 26c2-2 5-2 7 1" fill="none" stroke="#fff6e8" strokeWidth="2" strokeLinecap="round" />
+      </g>
+      <g className="client-butterfly-wing client-butterfly-wing--right">
+        <path d="M47 36C59 12 80 3 84 15c5 14-7 28-32 30 17 0 26 13 18 22-8 8-20-2-25-20Z" fill="#f97316" stroke="#38251c" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M51 38c12-12 22-20 31-22M54 39c14 0 22 4 26 12M52 41c7 7 11 14 13 21" fill="none" stroke="#38251c" strokeWidth="2.5" />
+        <path d="M77 18c-2-3-5-3-7 0m-4 5c-2-3-5-3-7 0m16 7c-2-3-5-3-7 0m-8 26c-2-2-5-2-7 1" fill="none" stroke="#fff6e8" strokeWidth="2" strokeLinecap="round" />
+      </g>
+      <path d="M45 31c-4 8-4 17 0 28 4-11 4-20 0-28Z" fill="#38251c" />
+      <path d="M43 32c-2-8-6-10-9-11m13 11c2-8 6-10 9-11" fill="none" stroke="#38251c" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="34" cy="20" r="1.5" fill="#38251c" />
+      <circle cx="56" cy="20" r="1.5" fill="#38251c" />
+    </svg>
+  );
+}
+
 const displayValue = (value) => {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string') return value;
@@ -141,6 +353,7 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(false);
   const [showMonthlyCuriosity, setShowMonthlyCuriosity] = useState(false);
   const [monthlyContext, setMonthlyContext] = useState(null);
+  const [seasonalTheme, setSeasonalTheme] = useState('');
 
   useEffect(() => {
     const updateMonthlyContext = () => {
@@ -152,6 +365,13 @@ export default function ClientPortal() {
 
     updateMonthlyContext();
     const intervalId = window.setInterval(updateMonthlyContext, 60 * 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const updateSeasonalTheme = () => setSeasonalTheme(getSeasonalDecoration(new Date()));
+    updateSeasonalTheme();
+    const intervalId = window.setInterval(updateSeasonalTheme, 60 * 1000);
     return () => window.clearInterval(intervalId);
   }, []);
 
@@ -261,7 +481,9 @@ export default function ClientPortal() {
       fontFamily: 'Inter, system-ui, sans-serif',
       boxSizing: 'border-box'
     }}>
-      <div id="client-portal-container" style={{ width: 'min(100%, 960px)', margin: '0 auto' }}>
+      <div className={`client-portal-frame client-portal-frame--${seasonalTheme || 'default'}`}>
+        {seasonalTheme && <PortalSeasonalDecor theme={seasonalTheme} />}
+        <div id="client-portal-container" className="client-portal-content" style={{ width: 'min(100%, 960px)', margin: '0 auto' }}>
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '0.9rem 1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img src="/logo-rd-oficial.png?v=2" alt="RD Carpintería" style={{ height: 48, width: 'auto', maxWidth: 80, objectFit: 'contain', display: 'block' }} />
@@ -341,6 +563,7 @@ export default function ClientPortal() {
         <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
           La información de avance se actualiza automáticamente.
         </p>
+        </div>
       </div>
     </main>
   );
