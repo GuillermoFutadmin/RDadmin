@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContratoDetail, getMeasureSections } from './Contratos';
 import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
 import { convertPdfToImageUrls } from './pdfUtils';
-import Avances from './Avances';
 
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
@@ -194,6 +193,7 @@ const getProductionSchedule = (project, now) => {
 };
 
 const imageUrl = (url) => url?.startsWith('http') || url?.startsWith('data:') ? url : `${API}${url || ''}`;
+const getCurrentIsoTimestamp = () => new Date().toISOString();
 
 const collectImageUrls = (...values) => {
   const urls = new Set();
@@ -231,7 +231,7 @@ function Pedidos() {
   const [projects, setProjects] = useState([]);
   const [hasWorkItemProjects, setHasWorkItemProjects] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [activeStage, setActiveStage] = useState(0);
+  const [activeStageSelection, setActiveStageSelection] = useState(null);
   const [overviewStage, setOverviewStage] = useState(null);
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -240,7 +240,7 @@ function Pedidos() {
   });
   const [calendarView, setCalendarView] = useState('month');
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(() => getDateKey(new Date()));
-  const [note, setNote] = useState('');
+  const [noteDraft, setNoteDraft] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -257,7 +257,6 @@ function Pedidos() {
   const [supplierForm, setSupplierForm] = useState({ name: '', contact_name: '', phone: '', location: '' });
   const [showSemaforo, setShowSemaforo] = useState(false);
   const [semaforoSelected, setSemaforoSelected] = useState(null);
-  const [semaforoUploadingStage, setSemaforoUploadingStage] = useState(null);
   const [semaforoSelectedDayKey, setSemaforoSelectedDayKey] = useState(null);
   const [semaforoAdvanceComment, setSemaforoAdvanceComment] = useState('');
   const [semaforoAdvanceFiles, setSemaforoAdvanceFiles] = useState([]);
@@ -267,7 +266,12 @@ function Pedidos() {
   const [uploadingRender, setUploadingRender] = useState(false);
   const [renderUploadOk, setRenderUploadOk] = useState(false);
 
-  const refresh = async ({ silent = false } = {}) => {
+  const clearProductionSelection = () => {
+    setShowTechnicalSheet(false);
+    setSelectedId(null);
+  };
+
+  const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
       const response = await fetch(`${API}/api/prospects?light=true`);
@@ -279,29 +283,33 @@ function Pedidos() {
       setHasWorkItemProjects(allProductionProjects.some(project => Array.isArray(parseJson(project.production_data, {}).work_items)));
       const productionProjects = allProductionProjects.filter(project => !Array.isArray(parseJson(project.production_data, {}).work_items));
       setProjects(current => productionProjects.map(project => mergeHeavy(project, current.find(item => item.id === project.id))));
-      setSelectedId(current => productionProjects.some(project => project.id === current)
-        ? current
-        : null);
+      if (selectedId && !productionProjects.some(project => project.id === selectedId)) {
+        setShowTechnicalSheet(false);
+      }
+      setSelectedId(current => productionProjects.some(project => project.id === current) ? current : null);
     } catch (error) {
       setMessage(error.message || 'Error al cargar los proyectos.');
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
-  };
+  }, [selectedId]);
 
-  useEffect(() => { refresh(); }, []);
-  useAutoRefresh(() => refresh({ silent: true }));
+  useAutoRefresh(() => refresh({ silent: true }), { immediate: true });
   useEffect(() => {
     const interval = window.setInterval(() => setScheduleNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
   }, []);
   useEffect(() => {
-    fetch(`${API}/api/suppliers`)
-      .then(async response => {
+    const loadSuppliers = async () => {
+      try {
+        const response = await fetch(`${API}/api/suppliers`);
         if (!response.ok) throw new Error(`No se pudieron cargar los proveedores (${response.status})`);
         setSuppliers(await response.json());
-      })
-      .catch(error => setSupplierError(error.message || 'No se pudieron cargar los proveedores.'));
+      } catch (error) {
+        setSupplierError(error.message || 'No se pudieron cargar los proveedores.');
+      }
+    };
+    loadSuppliers();
   }, []);
 
   const filteredProjects = useMemo(() => {
@@ -316,12 +324,16 @@ function Pedidos() {
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
     filteredProjects.filter(project => productionStageIndex(project) === index)
   ), [filteredProjects]);
-  const projectsWithoutSchedule = filteredProjects.filter(project => !projectSchedules.get(project.id));
-  const calendarProjects = overviewStage === null
+  const projectsWithoutSchedule = useMemo(
+    () => filteredProjects.filter(project => !projectSchedules.get(project.id)),
+    [filteredProjects, projectSchedules]
+  );
+  const calendarProjects = useMemo(() => overviewStage === null
     ? filteredProjects
     : overviewStage === -1
       ? projectsWithoutSchedule
-      : projectsByStage[overviewStage] || [];
+      : projectsByStage[overviewStage] || [],
+  [overviewStage, filteredProjects, projectsWithoutSchedule, projectsByStage]);
   const selectedCalendarDate = calendarDate(selectedCalendarDay);
   const calendarDays = useMemo(() => {
     if (calendarView === 'day') return selectedCalendarDate ? [selectedCalendarDate] : [];
@@ -401,7 +413,6 @@ function Pedidos() {
     : overviewStage;
 
   const selected = projects.find(project => project.id === selectedId) || null;
-  useEffect(() => { setShowTechnicalSheet(false); }, [selectedId]);
   // El listado es ligero: al seleccionar un proyecto se descarga su registro completo.
   const selectedIsLight = !!selected?.is_light;
   useEffect(() => {
@@ -417,6 +428,21 @@ function Pedidos() {
   const production = normalizeProduction(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
+  const activeStage = activeStageSelection?.projectId === selectedId
+    && activeStageSelection.currentStage === currentStage
+    ? activeStageSelection.stage
+    : currentStage;
+  const note = noteDraft?.projectId === selectedId
+    && noteDraft.currentStage === currentStage
+    && noteDraft.stage === activeStage
+    ? noteDraft.value
+    : stages[activeStage]?.note || '';
+  const updateNote = value => setNoteDraft({
+    projectId: selectedId,
+    currentStage,
+    stage: activeStage,
+    value
+  });
   const selectedStage = stages[activeStage] || { name: STAGE_NAMES[activeStage], note: '', photos: [] };
   const estimation = parseJson(selected?.estimation_data);
   const estimationSheets = Array.isArray(estimation.sheets) ? estimation.sheets : [];
@@ -488,21 +514,23 @@ function Pedidos() {
     group.materials.push(material);
     return groups;
   }, []);
-  const purchaseRecords = production.materialPurchases && typeof production.materialPurchases === 'object'
-    ? production.materialPurchases
+  const savedPurchaseRecords = normalizeProduction(selected?.production_data).materialPurchases;
+  const purchaseRecords = savedPurchaseRecords && typeof savedPurchaseRecords === 'object'
+    ? savedPurchaseRecords
     : {};
-  const syncedPurchasesRef = useRef({ projectId: null, records: {} });
   const purchaseRecordsFingerprint = JSON.stringify(purchaseRecords);
+  const syncedPurchasesRef = useRef({ projectId: null, records: {} });
   useEffect(() => {
+    const records = JSON.parse(purchaseRecordsFingerprint);
     const previous = syncedPurchasesRef.current;
     setPurchaseDrafts(current => {
-      if (previous.projectId !== selectedId) return purchaseRecords;
+      if (previous.projectId !== selectedId) return records;
       const unsavedDrafts = Object.fromEntries(Object.entries(current).filter(([key, value]) =>
         JSON.stringify(value) !== JSON.stringify(previous.records[key] || {})
       ));
-      return { ...purchaseRecords, ...unsavedDrafts };
+      return { ...records, ...unsavedDrafts };
     });
-    syncedPurchasesRef.current = { projectId: selectedId, records: purchaseRecords };
+    syncedPurchasesRef.current = { projectId: selectedId, records };
   }, [selectedId, purchaseRecordsFingerprint]);
   const persist = async (nextProduction, nextStatus) => {
     if (!selected) return;
@@ -574,11 +602,6 @@ function Pedidos() {
     }
   };
 
-  useEffect(() => {
-    setActiveStage(currentStage);
-    setNote(stages[currentStage]?.note || '');
-  }, [selectedId, currentStage]);
-
   const saveNote = async () => {
     const next = { ...production, stages: stages.map((stage, index) =>
       index === activeStage ? { ...stage, note } : stage
@@ -592,9 +615,9 @@ function Pedidos() {
       setMessage(`Para avanzar, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
       return;
     }
-    const now = new Date().toISOString();
+    const nowIso = getCurrentIsoTimestamp();
     if (currentStage >= STAGE_NAMES.length - 1) {
-      const delivered = await persist({ ...production, delivered_at: now }, 'ENTREGADO');
+      const delivered = await persist({ ...production, delivered_at: nowIso }, 'ENTREGADO');
       if (delivered) {
         setMessage('Proyecto marcado como entregado.');
         setShowPdfPrompt(true);
@@ -605,7 +628,7 @@ function Pedidos() {
     const nextStages = STAGE_NAMES.map((name, index) => {
       const existing = stages[index] || { name, note: '', photos: [] };
       if (index === currentStage) return { ...existing, note };
-      if (index === nextIndex && !existing.entered_at) return { ...existing, entered_at: now };
+      if (index === nextIndex && !existing.entered_at) return { ...existing, entered_at: nowIso };
       return existing;
     });
     const updated = await persist(
@@ -613,11 +636,10 @@ function Pedidos() {
       'PRODUCCION'
     );
     if (updated) {
-      setActiveStage(nextIndex);
-      setNote(nextStages[nextIndex]?.note || '');
       setShowPdfPrompt(true);
     }
   };
+  const handleAdvanceClick = advanceStage;
 
   const returnToPreviousStage = async () => {
     if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
@@ -635,18 +657,19 @@ function Pedidos() {
       stages: nextStages
     }, 'PRODUCCION');
     if (updated) {
-      setActiveStage(previousStage);
-      setNote(nextStages[previousStage]?.note || '');
       setMessage(`Proyecto regresado a ${STAGE_NAMES[previousStage]}. Se conservaron notas, fotos y compras.`);
     }
   };
 
   const selectProductionProject = (project) => {
     const stageIndex = productionStageIndex(project);
-    const projectProduction = normalizeProduction(project.production_data);
+    setShowTechnicalSheet(false);
     setSelectedId(project.id);
-    setActiveStage(stageIndex);
-    setNote(projectProduction.stages[stageIndex]?.note || '');
+    setActiveStageSelection({
+      projectId: project.id,
+      currentStage: stageIndex,
+      stage: stageIndex
+    });
   };
 
   const uploadEvidence = async (file) => {
@@ -1063,7 +1086,11 @@ function Pedidos() {
       </header>
 
       {message && <div role="status" style={{ marginBottom: 12, padding: '0.7rem 0.9rem', background: message.includes('no pudo') || message.includes('No se pudo') ? '#fef2f2' : '#eff6ff', color: message.includes('no pudo') || message.includes('No se pudo') ? '#b91c1c' : '#1d4f91', borderRadius: 10 }}>{message}</div>}
-      {hasWorkItemProjects && <Avances workItemsOnly />}
+      {hasWorkItemProjects && (
+        <div style={{ marginBottom: 16, padding: '0.85rem 1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, color: '#1e40af', fontSize: '0.85rem' }}>
+          El registro fotográfico de avances por área está disponible en la pestaña <strong>Avances</strong> del menú lateral.
+        </div>
+      )}
       {(!hasWorkItemProjects || projects.length > 0) && <>
 
       <section style={{ marginBottom: 16, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 16, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
@@ -1107,7 +1134,7 @@ function Pedidos() {
                 const isNextStep = latestActiveStage === index - 1;
                 return (
                   <React.Fragment key={name}>
-                    <button type="button" aria-pressed={isActive} aria-label={`${name}, ${count} ${count === 1 ? 'proyecto' : 'proyectos'}`} onClick={() => { setOverviewStage(index); setSelectedId(null); }}
+                    <button type="button" aria-pressed={isActive} aria-label={`${name}, ${count} ${count === 1 ? 'proyecto' : 'proyectos'}`} onClick={() => { setOverviewStage(index); clearProductionSelection(); }}
                       className={`production-stage-button${isActive ? ' is-selected' : ''}${count ? ' has-projects' : ''}`}
                       style={{ '--stage-color': circleColor, '--stage-surface': isActive ? '#eff6ff' : count ? '#f0fdf4' : '#f8fafc', color: isActive ? '#1d4ed8' : '#334155' }}>
                       <span className="production-stage-icon"><StageIcon stage={index} /></span>
@@ -1127,7 +1154,7 @@ function Pedidos() {
               <button type="button" aria-pressed={overviewStage === -1}
                 onClick={() => {
                   setOverviewStage(projectsWithoutSchedule.length ? -1 : null);
-                  setSelectedId(null);
+                  clearProductionSelection();
                 }}
                 style={{ padding: '0.5rem 0.8rem', border: `1px solid ${overviewStage === -1 ? '#2563eb' : '#cbd5e1'}`, borderRadius: 20, background: overviewStage === -1 ? '#eff6ff' : '#fff', color: overviewStage === -1 ? '#1d4ed8' : '#475569', fontWeight: 750, cursor: 'pointer' }}>
                 Sin cronograma ({projectsWithoutSchedule.length})
@@ -1208,7 +1235,7 @@ function Pedidos() {
                 if (!schedule) {
                   return { color: '#78716c', bg: '#fafaf9', border: '#d6d3d1', emoji: '⚪', label: 'Sin cronograma', etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: 'No tiene días de producción registrados' };
                 }
-                const { expectedStage, daysRemaining, elapsedDays, plannedDays } = schedule;
+                const { expectedStage, daysRemaining } = schedule;
                 const stageDiff = currentStageIdx - expectedStage;
                 if (daysRemaining < 0 || stageDiff < -1) {
                   const diasAtras = Math.abs(daysRemaining);
@@ -1384,10 +1411,7 @@ function Pedidos() {
                   {semaforoSelected && (() => {
                     const sp = projects.find(p => p.id === semaforoSelected.id) || semaforoSelected;
                     const sprod = normalizeProduction(sp.production_data);
-                    const sstgs = Array.isArray(sprod.stages) ? sprod.stages : [];
                     const ssched = projectSchedules.get(sp.id);
-                    const scIdx = productionStageIndex(sp);
-                    const isDelivered = sp.status === 'ENTREGADO';
                     const staleInfo = getProjectStaleInfo(sp);
 
                     const getSem = (proj) => {
@@ -1831,7 +1855,6 @@ function Pedidos() {
                         {/* ── SECCIÓN 2: CALENDARIO MENSUAL + PANEL DE FOTOS DEL DÍA ── */}
                         {(() => {
                           // Construir set de días del proyecto para lookup rápido
-                          const projectDaySet = new Set(projectDays.map(d => d.dateKey));
                           const projectDayMap = new Map(projectDays.map(d => [d.dateKey, d]));
 
                           // Calcular rango de meses cubiertos por el proyecto
@@ -1865,7 +1888,6 @@ function Pedidos() {
                             calCells.push({ date: dt, dateKey: dk, dayNum: d, projDay: projectDayMap.get(dk) || null });
                           }
 
-                          const monthLabel = firstDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
                           const calMonthLabel = new Date(calYear, calMonth, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
 
                           // Mes anterior / siguiente dentro del rango del proyecto
@@ -2534,7 +2556,7 @@ function Pedidos() {
                       {calendarProjects.length} {calendarProjects.length === 1 ? 'cliente' : 'clientes'} en esta vista
                     </span>
                   </div>
-                  <button type="button" onClick={() => { setOverviewStage(null); setSelectedId(null); }}
+                  <button type="button" onClick={() => { setOverviewStage(null); clearProductionSelection(); }}
                     style={{ padding: '0.45rem 0.7rem', border: '1px solid #bfdbfe', borderRadius: 8, background: '#fff', color: '#1d4f91', fontSize: '0.74rem', fontWeight: 750, cursor: 'pointer' }}>
                     Ver calendario de producción
                   </button>
@@ -2572,7 +2594,7 @@ function Pedidos() {
                   <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={() => setSelectedId(null)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 750, cursor: 'pointer' }}>
+                    <button type="button" onClick={clearProductionSelection} style={{ padding: '0.55rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 750, cursor: 'pointer' }}>
                       Cerrar ficha
                     </button>
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
@@ -2606,7 +2628,7 @@ function Pedidos() {
                   const stage = stages[index] || {};
                   const photoCount = Array.isArray(stage.photos) ? stage.photos.length : 0;
                   return (
-                    <button key={name} type="button" aria-current={active ? 'step' : undefined} onClick={() => { setActiveStage(index); setNote(stage.note || ''); setMessage(''); }}
+                    <button key={name} type="button" aria-current={active ? 'step' : undefined} onClick={() => { setActiveStageSelection({ projectId: selectedId, currentStage, stage: index }); setMessage(''); }}
                       style={{ flex: '1 0 135px', minWidth: 125, padding: '0.75rem', border: `1px solid ${active ? '#2563eb' : complete ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 12, background: active ? '#eff6ff' : complete ? '#f8fbff' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
                         <span style={{ width: 22, height: 22, borderRadius: 99, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: complete || active ? '#2563eb' : '#e2e8f0', color: complete || active ? '#fff' : '#64748b', fontSize: 11, fontWeight: 800 }}>{complete ? '✓' : index + 1}</span>
@@ -2960,12 +2982,12 @@ function Pedidos() {
                   <input type="file" accept="image/*" disabled={saving} onChange={event => { uploadEvidence(event.target.files?.[0]); event.target.value = ''; }} style={{ display: 'none' }} />
                 </label>
               </div>
-              <textarea data-guide="production-note" value={note} onChange={event => setNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
+              <textarea data-guide="production-note" value={note} onChange={event => updateNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
                 rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, font: 'inherit', fontSize: '0.85rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={advanceStage} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
+                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={handleAdvanceClick} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
                       {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `Guardar avance y pasar a ${STAGE_NAMES[currentStage + 1]} →`}
                   </button>
                 </div>

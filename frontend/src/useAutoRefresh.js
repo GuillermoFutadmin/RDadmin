@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export default function useAutoRefresh(refresh, { enabled = true, intervalMs = 5000 } = {}) {
+export default function useAutoRefresh(refresh, { enabled = true, intervalMs = 5000, immediate = false } = {}) {
   const refreshRef = useRef(refresh);
   const runningRef = useRef(false);
 
@@ -27,6 +27,7 @@ export default function useAutoRefresh(refresh, { enabled = true, intervalMs = 5
       if (document.visibilityState === 'visible') runRefresh();
     };
     const interval = window.setInterval(runRefresh, intervalMs);
+    if (immediate) runRefresh();
     window.addEventListener('focus', runRefresh);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -36,5 +37,5 @@ export default function useAutoRefresh(refresh, { enabled = true, intervalMs = 5
       window.removeEventListener('focus', runRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [enabled, intervalMs]);
+  }, [enabled, intervalMs, immediate]);
 }
