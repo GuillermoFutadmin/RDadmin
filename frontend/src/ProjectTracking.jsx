@@ -10,7 +10,7 @@ const TRACKING_STAGES = [
   { label: 'Entregado', icon: '📦' }
 ];
 
-const PRODUCTION_STAGES = [
+export const PRODUCTION_STAGES = [
   'Generando información',
   'Preparación de materiales',
   'Producción iniciada',
@@ -300,72 +300,6 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
 
       {!compact && (
         <>
-          {/* ── LÍNEA DE TIEMPO DEL CLIENTE (PROSPECTO ➔ CLIENTE ➔ PRODUCCIÓN) ── */}
-          <div style={{ marginTop: 14, padding: '0.85rem 1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-              <strong style={{ color: '#0f172a', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>⏱️</span> Línea de Tiempo de tu Proyecto
-              </strong>
-              <span style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 800, background: '#e0f2fe', padding: '2px 8px', borderRadius: 6 }}>
-                Total acumulado: {pTotalDays} días
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 10 }}>
-              {/* Fase 1: Prospecto */}
-              <div style={{ background: '#fff', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#b45309' }}>🎯 Prospecto</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: 4 }}>
-                    {pProspectDays} {pProspectDays === 1 ? 'día' : 'días'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
-                  {pProspectDate ? pProspectDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Captura'} ➔ {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Firma'}
-                </div>
-              </div>
-
-              {/* Fase 2: Cliente */}
-              <div style={{ background: '#fff', border: '1px solid #bae6fd', borderLeft: '4px solid #0284c7', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#0369a1' }}>✍️ Cliente</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#e0f2fe', color: '#075985', padding: '1px 5px', borderRadius: 4 }}>
-                    {pClientPrepDays} {pClientPrepDays === 1 ? 'día' : 'días'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
-                  {pContractDate ? pContractDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Firma'} ➔ {pProdStartDate ? pProdStartDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'Taller'}
-                </div>
-              </div>
-
-              {/* Fase 3: Producción */}
-              <div style={{ background: '#fff', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', borderRadius: 8, padding: '0.55rem 0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#15803d' }}>🔨 Producción</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 900, background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: 4 }}>
-                    {pElapsedProdDays} / {pPlannedDays} días
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.62rem', color: '#64748b' }}>
-                  {pRemainingProdDays > 0 ? `${pRemainingProdDays} días restantes` : 'Etapa de entrega'}
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de progreso de producción */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.64rem', color: '#64748b', marginBottom: 3 }}>
-                <span>Avance en taller: {pElapsedProdDays} días transcurridos</span>
-                <strong style={{ color: '#16a34a' }}>{pProdPct}%</strong>
-              </div>
-              <div style={{ height: 6, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pProdPct}%`, background: 'linear-gradient(90deg, #3b82f6, #16a34a)', borderRadius: 999, transition: 'width 0.4s' }} />
-              </div>
-            </div>
-          </div>
-
-
-
           {showEvidence && productionStages.length > 0 && (() => {
             const activeStage = selectedStage ?? currentProductionStage;
             const stageData = productionStages[activeStage] || {};
@@ -385,14 +319,19 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                 comment: null,
                 source: 'stage'
               })),
-              ...stageDailyAdvances.map((adv, idx) => ({
-                id: adv.id || `daily-${idx}`,
-                url: adv.url,
-                badge: [adv.work_item_name, adv.date ? `📅 ${adv.date}` : 'Taller'].filter(Boolean).join(' · '),
-                date: adv.date || null,
-                comment: adv.comment || null,
-                source: 'daily'
-              }))
+              ...stageDailyAdvances
+                .map((adv, idx) => {
+                  const cleanedUrl = safePhotoUrl(adv.url) || adv.url;
+                  return {
+                    id: adv.id || `daily-${idx}`,
+                    url: cleanedUrl,
+                    badge: [adv.work_item_name, adv.date ? `📅 ${adv.date}` : 'Taller'].filter(Boolean).join(' · '),
+                    date: adv.date || null,
+                    comment: adv.comment || null,
+                    source: 'daily'
+                  };
+                })
+                .filter(item => Boolean(item.url))
             ];
             return (
               <div style={{ marginTop: 14 }}>

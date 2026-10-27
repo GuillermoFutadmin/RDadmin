@@ -83,8 +83,10 @@ def safe_photo_url(value: object) -> Optional[str]:
     if value.startswith(("https://", "http://")):
         return value
     if value.startswith("/uploads/"):
+        # Prefer public URL prefix if configured, otherwise serve relative
+        # (the portal proxy endpoint /uploads/{path} covers local files)
         public_url = os.environ.get("RDADMIN_PUBLIC_URL", "").rstrip("/")
-        return f"{public_url}{value}" if public_url else None
+        return f"{public_url}{value}" if public_url else value
     return None
 
 
@@ -130,18 +132,23 @@ def client_project(prospect):
         if not isinstance(stage, dict):
             public_stages.append({"entered_at": None, "note": None, "photos": []})
             continue
-        photos = stage.get("photos") if isinstance(stage.get("photos"), list) else []
+        valid_photos = []
+        for photo in photos:
+            if isinstance(photo, dict):
+                p_url = safe_photo_url(photo.get("url"))
+                if p_url:
+                    valid_photos.append({
+                        "url": p_url,
+                        "uploaded_at": photo.get("uploaded_at"),
+                    })
+            elif isinstance(photo, str):
+                p_url = safe_photo_url(photo)
+                if p_url:
+                    valid_photos.append({"url": p_url})
         public_stages.append({
             "entered_at": stage.get("entered_at"),
             "note": stage.get("note") if isinstance(stage.get("note"), str) else None,
-            "photos": [
-                {
-                    "url": safe_photo_url(photo.get("url")),
-                    "uploaded_at": photo.get("uploaded_at"),
-                } if isinstance(photo, dict) else {"url": safe_photo_url(photo)}
-                for photo in photos
-                if isinstance(photo, str) or isinstance(photo, dict)
-            ],
+            "photos": valid_photos,
         })
 
     while len(public_stages) < 6:
@@ -207,6 +214,65 @@ def client_project(prospect):
     # Ordenar las fotos diarias por fecha descendente
     public_daily.sort(key=lambda a: (a.get("date") or "", a.get("created_at") or ""), reverse=True)
 
+    # Procesar sub-proyectos / áreas (work_items) con sus fotos y avances
+    raw_work_items = production.get("work_items") if isinstance(production.get("work_items"), list) else []
+    public_work_items = []
+    for wi in raw_work_items:
+        if not isinstance(wi, dict):
+            continue
+        wi_prod = wi.get("production_data") if isinstance(wi.get("production_data"), dict) else {}
+        wi_stages_raw = wi_prod.get("stages") if isinstance(wi_prod.get("stages"), list) else []
+        wi_stages = []
+        for st in wi_stages_raw:
+            if not isinstance(st, dict):
+                continue
+            st_photos = st.get("photos") if isinstance(st.get("photos"), list) else []
+            valid_st_photos = []
+            for p in st_photos:
+                p_url = safe_photo_url(p.get("url") if isinstance(p, dict) else p)
+                if p_url:
+                    valid_st_photos.append({
+                        "url": p_url,
+                        "uploaded_at": p.get("uploaded_at") if isinstance(p, dict) else None,
+                    })
+            wi_stages.append({
+                "name": st.get("name"),
+                "entered_at": st.get("entered_at"),
+                "note": st.get("note"),
+                "photos": valid_st_photos,
+            })
+        wi_daily_raw = wi_prod.get("daily_advances") if isinstance(wi_prod.get("daily_advances"), list) else []
+        wi_daily = []
+        for adv in wi_daily_raw:
+            if not isinstance(adv, dict) or adv.get("published") is False:
+                continue
+            p_url = safe_photo_url(adv.get("url"))
+            if not p_url:
+                continue
+            wi_daily.append({
+                "id": adv.get("id"),
+                "url": p_url,
+                "date": adv.get("date"),
+                "comment": adv.get("comment", "") if isinstance(adv.get("comment"), str) else "",
+                "stage": adv.get("stage"),
+                "created_at": adv.get("created_at"),
+            })
+        public_work_items.append({
+            "id": wi.get("id"),
+            "name": wi.get("name"),
+            "type": wi.get("type"),
+            "measurements": wi.get("measurements"),
+            "notes": wi.get("notes"),
+            "status": wi.get("status"),
+            "production_data": {
+                "started_at": wi_prod.get("started_at"),
+                "delivered_at": wi_prod.get("delivered_at"),
+                "current_stage": wi_prod.get("current_stage", 0),
+                "stages": wi_stages,
+                "daily_advances": wi_daily,
+            },
+        })
+
     capture_d = _g("capture_date")
     contract_d = _g("contract_date")
     delivery_d = _g("delivery_date")
@@ -240,7 +306,10 @@ def client_project(prospect):
             "current_stage": current_stage,
             "stages": public_stages,
             "daily_advances": public_daily,
+            "work_items": public_work_items,
         },
+        # linked_projects is populated at login time when the client has multiple contracts
+        "linked_projects": [],
     }
 
 
@@ -292,43 +361,93 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "valuation_data, production_data"
         )
 
-        row = None
-        params = {"pid": public_id, "pwd": password}
+        def _fetch_rows(sql: str, params: dict) -> list:
+            """Execute a query and return all matched rows as dicts, trying each fallback."""
+            try:
+                return [dict(r) for r in db.execute(text(sql), params).mappings().all()]
+            except Exception as exc:
+                logger.warning("Query falló (%s)", exc)
+                return []
 
-        # Attempt 1: full query including render_pdf_data CASE WHEN
-        try:
-            sql = f"SELECT {cols_all} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-            row = db.execute(text(sql), params).mappings().first()
-        except Exception as e1:
-            logger.warning("Query con cols_all falló (%s), intentando cols_base", e1)
+        rows: list = []
+        params_id = {"pid": public_id, "pwd": password}
 
-        # Attempt 2: same cols but no render_pdf_data reference - fresh session
-        if row is None:
+        # Attempt 1: full cols — primary lookup by public_id
+        rows = _fetch_rows(
+            f"SELECT {cols_all} FROM prospects "
+            "WHERE UPPER(TRIM(public_id)) = :pid "
+            "AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) "
+            "AND (is_papelera IS NULL OR is_papelera = FALSE) "
+            "ORDER BY capture_date ASC",
+            params_id,
+        )
+
+        # Attempt 2: same but without render_pdf_data
+        if not rows:
             db2 = SessionLocal()
             try:
-                sql2 = f"SELECT {cols_base} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-                row = db2.execute(text(sql2), params).mappings().first()
+                rows = [dict(r) for r in db2.execute(
+                    text(f"SELECT {cols_base} FROM prospects "
+                         "WHERE UPPER(TRIM(public_id)) = :pid "
+                         "AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) "
+                         "AND (is_papelera IS NULL OR is_papelera = FALSE) "
+                         "ORDER BY capture_date ASC"),
+                    params_id,
+                ).mappings().all()]
             except Exception as e2:
-                logger.warning("Query con cols_base falló (%s), intentando cols_fallback", e2)
+                logger.warning("Query cols_base falló (%s), intentando fallback", e2)
             finally:
                 db2.close()
 
-        # Attempt 3: minimal columns - fresh session
-        if row is None:
+        # Attempt 3: minimal columns
+        if not rows:
             db3 = SessionLocal()
             try:
-                sql3 = f"SELECT {cols_fallback} FROM prospects WHERE UPPER(TRIM(public_id)) = :pid AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) LIMIT 1"
-                row = db3.execute(text(sql3), params).mappings().first()
+                rows = [dict(r) for r in db3.execute(
+                    text(f"SELECT {cols_fallback} FROM prospects "
+                         "WHERE UPPER(TRIM(public_id)) = :pid "
+                         "AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) "
+                         "ORDER BY capture_date ASC"),
+                    params_id,
+                ).mappings().all()]
             except Exception as e3:
                 logger.error("Error consultando prospectos en client portal: %s", e3)
                 raise HTTPException(status_code=500, detail="Error de conexión a la base de datos al validar el acceso.")
             finally:
                 db3.close()
 
-        if not row:
+        if not rows:
             raise HTTPException(status_code=401, detail="ID o contraseña incorrectos")
 
-        return client_project(dict(row))
+        # Primary project (the one whose public_id was entered)
+        primary_row = next((r for r in rows if r.get("public_id", "").upper() == public_id), rows[0])
+        primary = client_project(primary_row)
+
+        # --- Sibling projects: same client_name + same password, different public_id ---
+        sibling_rows: list = []
+        client_name = primary_row.get("name") or ""
+        if client_name:
+            params_name = {"cname": client_name.strip(), "pwd": password}
+            try:
+                sibling_rows = [dict(r) for r in db.execute(
+                    text(f"SELECT {cols_all} FROM prospects "
+                         "WHERE LOWER(TRIM(name)) = LOWER(TRIM(:cname)) "
+                         "AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) "
+                         "AND UPPER(TRIM(public_id)) != :excl "
+                         "AND (is_papelera IS NULL OR is_papelera = FALSE) "
+                         "ORDER BY capture_date ASC"),
+                    {**params_name, "excl": public_id},
+                ).mappings().all()]
+            except Exception as sib_err:
+                logger.warning("Could not fetch sibling projects for %s: %s", client_name, sib_err)
+
+        linked = [client_project(r) for r in sibling_rows]
+        # Remove linked_projects nesting inside each sibling to avoid circular data
+        for p in linked:
+            p["linked_projects"] = []
+
+        primary["linked_projects"] = linked
+        return primary
     except HTTPException:
         raise
     except Exception as exc:
@@ -431,6 +550,26 @@ def client_portal_render_pdf(public_id: str, request: Request):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/uploads/{file_path:path}")
+def portal_serve_upload(file_path: str):
+    """Proxy endpoint: serve locally stored upload files so the portal can
+    display photos that were saved to /uploads/ instead of Cloudinary."""
+    candidate = (ROOT_DIR / "uploads" / file_path).resolve()
+    # Security: ensure the resolved path stays inside the uploads directory
+    uploads_root = (ROOT_DIR / "uploads").resolve()
+    if not str(candidate).startswith(str(uploads_root)):
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+    if not candidate.is_file():
+        # Try backend/uploads/ fallback (local dev layout)
+        candidate2 = (ROOT_DIR / "backend" / "uploads" / file_path).resolve()
+        uploads_root2 = (ROOT_DIR / "backend" / "uploads").resolve()
+        if str(candidate2).startswith(str(uploads_root2)) and candidate2.is_file():
+            candidate = candidate2
+        else:
+            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(candidate)
 
 
 @app.get("/")

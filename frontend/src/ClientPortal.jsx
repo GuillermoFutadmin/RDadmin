@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import ProjectTracking, { getProjectTrackingProgress } from './ProjectTracking';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ProjectTracking, { getProjectTrackingProgress, PRODUCTION_STAGES } from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 
 const MONTHLY_HIGHLIGHTS = [
@@ -152,7 +152,7 @@ function getMexicoCalendarDate(date) {
 
 function getSeasonalDecoration(date) {
   const { month, day } = getMexicoCalendarDate(date);
-  if ((month === 10 && day >= 25) || (month === 11 && day <= 2)) return 'remembrance';
+  if ((month === 10 && day >= 15) || (month === 11 && day <= 10)) return 'remembrance';
   if (month === 11 && day <= 20) return 'revolution';
   if ((month === 12 && day >= 16) || (month === 1 && day <= 6)) return 'holidays';
   if (month === 9 && day >= 1 && day <= 16) return 'independence';
@@ -669,17 +669,38 @@ export default function ClientPortal() {
     );
   }
 
-  const projectDetails = [
-    ['Tipo de proyecto', project.project_type],
-    ['Detalle solicitado', project.project_type_other],
-    ['Descripción del proyecto', project.restoration_details],
-    ['Descripción acordada', project.quote_description],
-    ['Prioridades', project.project_priorities],
-    ['Lo que esperas del proyecto', project.expectations]
-  ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
-  const tracking = getProjectTrackingProgress(project);
-  const hasProductionStages = tracking.production.stages.length > 0
-    || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  const allProjects = useMemo(() => {
+    if (!project) return [];
+    return [project, ...(project.linked_projects || [])];
+  }, [project]);
+
+  const activeProject = useMemo(() => {
+    if (!project) return null;
+    if (selectedProjectId) {
+      const found = allProjects.find(p => String(p.public_id || p.id).toUpperCase() === String(selectedProjectId).toUpperCase());
+      if (found) return found;
+    }
+    return project;
+  }, [project, selectedProjectId, allProjects]);
+
+  const activeProjectDetails = useMemo(() => {
+    if (!activeProject) return [];
+    return [
+      ['Tipo de proyecto', activeProject.project_type],
+      ['Detalle solicitado', activeProject.project_type_other],
+      ['Descripción del proyecto', activeProject.restoration_details],
+      ['Descripción acordada', activeProject.quote_description],
+      ['Prioridades', activeProject.project_priorities],
+      ['Lo que esperas del proyecto', activeProject.expectations]
+    ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
+  }, [activeProject]);
+
+  const tracking = activeProject ? getProjectTrackingProgress(activeProject) : null;
+  const hasProductionStages = tracking
+    ? (tracking.production.stages.length > 0 || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0))
+    : false;
   const monthlyHighlight = monthlyContext ? MONTHLY_HIGHLIGHTS[monthlyContext.monthIndex] : null;
 
   return (
@@ -698,8 +719,15 @@ export default function ClientPortal() {
             <img src="/logo-rd-oficial.png?v=2" alt="RD Carpintería" style={{ height: 48, width: 'auto', maxWidth: 80, objectFit: 'contain', display: 'block' }} />
             <div>
               <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Portal de clientes</div>
-              <h1 style={{ margin: '0.15rem 0 0', color: '#172b4d', fontSize: '1.2rem' }}>Hola, {project.name || 'cliente'}</h1>
-              <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.76rem' }}>ID de contrato: <strong>{project.public_id}</strong></div>
+              <h1 style={{ margin: '0.15rem 0 0', color: '#172b4d', fontSize: '1.2rem' }}>Hola, {activeProject.name || project.name || 'cliente'}</h1>
+              <div style={{ marginTop: 3, color: '#64748b', fontSize: '0.76rem' }}>
+                ID de contrato: <strong>{activeProject.public_id}</strong>
+                {allProjects.length > 1 && (
+                  <span style={{ marginLeft: 8, color: '#ea580c', fontWeight: 700 }}>
+                    ({allProjects.length} proyectos registrados)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button type="button" onClick={handleLogout} style={{ padding: '0.55rem 0.85rem', background: '#fff', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
@@ -713,14 +741,95 @@ export default function ClientPortal() {
           </div>
         )}
 
-        <ProjectTracking prospect={project} showEvidence requestDetails={projectDetails} />
+        {/* ── SELECTOR DE MÚLTIPLES PROYECTOS DEL MISMO CLIENTE ── */}
+        {allProjects.length > 1 && (
+          <nav aria-label="Tus proyectos" style={{ marginTop: 12, padding: '0.85rem 1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+              <div>
+                <strong style={{ color: '#0f172a', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📂</span> Tus Proyectos ({allProjects.length})
+                </strong>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                  Haz clic en un proyecto para consultar su avance y fotos independientes sin mezclar sus etapas.
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+              {allProjects.map((p) => {
+                const isSelected = String(p.public_id || p.id).toUpperCase() === String(activeProject.public_id || activeProject.id).toUpperCase();
+                const pTracking = getProjectTrackingProgress(p);
+                const pDelivered = p.status === 'ENTREGADO' || !!p.production_data?.delivered_at;
+                const pStageName = PRODUCTION_STAGES[pTracking.currentProductionStage] || 'Producción';
+                const pStageLabel = pDelivered
+                  ? '✅ Entregado'
+                  : p.status === 'PRODUCCION' || pTracking.inProduction
+                    ? `🪚 En Producción (${pStageName})`
+                    : (p.status || '✍️ En Contrato');
+
+                return (
+                  <button
+                    key={p.public_id || p.id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(p.public_id || p.id)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '0.8rem 0.95rem',
+                      borderRadius: 12,
+                      border: isSelected ? '2px solid #ea580c' : '1px solid #cbd5e1',
+                      background: isSelected ? '#fff7ed' : '#ffffff',
+                      boxShadow: isSelected ? '0 3px 12px rgba(234, 88, 12, 0.16)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isSelected ? '#c2410c' : '#475569' }}>
+                        Folio: {p.public_id || `#${p.id}`}
+                      </span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        background: pDelivered ? '#dcfce7' : isSelected ? '#fed7aa' : '#eff6ff',
+                        color: pDelivered ? '#166534' : isSelected ? '#9a3412' : '#1d4ed8'
+                      }}>
+                        {pStageLabel}
+                      </span>
+                    </div>
+                    <strong style={{ display: 'block', color: '#1e293b', fontSize: '0.92rem', marginBottom: 2 }}>
+                      {p.project_type || p.project_type_other || 'Proyecto de carpintería'}
+                    </strong>
+                    {p.restoration_details && (
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                        {p.restoration_details}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                      <span style={{ fontSize: '0.68rem', color: isSelected ? '#ea580c' : '#94a3b8', fontWeight: 700 }}>
+                        {isSelected ? '● Viendo este proyecto' : 'Toca para ver avance'}
+                      </span>
+                      {p.delivery_date && (
+                        <span style={{ fontSize: '0.66rem', color: '#64748b' }}>
+                          📅 {p.delivery_date}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        )}
+
+        <ProjectTracking key={activeProject.public_id || activeProject.id} prospect={activeProject} showEvidence requestDetails={activeProjectDetails} />
 
         {!hasProductionStages && (
           <section style={{ marginTop: 12, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
             <h2 style={{ margin: '0 0 0.75rem', color: '#172b4d', fontSize: '1rem' }}>Lo que solicitaste</h2>
-            {projectDetails.length ? (
+            {activeProjectDetails.length ? (
               <div style={{ display: 'grid', gap: 10 }}>
-                {projectDetails.map(([label, value]) => (
+                {activeProjectDetails.map(([label, value]) => (
                   <div key={label}>
                     <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
                     <div style={{ marginTop: 3, color: '#334155', fontSize: '0.86rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{value}</div>
