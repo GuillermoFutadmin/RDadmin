@@ -257,17 +257,72 @@ function App() {
   const hasProductionAccess = hasAccess('Pedidos') || hasAccess('Produccion');
 
 
-  const handleProspectosClick = () => {
-    setProspectsOpen(prev => !prev);
-    setActiveTab('Prospectos');
-  };
-
   const goTo = (tab) => {
     setActiveTab(tab);
     setProspectsOpen(false);
     setContratosOpen(false);
+    setProduccionOpen(false);
     setColaboradoresOpen(false);
     setSidebarOpen(false);
+  };
+
+  // Solo un submenú abierto a la vez
+  const toggleSection = (section, tab) => {
+    setProspectsOpen(section === 'prospectos' ? prev => !prev : false);
+    setContratosOpen(section === 'contratos' ? prev => !prev : false);
+    setProduccionOpen(section === 'produccion' ? prev => !prev : false);
+    setColaboradoresOpen(section === 'colaboradores' ? prev => !prev : false);
+    setActiveTab(tab);
+  };
+
+  const renderNavItem = ({ label, Icon, active = false, sub = false, sectionActive = false, submenuOpen, onClick }) => {
+    const hasSubmenu = typeof submenuOpen === 'boolean';
+    const className = [
+      'sidebar-item',
+      sub && 'sidebar-subitem',
+      active && 'active',
+      sectionActive && 'is-section-active',
+      hasSubmenu && 'has-submenu',
+      submenuOpen && 'is-open'
+    ].filter(Boolean).join(' ');
+    return (
+      <li key={label} title={label} className={className} onClick={onClick} aria-current={active ? 'page' : undefined}>
+        <span className="sidebar-item-main">
+          <span className="sidebar-icon-wrap">
+            <Icon className="sidebar-icon" />
+            {hasSubmenu && <span className="sidebar-submenu-badge" aria-hidden="true"><IconChevronRight /></span>}
+          </span>
+          <span className="sidebar-label">{label}</span>
+        </span>
+        {hasSubmenu && <IconChevronRight className="sidebar-chevron" />}
+      </li>
+    );
+  };
+
+  const renderNavGroup = ({ key, open, parent, children }) => {
+    const visibleChildren = children.filter(Boolean);
+    const childActive = visibleChildren.some(child => child.tab === activeTab);
+    return (
+      <li key={key} className={`sidebar-group${open ? ' is-open' : ''}${childActive ? ' has-active-child' : ''}`}>
+        <ul>
+          {renderNavItem({
+            label: parent.label,
+            Icon: parent.Icon,
+            active: activeTab === parent.tab || (childActive && !open),
+            sectionActive: childActive && open,
+            submenuOpen: open,
+            onClick: parent.onClick
+          })}
+          {open && visibleChildren.map(child => renderNavItem({
+            label: child.label,
+            Icon: child.Icon,
+            sub: true,
+            active: activeTab === child.tab,
+            onClick: () => { setActiveTab(child.tab); setSidebarOpen(false); }
+          }))}
+        </ul>
+      </li>
+    );
   };
 
   const toggleSidebarCollapsed = () => {
@@ -449,7 +504,7 @@ function App() {
           <div 
             className="sidebar-brand"
             title="Dashboard"
-            onClick={() => { setActiveTab('Dashboard'); setProspectsOpen(false); setContratosOpen(false); setColaboradoresOpen(false); }}
+            onClick={() => { setActiveTab('Dashboard'); setProspectsOpen(false); setContratosOpen(false); setProduccionOpen(false); setColaboradoresOpen(false); }}
             style={{
               padding: '0.75rem 0.5rem',
               marginBottom: '0.75rem',
@@ -516,85 +571,47 @@ function App() {
 
         <nav className="sidebar-nav">
           <ul>
-            {hasAccess('Prospectos') && (
-              <li title="Prospectos" className={activeTab === 'Prospectos' || activeTab === 'Ventas' ? 'active' : ''} onClick={handleProspectosClick}>
-                <span className="sidebar-item-main"><IconUsers className="sidebar-icon" /><span className="sidebar-label">Prospectos</span></span>
-                <IconChevronRight className="sidebar-chevron" style={{ transform: prospectsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-              </li>
-            )}
-            {prospectsOpen && hasAccess('Ventas') && (
-              <li title="Valoración" className={`sidebar-subitem${activeTab === 'Ventas' ? ' active' : ''}`} onClick={() => setActiveTab('Ventas')}>
-                <span className="sidebar-item-main"><IconTrendingUp className="sidebar-icon" /><span className="sidebar-label">Valoración</span></span>
-              </li>
-            )}
+            {hasAccess('Prospectos') && renderNavGroup({
+              key: 'prospectos',
+              open: prospectsOpen,
+              parent: { label: 'Prospectos', Icon: IconUsers, tab: 'Prospectos', onClick: () => toggleSection('prospectos', 'Prospectos') },
+              children: [
+                hasAccess('Ventas') && { label: 'Valoración', Icon: IconTrendingUp, tab: 'Ventas' }
+              ]
+            })}
 
-            {hasAccess('Contratos') && (
-              <li title="Clientes" className={activeTab === 'Contratos' || activeTab === 'Estimacion' ? 'active' : ''} onClick={() => { setContratosOpen(prev => !prev); setActiveTab('Contratos'); setProspectsOpen(false); setColaboradoresOpen(false); }}>
-                <span className="sidebar-item-main"><IconFileText className="sidebar-icon" /><span className="sidebar-label">Clientes</span></span>
-                <IconChevronRight className="sidebar-chevron" style={{ transform: contratosOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-              </li>
-            )}
-            {contratosOpen && hasAccess('Contratos') && (
-              <li title="Estimación" className={`sidebar-subitem${activeTab === 'Estimacion' ? ' active' : ''}`} onClick={() => setActiveTab('Estimacion')}>
-                <span className="sidebar-item-main"><IconPenTool className="sidebar-icon" /><span className="sidebar-label">Estimación</span></span>
-              </li>
-            )}
+            {hasAccess('Contratos') && renderNavGroup({
+              key: 'contratos',
+              open: contratosOpen,
+              parent: { label: 'Clientes', Icon: IconFileText, tab: 'Contratos', onClick: () => toggleSection('contratos', 'Contratos') },
+              children: [
+                { label: 'Estimación', Icon: IconPenTool, tab: 'Estimacion' }
+              ]
+            })}
 
-            {hasProductionAccess && (
-              <li
-                title="Producción"
-                className={['Produccion', 'Avances'].includes(activeTab) ? 'active' : ''}
-                onClick={() => {
-                  setProduccionOpen(prev => !prev);
-                  setActiveTab('Produccion');
-                  setProspectsOpen(false);
-                  setContratosOpen(false);
-                  setColaboradoresOpen(false);
-                }}
-              >
-                <span className="sidebar-item-main"><IconPackage className="sidebar-icon" /><span className="sidebar-label">Producción</span></span>
-                <IconChevronRight className="sidebar-chevron" style={{ transform: produccionOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-              </li>
-            )}
-            {produccionOpen && hasProductionAccess && (
-              <li title="Avances" className={`sidebar-subitem${activeTab === 'Avances' ? ' active' : ''}`} onClick={() => setActiveTab('Avances')}>
-                <span className="sidebar-item-main"><IconCamera className="sidebar-icon" /><span className="sidebar-label">Avances</span></span>
-              </li>
-            )}
+            {hasProductionAccess && renderNavGroup({
+              key: 'produccion',
+              open: produccionOpen,
+              parent: { label: 'Producción', Icon: IconPackage, tab: 'Produccion', onClick: () => toggleSection('produccion', 'Produccion') },
+              children: [
+                { label: 'Avances', Icon: IconCamera, tab: 'Avances' }
+              ]
+            })}
 
-            {hasAccess('Proveedores') && (
-              <li title="Proveedores" className={activeTab === 'Proveedores' ? 'active' : ''} onClick={() => goTo('Proveedores')}>
-                <span className="sidebar-item-main"><IconPackage className="sidebar-icon" /><span className="sidebar-label">Proveedores</span></span>
-              </li>
-            )}
+            {hasAccess('Proveedores') && renderNavItem({ label: 'Proveedores', Icon: IconPackage, active: activeTab === 'Proveedores', onClick: () => goTo('Proveedores') })}
 
-            {(hasAccess('Colaboradores') || hasAccess('Asistencia') || hasAccess('Nomina')) && (
-              <li title="Colaboradores" className={['Colaboradores','Asistencia','Nomina','Tarifas'].includes(activeTab) ? 'active' : ''} onClick={() => { setColaboradoresOpen(prev => !prev); setActiveTab('Colaboradores'); setProspectsOpen(false); }}>
-                <span className="sidebar-item-main"><IconHardHat className="sidebar-icon" /><span className="sidebar-label">Colaboradores</span></span>
-                <IconChevronRight className="sidebar-chevron" style={{ transform: colaboradoresOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-              </li>
-            )}
-            {colaboradoresOpen && hasAccess('Asistencia') && (
-              <li title="Asistencia" className={`sidebar-subitem${activeTab === 'Asistencia' ? ' active' : ''}`} onClick={() => setActiveTab('Asistencia')}>
-                <span className="sidebar-item-main"><IconClock className="sidebar-icon" /><span className="sidebar-label">Asistencia</span></span>
-              </li>
-            )}
-            {colaboradoresOpen && hasAccess('Nomina') && (
-              <li title="Corte de Nómina" className={`sidebar-subitem${activeTab === 'Nomina' ? ' active' : ''}`} onClick={() => setActiveTab('Nomina')}>
-                <span className="sidebar-item-main"><IconWallet className="sidebar-icon" /><span className="sidebar-label">Corte de Nómina</span></span>
-              </li>
-            )}
-            {colaboradoresOpen && hasAccess('Nomina') && (
-              <li title="Tarifas por Hora" className={`sidebar-subitem${activeTab === 'Tarifas' ? ' active' : ''}`} onClick={() => setActiveTab('Tarifas')}>
-                <span className="sidebar-item-main"><IconSettings className="sidebar-icon" /><span className="sidebar-label">Tarifas por Hora</span></span>
-              </li>
-            )}
+            {(hasAccess('Colaboradores') || hasAccess('Asistencia') || hasAccess('Nomina')) && renderNavGroup({
+              key: 'colaboradores',
+              open: colaboradoresOpen,
+              parent: { label: 'Colaboradores', Icon: IconHardHat, tab: 'Colaboradores', onClick: () => toggleSection('colaboradores', 'Colaboradores') },
+              children: [
+                hasAccess('Asistencia') && { label: 'Asistencia', Icon: IconClock, tab: 'Asistencia' },
+                hasAccess('Nomina') && { label: 'Corte de Nómina', Icon: IconWallet, tab: 'Nomina' },
+                hasAccess('Nomina') && { label: 'Tarifas por Hora', Icon: IconSettings, tab: 'Tarifas' }
+              ]
+            })}
 
-            {hasAccess('Accesos') && (
-              <li title="Accesos" className={activeTab === 'Accesos' ? 'active' : ''} onClick={() => { setActiveTab('Accesos'); setProspectsOpen(false); }}>
-                <span className="sidebar-item-main"><IconLock className="sidebar-icon" /><span className="sidebar-label">Accesos</span></span>
-              </li>
-            )}
+            {hasAccess('Accesos') && renderNavItem({ label: 'Accesos', Icon: IconLock, active: activeTab === 'Accesos', onClick: () => goTo('Accesos') })}
           </ul>
         </nav>
       </aside>
