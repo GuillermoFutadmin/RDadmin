@@ -552,6 +552,49 @@ const displayValue = (value) => {
   return JSON.stringify(value, null, 2);
 };
 
+const MACRO_STAGES = [
+  {
+    key: 'prospecto',
+    label: 'Prospecto',
+    icon: '📥',
+    description: 'Recepción y valoración',
+    isMatch: (p) => {
+      const tr = getProjectTrackingProgress(p);
+      return !tr.delivered && tr.currentIndex < 3;
+    }
+  },
+  {
+    key: 'contrato',
+    label: 'Cliente / Contrato',
+    icon: '✍️',
+    description: 'Firma y especificaciones',
+    isMatch: (p) => {
+      const tr = getProjectTrackingProgress(p);
+      return !tr.delivered && tr.currentIndex === 3;
+    }
+  },
+  {
+    key: 'produccion',
+    label: 'Producción en Taller',
+    icon: '🪚',
+    description: 'Fabricación y avances',
+    isMatch: (p) => {
+      const tr = getProjectTrackingProgress(p);
+      return !tr.delivered && tr.currentIndex === 4;
+    }
+  },
+  {
+    key: 'entregado',
+    label: 'Entregado',
+    icon: '📦',
+    description: 'Concluido e instalado',
+    isMatch: (p) => {
+      const tr = getProjectTrackingProgress(p);
+      return tr.delivered;
+    }
+  }
+];
+
 export default function ClientPortal() {
   const [project, setProject] = useState(null);
   const [publicId, setPublicId] = useState('');
@@ -741,88 +784,128 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* ── SELECTOR DE MÚLTIPLES PROYECTOS DEL MISMO CLIENTE ── */}
-        {allProjects.length > 1 && (
-          <nav aria-label="Tus proyectos" style={{ marginTop: 12, padding: '0.85rem 1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
-              <div>
-                <strong style={{ color: '#0f172a', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>📂</span> Tus Proyectos ({allProjects.length})
-                </strong>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                  Haz clic en un proyecto para consultar su avance y fotos independientes sin mezclar sus etapas.
-                </span>
+        {/* ── LEYENDA Y FLUJO POR ETAPAS DE LOS PROYECTOS DEL CLIENTE ── */}
+        <section aria-label="Etapas de tus proyectos" style={{ marginTop: 12, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+            <div>
+              <strong style={{ color: '#0f172a', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>🧭</span> Estado y Etapas de tus Proyectos
+              </strong>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 2 }}>
+                Debajo de cada etapa puedes ver qué proyecto se encuentra en ella. Haz clic en cualquiera para consultar su detalle y fotos.
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
-              {allProjects.map((p) => {
-                const isSelected = String(p.public_id || p.id).toUpperCase() === String(activeProject.public_id || activeProject.id).toUpperCase();
-                const pTracking = getProjectTrackingProgress(p);
-                const pDelivered = p.status === 'ENTREGADO' || !!p.production_data?.delivered_at;
-                const pStageName = PRODUCTION_STAGES[pTracking.currentProductionStage] || 'Producción';
-                const pStageLabel = pDelivered
-                  ? '✅ Entregado'
-                  : p.status === 'PRODUCCION' || pTracking.inProduction
-                    ? `🪚 En Producción (${pStageName})`
-                    : (p.status || '✍️ En Contrato');
+            {allProjects.length > 1 && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ea580c', background: '#fff7ed', padding: '3px 10px', borderRadius: 20, border: '1px solid #ffedd5' }}>
+                {allProjects.length} proyectos registrados
+              </span>
+            )}
+          </div>
 
-                return (
-                  <button
-                    key={p.public_id || p.id}
-                    type="button"
-                    onClick={() => setSelectedProjectId(p.public_id || p.id)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.8rem 0.95rem',
-                      borderRadius: 12,
-                      border: isSelected ? '2px solid #ea580c' : '1px solid #cbd5e1',
-                      background: isSelected ? '#fff7ed' : '#ffffff',
-                      boxShadow: isSelected ? '0 3px 12px rgba(234, 88, 12, 0.16)' : 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isSelected ? '#c2410c' : '#475569' }}>
-                        Folio: {p.public_id || `#${p.id}`}
-                      </span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            {MACRO_STAGES.map((stage) => {
+              const projectsInThisStage = allProjects.filter(p => stage.isMatch(p));
+              const hasProjects = projectsInThisStage.length > 0;
+              const hasActiveProject = projectsInThisStage.some(p => String(p.public_id || p.id).toUpperCase() === String(activeProject.public_id || activeProject.id).toUpperCase());
+
+              return (
+                <div
+                  key={stage.key}
+                  style={{
+                    background: hasActiveProject ? '#fff7ed' : hasProjects ? '#f8fafc' : '#ffffff',
+                    border: hasActiveProject ? '2px solid #ea580c' : hasProjects ? '1.5px solid #cbd5e1' : '1px dashed #e2e8f0',
+                    borderRadius: 12,
+                    padding: '0.8rem 0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: 125,
+                    transition: 'all 0.2s ease',
+                    boxShadow: hasActiveProject ? '0 4px 14px rgba(234, 88, 12, 0.12)' : 'none'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: '1.25rem' }}>{stage.icon}</span>
                       <span style={{
-                        fontSize: '0.68rem',
+                        fontSize: '0.66rem',
                         fontWeight: 800,
-                        padding: '2px 8px',
+                        padding: '2px 7px',
                         borderRadius: 999,
-                        background: pDelivered ? '#dcfce7' : isSelected ? '#fed7aa' : '#eff6ff',
-                        color: pDelivered ? '#166534' : isSelected ? '#9a3412' : '#1d4ed8'
+                        background: hasProjects ? (hasActiveProject ? '#ea580c' : '#1e293b') : '#f1f5f9',
+                        color: hasProjects ? '#ffffff' : '#94a3b8'
                       }}>
-                        {pStageLabel}
+                        {projectsInThisStage.length} {projectsInThisStage.length === 1 ? 'proyecto' : 'proyectos'}
                       </span>
                     </div>
-                    <strong style={{ display: 'block', color: '#1e293b', fontSize: '0.92rem', marginBottom: 2 }}>
-                      {p.project_type || p.project_type_other || 'Proyecto de carpintería'}
+                    <strong style={{ display: 'block', color: hasActiveProject ? '#c2410c' : '#1e293b', fontSize: '0.86rem' }}>
+                      {stage.label}
                     </strong>
-                    {p.restoration_details && (
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
-                        {p.restoration_details}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                      <span style={{ fontSize: '0.68rem', color: isSelected ? '#ea580c' : '#94a3b8', fontWeight: 700 }}>
-                        {isSelected ? '● Viendo este proyecto' : 'Toca para ver avance'}
-                      </span>
-                      {p.delivery_date && (
-                        <span style={{ fontSize: '0.66rem', color: '#64748b' }}>
-                          📅 {p.delivery_date}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </nav>
-        )}
+                    <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b', marginBottom: 8 }}>
+                      {stage.description}
+                    </span>
+                  </div>
 
-        <ProjectTracking key={activeProject.public_id || activeProject.id} prospect={activeProject} showEvidence requestDetails={activeProjectDetails} />
+                  {/* Leyenda debajo de la etapa con el proyecto */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 'auto' }}>
+                    {hasProjects ? (
+                      projectsInThisStage.map(p => {
+                        const isThisActive = String(p.public_id || p.id).toUpperCase() === String(activeProject.public_id || activeProject.id).toUpperCase();
+                        const pTr = getProjectTrackingProgress(p);
+                        const subStage = stage.key === 'produccion' ? PRODUCTION_STAGES[pTr.currentProductionStage] : null;
+
+                        return (
+                          <button
+                            key={p.public_id || p.id}
+                            type="button"
+                            onClick={() => setSelectedProjectId(p.public_id || p.id)}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              border: isThisActive ? '1.5px solid #ea580c' : '1px solid #cbd5e1',
+                              background: isThisActive ? '#ea580c' : '#ffffff',
+                              color: isThisActive ? '#ffffff' : '#1e293b',
+                              cursor: 'pointer',
+                              display: 'block',
+                              boxShadow: isThisActive ? '0 2px 6px rgba(234, 88, 12, 0.25)' : '0 1px 3px rgba(0,0,0,0.04)',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={`Consultar ${p.project_type || p.name} (Folio: ${p.public_id})`}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                              <span style={{ fontSize: '0.74rem', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {isThisActive ? '● ' : '🏷️ '}{p.project_type || p.project_type_other || p.name || 'Proyecto'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, fontSize: '0.62rem', color: isThisActive ? '#fed7aa' : '#64748b' }}>
+                              <span>Folio: {p.public_id || `#${p.id}`}</span>
+                              {subStage && <span style={{ fontWeight: 700 }}>{subStage}</span>}
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <span style={{ display: 'block', textAlign: 'center', padding: '6px 4px', fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                        Sin proyectos aquí
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <ProjectTracking
+          key={activeProject.public_id || activeProject.id}
+          prospect={activeProject}
+          allProjects={allProjects}
+          onSelectProject={setSelectedProjectId}
+          showEvidence
+          requestDetails={activeProjectDetails}
+        />
 
         {!hasProductionStages && (
           <section style={{ marginTop: 12, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 14, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>

@@ -199,7 +199,7 @@
 /* Variante para el portal de clientes: todo visible a un solo vistazo sin barra de scroll */
 .production-stage-flow.is-client {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: clamp(2px, 0.6vw, 6px);
   overflow-x: hidden;

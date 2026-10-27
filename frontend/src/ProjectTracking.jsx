@@ -127,7 +127,14 @@ const safePhotoUrl = (photo) => {
     : null;
 };
 
-export default function ProjectTracking({ prospect, compact = false, showEvidence = false, requestDetails = [] }) {
+export default function ProjectTracking({
+  prospect,
+  allProjects = [],
+  onSelectProject,
+  compact = false,
+  showEvidence = false,
+  requestDetails = []
+}) {
   const [selectedStage, setSelectedStage] = useState(null);
   const [galleryLightboxIndex, setGalleryLightboxIndex] = useState(null);
 
@@ -367,20 +374,94 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                     const isActive = activeStage === index;
                     const reached = complete || current;
                     const color = complete ? '#16a34a' : current ? '#2563eb' : '#cbd5e1';
+
+                    // Proyectos (hermanos o activo) que estén en esta etapa de taller
+                    const projectsHere = allProjects.filter(p => {
+                      const pTr = getProjectTrackingProgress(p);
+                      return !pTr.delivered && pTr.currentIndex === 4 && pTr.currentProductionStage === index;
+                    });
+                    const workItemsHere = workItems.filter(wi => {
+                      const wiStage = wi.production_data?.current_stage;
+                      return wi.status === 'PRODUCCION' && Number.isInteger(wiStage) && wiStage === index;
+                    });
+
                     return (
                       <React.Fragment key={name}>
-                        <button type="button" aria-pressed={isActive} aria-label={`${name}, ${complete ? 'completada' : current ? 'etapa actual' : 'pendiente'}`}
-                          onClick={() => { setSelectedStage(index); setGalleryLightboxIndex(null); }}
-                          className={`production-stage-button${isActive ? ' is-selected' : ''}${reached ? ' has-projects' : ''}`}
-                          style={{ '--stage-color': color, '--stage-surface': complete ? '#f0fdf4' : current ? '#eff6ff' : '#f8fafc', color: current ? '#1d4ed8' : complete ? '#166534' : '#334155' }}>
-                          <span className="production-stage-icon"><StageIcon stage={index} /></span>
-                          <span className="production-stage-name">{name}</span>
-                          <span className="production-stage-count" style={{ color: current ? '#1d4ed8' : complete ? '#15803d' : '#64748b' }}>
-                            {complete ? 'Completada' : current ? 'Etapa actual' : 'Pendiente'}
-                          </span>
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
+                          <button type="button" aria-pressed={isActive} aria-label={`${name}, ${complete ? 'completada' : current ? 'etapa actual' : 'pendiente'}`}
+                            onClick={() => { setSelectedStage(index); setGalleryLightboxIndex(null); }}
+                            className={`production-stage-button${isActive ? ' is-selected' : ''}${reached ? ' has-projects' : ''}`}
+                            style={{ '--stage-color': color, '--stage-surface': complete ? '#f0fdf4' : current ? '#eff6ff' : '#f8fafc', color: current ? '#1d4ed8' : complete ? '#166534' : '#334155' }}>
+                            <span className="production-stage-icon"><StageIcon stage={index} /></span>
+                            <span className="production-stage-name">{name}</span>
+                            <span className="production-stage-count" style={{ color: current ? '#1d4ed8' : complete ? '#15803d' : '#64748b' }}>
+                              {complete ? 'Completada' : current ? 'Etapa actual' : 'Pendiente'}
+                            </span>
+                          </button>
+
+                          {(projectsHere.length > 0 || workItemsHere.length > 0) && (
+                            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', width: '100%' }}>
+                              {projectsHere.map(p => {
+                                const isThisActive = String(p.public_id || p.id).toUpperCase() === String(prospect.public_id || prospect.id).toUpperCase();
+                                return (
+                                  <span
+                                    key={p.public_id || p.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (onSelectProject) onSelectProject(p.public_id || p.id);
+                                      setSelectedStage(index);
+                                    }}
+                                    title={`Proyecto: ${p.project_type || p.name} (Folio: ${p.public_id})`}
+                                    style={{
+                                      display: 'inline-block',
+                                      maxWidth: '100%',
+                                      padding: '2px 5px',
+                                      borderRadius: 5,
+                                      background: isThisActive ? '#ffedd5' : '#f8fafc',
+                                      border: isThisActive ? '1.5px solid #ea580c' : '1px solid #cbd5e1',
+                                      color: isThisActive ? '#9a3412' : '#334155',
+                                      fontSize: '0.62rem',
+                                      fontWeight: 800,
+                                      cursor: onSelectProject ? 'pointer' : 'default',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      textAlign: 'center',
+                                      boxShadow: isThisActive ? '0 1px 4px rgba(234, 88, 12, 0.2)' : 'none'
+                                    }}
+                                  >
+                                    {isThisActive ? '● ' : '📍 '}{p.project_type || p.name}
+                                  </span>
+                                );
+                              })}
+                              {workItemsHere.map(wi => (
+                                <span
+                                  key={wi.id}
+                                  title={`Área: ${wi.name}`}
+                                  style={{
+                                    display: 'inline-block',
+                                    maxWidth: '100%',
+                                    padding: '1px 5px',
+                                    borderRadius: 4,
+                                    background: '#e0f2fe',
+                                    border: '1px solid #bae6fd',
+                                    color: '#0369a1',
+                                    fontSize: '0.58rem',
+                                    fontWeight: 700,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    textAlign: 'center'
+                                  }}
+                                >
+                                  📐 {wi.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         {index < PRODUCTION_STAGES.length - 1 && (
-                          <span className={`production-stage-connector${index < currentProductionStage || delivered ? ' is-lit' : ''}${!delivered && index === currentProductionStage ? ' is-next' : ''}`} aria-hidden="true">
+                          <span className={`production-stage-connector${index < currentProductionStage || delivered ? ' is-lit' : ''}${!delivered && index === currentProductionStage ? ' is-next' : ''}`} aria-hidden="true" style={{ marginTop: 'clamp(20px, 4vw, 34px)' }}>
                             <span>›</span>
                           </span>
                         )}
