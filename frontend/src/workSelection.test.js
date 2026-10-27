@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProductionWorkOptions, getPendingContractWork, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
+import { getProductionWorkOptions, getPendingContractWork, getSemaforoWorkItems, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
 import { getWorkSheets, getSheetPrice, getSelectedWorkIds, getSelectedTotal, getWorkSelectionPayload } from './workSelection.js';
 
 const sheets = [
@@ -81,4 +81,22 @@ test('partial production keeps pending work in Contracts, including after active
   assert.equal(next.work_items[0].production_data.stages[0].entered_at, '2026-10-23T12:00:00Z');
   next.work_items[2].status = 'PRODUCCION';
   assert.equal(isInContracts({ ...partial, production_data: JSON.stringify(next) }), false);
+});
+
+test('the production traffic light includes active and delivered work items but not standby work', () => {
+  const contracts = [{
+    id: 42,
+    name: 'Cliente',
+    production_data: JSON.stringify({ work_items: [
+      { id: 'work-1', name: 'Cocina', status: 'PRODUCCION', production_data: { current_stage: 0 } },
+      { id: 'work-2', name: 'Clóset', status: 'STANDBY', production_data: { current_stage: 0 } },
+      { id: 'work-3', name: 'Vanity', status: 'ENTREGADO', production_data: { current_stage: 5 } }
+    ] })
+  }];
+
+  const items = getSemaforoWorkItems(contracts);
+  assert.deepEqual(items.map(item => item.semaforoKey), ['42:work-1', '42:work-3']);
+  assert.equal(items[0].production_data.current_stage, 0);
+  assert.equal(items[0].workItemName, 'Cocina');
+  assert.equal(items[1].status, 'ENTREGADO');
 });

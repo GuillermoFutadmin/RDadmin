@@ -3,6 +3,7 @@ import { ContratoDetail, getMeasureSections } from './Contratos';
 import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
 import { convertPdfToImageUrls } from './pdfUtils';
+import { getSemaforoWorkItems } from './productionWorkItems';
 
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
@@ -227,8 +228,11 @@ function InfoCard({ label, children }) {
   );
 }
 
+const getSemaforoProjectKey = project => project.semaforoKey || String(project.id);
+
 function Pedidos() {
   const [projects, setProjects] = useState([]);
+  const [workItemContracts, setWorkItemContracts] = useState([]);
   const [hasWorkItemProjects, setHasWorkItemProjects] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [activeStageSelection, setActiveStageSelection] = useState(null);
@@ -280,8 +284,16 @@ function Pedidos() {
       const allProductionProjects = data.filter(project =>
         project.is_contract && project.production_data && ['PRODUCCION', 'ENTREGADO'].includes(project.status)
       );
-      setHasWorkItemProjects(allProductionProjects.some(project => Array.isArray(parseJson(project.production_data, {}).work_items)));
-      const productionProjects = allProductionProjects.filter(project => !Array.isArray(parseJson(project.production_data, {}).work_items));
+      const contractsWithWorkItems = allProductionProjects.filter(project =>
+        Array.isArray(parseJson(project.production_data, {}).work_items)
+      );
+      setHasWorkItemProjects(contractsWithWorkItems.length > 0);
+      setWorkItemContracts(current => contractsWithWorkItems.map(project =>
+        mergeHeavy(project, current.find(item => item.id === project.id))
+      ));
+      const productionProjects = allProductionProjects.filter(project =>
+        !Array.isArray(parseJson(project.production_data, {}).work_items)
+      );
       setProjects(current => productionProjects.map(project => mergeHeavy(project, current.find(item => item.id === project.id))));
       if (selectedId && !productionProjects.some(project => project.id === selectedId)) {
         setShowTechnicalSheet(false);
@@ -317,6 +329,23 @@ function Pedidos() {
     return projects.filter(project => !query || [project.name, project.public_id, project.project_type, project.contact_info]
       .some(value => String(value || '').toLocaleLowerCase().includes(query)));
   }, [projects, search]);
+  const semaforoWorkProjects = useMemo(() => getSemaforoWorkItems(workItemContracts)
+    .filter(project => !search.trim() || [
+    project.name,
+    project.public_id,
+    project.project_type,
+    project.contact_info,
+    project.workItemName
+    ].some(value => String(value || '').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))),
+  [workItemContracts, search]);
+  const semaforoProjects = useMemo(
+    () => [...filteredProjects, ...semaforoWorkProjects],
+    [filteredProjects, semaforoWorkProjects]
+  );
+  const semaforoProjectSchedules = useMemo(() => new Map(semaforoProjects.map(project => [
+    getSemaforoProjectKey(project),
+    getProductionSchedule(project, scheduleNow)
+  ])), [semaforoProjects, scheduleNow]);
   const projectSchedules = useMemo(() => new Map(filteredProjects.map(project => [
     project.id,
     getProductionSchedule(project, scheduleNow)
@@ -1086,12 +1115,12 @@ function Pedidos() {
       </header>
 
       {message && <div role="status" style={{ marginBottom: 12, padding: '0.7rem 0.9rem', background: message.includes('no pudo') || message.includes('No se pudo') ? '#fef2f2' : '#eff6ff', color: message.includes('no pudo') || message.includes('No se pudo') ? '#b91c1c' : '#1d4f91', borderRadius: 10 }}>{message}</div>}
-      {hasWorkItemProjects && (
+      {semaforoWorkProjects.length > 0 && (
         <div style={{ marginBottom: 16, padding: '0.85rem 1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, color: '#1e40af', fontSize: '0.85rem' }}>
-          El registro fotográfico de avances por área está disponible en la pestaña <strong>Avances</strong> del menú lateral.
+          Selecciona un área en el semáforo para consultar su calendario de producción y registrar sus fotos de avance.
         </div>
       )}
-      {(!hasWorkItemProjects || projects.length > 0) && <>
+      {(!hasWorkItemProjects || projects.length > 0 || semaforoWorkProjects.length > 0) && <>
 
       <section style={{ marginBottom: 16, padding: '1rem', background: '#fff', border: '1px solid #dbe5ef', borderRadius: 16, boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -1163,14 +1192,7 @@ function Pedidos() {
 
             {/* ── SEMÁFORO DE PRODUCCIÓN ── */}
             {showSemaforo && (() => {
-              const SEMAFORO_ETAPAS = [
-                'Render y conseguir materiales',
-                'Preparación de Diseño y Materiales',
-                'Producción iniciada',
-                'Avance 1',
-                'Avance 2 / revisión',
-                'Entrega del proyecto'
-              ];
+              const SEMAFORO_ETAPAS = STAGE_NAMES;
 
               const getProjectStaleInfo = (project) => {
                 if (project.status === 'ENTREGADO') return { isStale: false, hours: 0 };
@@ -1228,7 +1250,7 @@ function Pedidos() {
               };
 
               const getSemaforo = (project) => {
-                const schedule = projectSchedules.get(project.id);
+                const schedule = semaforoProjectSchedules.get(getSemaforoProjectKey(project));
                 const currentStageIdx = productionStageIndex(project);
                 const isDelivered = project.status === 'ENTREGADO';
                 if (isDelivered) return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '✅', label: 'Entregado', etapa: SEMAFORO_ETAPAS[5], detail: '' };
@@ -1246,12 +1268,12 @@ function Pedidos() {
                 }
                 return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '🟢', label: `${daysRemaining} día(s) restante(s)`, etapa: SEMAFORO_ETAPAS[currentStageIdx] || SEMAFORO_ETAPAS[0], detail: `Etapa ${currentStageIdx + 1} de ${SEMAFORO_ETAPAS.length}` };
               };
-              const semRed = filteredProjects.filter(p => getSemaforo(p).emoji === '🔴');
-              const semYellow = filteredProjects.filter(p => getSemaforo(p).emoji === '🟡');
-              const semGreen = filteredProjects.filter(p => getSemaforo(p).emoji === '🟢');
-              const semWhite = filteredProjects.filter(p => getSemaforo(p).emoji === '⚪');
-              const semDone = filteredProjects.filter(p => getSemaforo(p).emoji === '✅');
-              const semStale = filteredProjects.filter(p => getProjectStaleInfo(p).isStale);
+              const semRed = semaforoProjects.filter(p => getSemaforo(p).emoji === '🔴');
+              const semYellow = semaforoProjects.filter(p => getSemaforo(p).emoji === '🟡');
+              const semGreen = semaforoProjects.filter(p => getSemaforo(p).emoji === '🟢');
+              const semWhite = semaforoProjects.filter(p => getSemaforo(p).emoji === '⚪');
+              const semDone = semaforoProjects.filter(p => getSemaforo(p).emoji === '✅');
+              const semStale = semaforoProjects.filter(p => getProjectStaleInfo(p).isStale);
               const orderedProjects = [...semRed, ...semYellow, ...semGreen, ...semWhite, ...semDone];
               return (
                 <section
@@ -1302,16 +1324,22 @@ function Pedidos() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 10 }}>
                       {orderedProjects.map(project => {
                         const sem = getSemaforo(project);
-                        const schedule = projectSchedules.get(project.id);
+                        const projectKey = getSemaforoProjectKey(project);
+                        const schedule = semaforoProjectSchedules.get(projectKey);
                         const stageIdx = productionStageIndex(project);
                         const staleInfo = getProjectStaleInfo(project);
                         return (
                           <button
-                            key={project.id}
+                            key={projectKey}
                             type="button"
-                            id={`semaforo-cliente-${project.id}`}
-                            onClick={() => setSemaforoSelected(p => p?.id === project.id ? null : project)}
-                            aria-pressed={semaforoSelected?.id === project.id}
+                            id={`semaforo-cliente-${projectKey}`}
+                            onClick={() => {
+                              setSemaforoSelected(previous => getSemaforoProjectKey(previous || {}) === projectKey ? null : project);
+                              setSemaforoSelectedDayKey(null);
+                              setSemaforoAdvanceFiles([]);
+                              setSemaforoAdvanceComment('');
+                            }}
+                            aria-pressed={semaforoSelected ? getSemaforoProjectKey(semaforoSelected) === projectKey : false}
                             style={{
                               display: 'flex', flexDirection: 'column', gap: 8,
                               padding: '0.85rem 1rem',
@@ -1360,7 +1388,9 @@ function Pedidos() {
                                   {project.name || 'Cliente sin nombre'}
                                 </strong>
                                 <span style={{ display: 'block', marginTop: 2, color: '#94a3b8', fontSize: '0.71rem' }}>
-                                  {project.project_type || 'Proyecto'} · {project.public_id || `ID ${project.id}`}
+                                  {project.workItemName
+                                    ? `${project.workItemName} · ${project.public_id || `ID ${project.id}`}`
+                                    : `${project.project_type || 'Proyecto'} · ${project.public_id || `ID ${project.id}`}`}
                                 </span>
                               </div>
                               <div style={{ flexShrink: 0, textAlign: 'center' }}>
@@ -1409,13 +1439,14 @@ function Pedidos() {
 
                   {/* ── PANEL INLINE HORIZONTAL ── */}
                   {semaforoSelected && (() => {
-                    const sp = projects.find(p => p.id === semaforoSelected.id) || semaforoSelected;
+                    const selectedKey = getSemaforoProjectKey(semaforoSelected);
+                    const sp = semaforoProjects.find(project => getSemaforoProjectKey(project) === selectedKey) || semaforoSelected;
                     const sprod = normalizeProduction(sp.production_data);
-                    const ssched = projectSchedules.get(sp.id);
+                    const ssched = semaforoProjectSchedules.get(selectedKey);
                     const staleInfo = getProjectStaleInfo(sp);
 
                     const getSem = (proj) => {
-                      const sc = projectSchedules.get(proj.id);
+                      const sc = semaforoProjectSchedules.get(getSemaforoProjectKey(proj));
                       const ci = productionStageIndex(proj);
                       if (proj.status === 'ENTREGADO') return { color:'#16a34a', emoji:'✅', label:'Entregado' };
                       if (!sc) return { color:'#78716c', emoji:'⚪', label:'Sin cronograma' };
@@ -1447,6 +1478,28 @@ function Pedidos() {
                     const activeDayKey = semaforoSelectedDayKey || (projectDays.some(d => d.dateKey === todayKey) ? todayKey : projectDays[0]?.dateKey);
                     const activeDayObj = projectDays.find(d => d.dateKey === activeDayKey) || projectDays[0];
                     const activeDayAdvances = activeDayKey ? (advancesByDate.get(activeDayKey) || []) : [];
+                    const updateSemaforoProduction = (project, parentProductionData) => {
+                      if (project.workItemId) {
+                        const parentProduction = parseJson(parentProductionData, {});
+                        const item = (Array.isArray(parentProduction.work_items) ? parentProduction.work_items : [])
+                          .find(workItem => workItem.id === project.workItemId);
+                        if (!item) throw new Error('No se encontró el área actualizada en la respuesta.');
+                        setWorkItemContracts(current => current.map(contract => contract.id === project.id
+                          ? { ...contract, production_data: parentProductionData }
+                          : contract));
+                        setSemaforoSelected(previous => previous
+                          && getSemaforoProjectKey(previous) === getSemaforoProjectKey(project)
+                          ? { ...previous, production_data: item.production_data || {}, status: item.status }
+                          : previous);
+                        return;
+                      }
+                      setProjects(current => current.map(item => item.id === project.id
+                        ? { ...item, production_data: parentProductionData }
+                        : item));
+                      setSemaforoSelected(previous => previous?.id === project.id
+                        ? { ...previous, production_data: parentProductionData }
+                        : previous);
+                    };
 
                     // Subir avance a este día
                     const handleUploadDayAdvance = async (e) => {
@@ -1471,6 +1524,7 @@ function Pedidos() {
                           fd.append('comment', semaforoAdvanceComment);
                           fd.append('published', semaforoAdvancePublished ? 'true' : 'false');
                           fd.append('stage', String(curStage));
+                          if (sp.workItemId) fd.append('work_item_id', sp.workItemId);
                           const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances`, {
                             method: 'POST',
                             body: fd
@@ -1479,8 +1533,7 @@ function Pedidos() {
                           lastResult = await res.json();
                         }
                         if (lastResult) {
-                          setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: lastResult.production_data } : p));
-                          setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: lastResult.production_data } : prev);
+                          updateSemaforoProduction(sp, lastResult.production_data);
                         }
                         setSemaforoAdvanceFiles([]);
                         setSemaforoAdvanceComment('');
@@ -1495,15 +1548,15 @@ function Pedidos() {
                     // Alternar publicación al cliente
                     const handleToggleDailyPublish = async (advId, currentPublished) => {
                       try {
-                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}`, {
+                        const workItemQuery = sp.workItemId ? `?work_item_id=${encodeURIComponent(sp.workItemId)}` : '';
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}${workItemQuery}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ published: !currentPublished })
                         });
                         if (!res.ok) throw new Error('Error al actualizar visibilidad');
                         const updated = await res.json();
-                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: updated.production_data } : p));
-                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: updated.production_data } : prev);
+                        updateSemaforoProduction(sp, updated.production_data);
                       } catch (err) {
                         setMessage('❌ ' + err.message);
                       }
@@ -1513,13 +1566,13 @@ function Pedidos() {
                     const handleDeleteDailyAdvance = async (advId) => {
                       if (!window.confirm('¿Eliminar esta foto de avance?')) return;
                       try {
-                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}`, {
+                        const workItemQuery = sp.workItemId ? `?work_item_id=${encodeURIComponent(sp.workItemId)}` : '';
+                        const res = await fetch(`${API}/api/prospects/${sp.id}/daily-advances/${advId}${workItemQuery}`, {
                           method: 'DELETE'
                         });
                         if (!res.ok) throw new Error('Error al eliminar');
                         const updated = await res.json();
-                        setProjects(cur => cur.map(p => p.id === sp.id ? { ...p, production_data: updated.production_data } : p));
-                        setSemaforoSelected(prev => prev?.id === sp.id ? { ...prev, production_data: updated.production_data } : prev);
+                        updateSemaforoProduction(sp, updated.production_data);
                       } catch (err) {
                         setMessage('❌ ' + err.message);
                       }
@@ -1616,7 +1669,7 @@ function Pedidos() {
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:16 }}>
                           <div>
                             <div style={{ color:'#94a3b8', fontSize:'0.65rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.1em' }}>
-                              {sp.project_type || 'Proyecto'} · {sp.public_id || `ID ${sp.id}`}
+                              {sp.workItemName ? `Área · ${sp.workItemName}` : sp.project_type || 'Proyecto'} · {sp.public_id || `ID ${sp.id}`}
                             </div>
                             <div style={{ color:'#ffffff', fontSize:'1.1rem', fontWeight:900, marginTop:2 }}>{sp.name}</div>
                           </div>
@@ -1627,10 +1680,12 @@ function Pedidos() {
                             <span style={{ color:'#cbd5e1', fontSize:'0.72rem', fontWeight:700 }}>
                               {totalDays} días contratados · {elapsedDaysCount} agotados
                             </span>
-                            <button type="button" onClick={() => { setSemaforoSelected(null); selectProductionProject(sp); }}
-                              style={{ padding:'0.35rem 0.8rem', border:'1px solid #3b82f6', borderRadius:8, background:'#1d4ed8', color:'#fff', fontSize:'0.7rem', fontWeight:800, cursor:'pointer' }}>
-                              📋 Ficha completa
-                            </button>
+                            {!sp.workItemId && (
+                              <button type="button" onClick={() => { setSemaforoSelected(null); selectProductionProject(sp); }}
+                                style={{ padding:'0.35rem 0.8rem', border:'1px solid #3b82f6', borderRadius:8, background:'#1d4ed8', color:'#fff', fontSize:'0.7rem', fontWeight:800, cursor:'pointer' }}>
+                                📋 Ficha completa
+                              </button>
+                            )}
                             <button type="button" onClick={() => setSemaforoSelected(null)}
                               style={{ width:28, height:28, border:'1px solid #334155', borderRadius:8, background:'#1e293b', color:'#94a3b8', cursor:'pointer', fontSize:'0.9rem' }}>×</button>
                           </div>
@@ -2194,7 +2249,7 @@ function Pedidos() {
                                   )}
 
                                   {/* Formulario subida con Drag & Drop y previsualización */}
-                                  {activeDayKey && (
+                                  {activeDayKey && (!sp.workItemId || sp.status === 'PRODUCCION') && (
                                     <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.75rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 8 }}>
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                         <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 900 }}>
@@ -2321,6 +2376,11 @@ function Pedidos() {
                                         </div>
                                       </div>
                                     </form>
+                                  )}
+                                  {sp.workItemId && sp.status === 'ENTREGADO' && (
+                                    <div style={{ padding: '0.65rem', border: '1px solid #166534', borderRadius: 8, color: '#bbf7d0', fontSize: '0.72rem' }}>
+                                      Esta área ya fue entregada; el calendario y las fotos existentes siguen disponibles para consulta.
+                                    </div>
                                   )}
                                 </div>
                               </div>

@@ -81,6 +81,23 @@ export function getPendingContractWork(prospect) {
   return (Array.isArray(production.work_items) ? production.work_items : []).filter(item => item.status === 'STANDBY');
 }
 
+export function getSemaforoWorkItems(contracts) {
+  return contracts.flatMap(contract => {
+    const production = parseStoredData(contract.production_data);
+    return (Array.isArray(production.work_items) ? production.work_items : [])
+      .filter(item => ['PRODUCCION', 'ENTREGADO'].includes(item.status))
+      .map(item => ({
+        ...contract,
+        production_data: item.production_data || {},
+        status: item.status,
+        project_type: item.name || contract.project_type,
+        workItemId: item.id,
+        workItemName: item.name || 'Trabajo',
+        semaforoKey: `${contract.id}:${item.id}`
+      }));
+  });
+}
+
 export function isInContracts(prospect) {
   return prospect.is_contract && (!['PRODUCCION', 'ENTREGADO'].includes(prospect.status) || getPendingContractWork(prospect).length > 0);
 }
