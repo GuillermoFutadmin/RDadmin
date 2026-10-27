@@ -174,6 +174,105 @@ body {
   padding-bottom: 1rem;
 }
 
+/* Notas de ayuda por sección (solo PC) */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar > * {
+  flex-shrink: 0;
+}
+
+.sidebar-notes {
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.sidebar-notes-card {
+  padding: 0.65rem 0.75rem 0.55rem;
+  border-radius: 14px;
+  background: rgba(186, 75, 36, 0.12);
+  border: 1px solid rgba(232, 164, 120, 0.22);
+  color: rgba(255, 237, 220, 0.82);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.sidebar-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  color: #f5b58c;
+  font-weight: 700;
+  font-size: 0.76rem;
+}
+
+.sidebar-notes-card ul {
+  margin: 0;
+  padding-left: 0.95rem;
+  list-style: disc;
+}
+
+.sidebar-notes-card li {
+  margin-bottom: 0.18rem;
+}
+
+.sidebar-notes-close,
+.sidebar-notes-hide,
+.sidebar-notes-show {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sidebar-notes-close {
+  padding: 0 0.15rem;
+  color: rgba(255, 237, 220, 0.55);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.sidebar-notes-close:hover,
+.sidebar-notes-hide:hover {
+  color: #fff;
+}
+
+.sidebar-notes-hide {
+  display: block;
+  margin: 0.35rem 0 0 auto;
+  padding: 0;
+  color: rgba(255, 237, 220, 0.5);
+  font-size: 0.68rem;
+  text-decoration: underline;
+}
+
+.sidebar-notes-show {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 237, 220, 0.6);
+  font-size: 0.72rem;
+}
+
+.sidebar-notes-show:hover {
+  color: #f5b58c;
+  border-color: rgba(245, 181, 140, 0.4);
+}
+
+.sidebar--collapsed .sidebar-notes {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-notes {
+    display: none;
+  }
+}
+
 .sidebar-group > ul {
   list-style: none;
 }

@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function ProspectWorkSelection({ works, selectedIds, onSelect, onAction, busy, error }) {
   return (
-    <section data-guide="quote-selection" className="no-print" style={{ margin: '16px 0', padding: 16, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10 }}>
+    <section className="no-print" style={{ margin: '16px 0', padding: 16, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10 }}>
       <h3 style={{ margin: '0 0 8px' }}>Trabajos para cotizar</h3>
       <p>Selecciona solo lo que pidió cotizar. Los demás permanecen en Prospectos. Pausar conserva la valoración; eliminar retira el trabajo de este flujo.</p>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}

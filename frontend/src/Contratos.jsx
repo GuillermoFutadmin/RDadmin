@@ -72,7 +72,7 @@ function ProductionSelectionModal({ prospect, selectedIds, onToggle, onCancel, o
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="production-selection-title" style={{ position:'fixed', inset:0, zIndex:10000, background:'rgba(15,23,42,0.62)', display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
       <div style={{ width:'min(620px, 100%)', maxHeight:'90vh', overflowY:'auto', background:'#fff', borderRadius:16, padding:'1.4rem', boxShadow:'0 24px 70px rgba(0,0,0,0.3)' }}>
-        <h2 data-guide="production-confirm" id="production-selection-title" style={{ margin:'0 0 0.35rem', color:'#172b4d', fontSize:'1.15rem' }}>Seleccionar trabajos para producción</h2>
+        <h2 id="production-selection-title" style={{ margin:'0 0 0.35rem', color:'#172b4d', fontSize:'1.15rem' }}>Seleccionar trabajos para producción</h2>
         <p style={{ margin:'0 0 1rem', color:'#64748b', fontSize:'0.85rem' }}>
           {prospect.name}: marca los trabajos que comienzan ahora. Los demás permanecerán pendientes en Contratos y conservarán su valoración.
         </p>
@@ -326,7 +326,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
           {!productionMode && <button onClick={onDownloadCotizacion} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:'0.35rem' }}>
             <IconFileText style={{ width:'14px', height:'14px', marginRight:0 }} /> Descargar Cotización
           </button>}
-          {!productionMode && <button data-guide="production-send" onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
+          {!productionMode && <button onClick={() => onStartProduction(prospect)} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#1d4ed8', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>
             🏭 {prospect.production_data ? 'Ver Producción' : 'Enviar a Producción'}
           </button>}
           {!productionMode && <button onClick={onReturnToProspect} style={{ padding:'0.3rem 0.75rem', fontSize:'0.8rem', backgroundColor:'#dc2626', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold' }}>↩️ Regresar a Prospecto</button>}
@@ -934,7 +934,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
             </p>
 
             {/* SI / NO buttons */}
-            <div data-guide="render-options" style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
+            <div style={{ display:'flex', gap:'1rem', marginBottom:'1.4rem' }}>
               {[{val: true, label:'SÍ — Aplica Render', bg:'#10b981', Icon:IconCheckCircle}, {val: false, label:'NO — Sin Render', bg:'#64748b', Icon:IconXCircle}].map(opt => (
                 <button key={String(opt.val)}
                   onClick={() => setRenderApplies(opt.val)}
@@ -1221,7 +1221,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                   onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
                   <td style={{ padding:'0.7rem 0.8rem', fontSize:'0.85rem', fontWeight:'bold', color:'#64748b' }}>{c.public_id}</td>
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', left:0, background:'white', zIndex:1, boxShadow:'2px 0 4px rgba(0,0,0,0.06)' }}>
-                    <button data-guide="client-open" onClick={() => { setSelected(c); setView('detail'); }}
+                    <button onClick={() => { setSelected(c); setView('detail'); }}
                       style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontWeight:'600', fontSize:'0.95rem', textDecoration:'underline', padding:0, whiteSpace:'nowrap' }}>
                       {c.name}
                     </button>
@@ -1238,7 +1238,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                   <td style={{ padding:'0.7rem 0.8rem', position:'sticky', right:0, background:'white', zIndex:1, boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
                       {getStatus(c) === 'CONTRATO' && (
-                        <button data-guide="production-send" onClick={() => handleStartProduction(c)} style={{
+                        <button onClick={() => handleStartProduction(c)} style={{
                           padding:'0.2rem 0.4rem', background:'#1d4ed8', color:'white',
                           border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'700',
                           fontSize:'0.7rem', whiteSpace:'nowrap'
@@ -1248,7 +1248,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                       )}
                       {/* Render button - shows on APROBADO, changes color when filled */}
                       { (getStatus(c) === 'APROBADO' || getStatus(c) === 'RENDER SI/NO') && (
-                        <button data-guide="render-choice" onClick={() => {
+                        <button onClick={() => {
                           setRenderModalFor(c);
                           setRenderApplies(c.render_applies ?? null);
                           setRenderPrice(c.render_price ? String(c.render_price) : '');
@@ -1264,7 +1264,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                         </button>
                       )}
                       {/* Estimación button - disabled on APROBADO, green when has estimation_data */}
-                      <button data-guide="estimate-open"
+                      <button
                         disabled={getStatus(c) === 'APROBADO'}
                         onClick={() => {
                           if (getStatus(c) === 'APROBADO') return;
@@ -1288,7 +1288,7 @@ export default function Contratos({ startView = 'list', onProductionStarted = ()
                       
                       {/* Contrato button - disabled until estimation_data is filled */}
                       { (getStatus(c) === 'ESTIMACIÓN' || getStatus(c) === 'CONTRATO' || getStatus(c) === 'CONTRATO PENDIENTE') && (
-                        <button data-guide="contract-open"
+                        <button
                           disabled={!c.estimation_data}
                           onClick={async () => {
                             if (!c.estimation_data) return;
@@ -2841,7 +2841,7 @@ function Estimacion({ prospect, onBack, onSaveSuccess }) {
           {saveMsg}
         </div>
       )}
-      <button data-guide="estimate-save" onClick={handleSave} disabled={saving}
+      <button onClick={handleSave} disabled={saving}
        style={{ width:'100%', padding:'1.2rem', background:saving?'#94a3b8':'#10b981', color:'white', border:'none', borderRadius:'10px', cursor:saving?'not-allowed':'pointer', fontWeight:'900', fontSize:'1.1rem', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
        {saving ? 'Guardando...' : '💾 Guardar Notas y Cotización'}
       </button>

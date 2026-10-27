@@ -7,7 +7,7 @@ export default function WorkSelectionPanel({ prospect, sheets, margin, selectedI
   const items = Array.isArray(production.work_items) ? production.work_items : [];
   const format = value => value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
   return (
-    <div data-guide="contract-selection" className="no-print" style={{ marginBottom: 12, padding: 12, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
+    <div className="no-print" style={{ marginBottom: 12, padding: 12, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
       <strong style={{ color: '#1e40af' }}>Seleccionar trabajos para este contrato</strong>
       <p style={{ margin: '5px 0 10px', fontSize: '0.8rem', color: '#475569' }}>
         El contrato y sus pagos consideran solo los seleccionados. Los demás conservan su valoración y permanecen pendientes en Contratos; la cotización no cambia.

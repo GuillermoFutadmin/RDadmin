@@ -401,7 +401,7 @@ export default function Avances({ workItemsOnly = false }) {
             const pProd = p.workProductionData || parseJson(p.production_data, {});
             const advCount = Array.isArray(pProd.daily_advances) ? pProd.daily_advances.length : 0;
             return (
-              <button data-guide="advances-project"
+              <button
                 key={p.key}
                 type="button"
                 onClick={() => {
@@ -563,7 +563,7 @@ export default function Avances({ workItemsOnly = false }) {
             </div>
             <div style={{ display:'flex', gap:7 }}>
               <button type="button" onClick={() => handleChangeWorkStage(-1)} disabled={!selectedProduction.current_stage} style={{ padding:'0.45rem 0.7rem', border:'1px solid #cbd5e1', borderRadius:7, background:'#fff', color:'#475569', fontWeight:700, cursor:'pointer', opacity:selectedProduction.current_stage ? 1 : 0.5 }}>Etapa anterior</button>
-              <button data-guide="advances-stage" type="button" onClick={() => handleChangeWorkStage(1)} disabled={selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1} style={{ padding:'0.45rem 0.7rem', border:0, borderRadius:7, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:'pointer', opacity:selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1 ? 0.5 : 1 }}>Avanzar etapa</button>
+              <button type="button" onClick={() => handleChangeWorkStage(1)} disabled={selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1} style={{ padding:'0.45rem 0.7rem', border:0, borderRadius:7, background:'#1d4ed8', color:'#fff', fontWeight:800, cursor:'pointer', opacity:selectedProduction.current_stage >= PRODUCTION_WORK_STAGES.length - 1 ? 0.5 : 1 }}>Avanzar etapa</button>
             </div>
           </div>
         </section>

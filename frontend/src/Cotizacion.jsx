@@ -528,7 +528,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       <div className="no-print" style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onBack} style={{ padding: '0.5rem 1rem', background: '#f1f5f9', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>← Regresar</button>
         {!saved ? (
-          <button data-guide="quote-save" disabled={workBusy || (cascadeEnabled && !quotedIds.length)} onClick={handleSaveAndPrint} style={{ padding: '0.5rem 1.4rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button disabled={workBusy || (cascadeEnabled && !quotedIds.length)} onClick={handleSaveAndPrint} style={{ padding: '0.5rem 1.4rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>💾</span> Guardar y Generar PDF
           </button>
         ) : (
@@ -536,7 +536,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.2rem', background: '#dcfce7', color: '#15803d', borderRadius: '8px', fontWeight: '700', border: '1.5px solid #86efac', fontSize: '0.95rem' }}>
               ✅ Cotización Guardada
             </span>
-            <button data-guide="quote-pdf" onClick={() => setShowPdfModal(true)} style={{ padding: '0.5rem 1.4rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>🖨️ Descargar PDF</button>
+            <button onClick={() => setShowPdfModal(true)} style={{ padding: '0.5rem 1.4rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>🖨️ Descargar PDF</button>
           </>
         )}
       </div>
@@ -571,7 +571,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
       )}
 
       {/* ── DOCUMENTO ── */}
-      <div data-guide="quote-document" id="cotizacion-doc" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', padding: '2.5rem', border: saved ? '2px solid #86efac' : '1px solid #e2e8f0', transition: 'border 0.4s' }}>
+      <div id="cotizacion-doc" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', padding: '2.5rem', border: saved ? '2px solid #86efac' : '1px solid #e2e8f0', transition: 'border 0.4s' }}>
 
         {/* Encabezado */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '3px solid #f97316' }}>
@@ -1237,7 +1237,7 @@ Es un placer presentarle la cotización correspondiente a su proyecto de ${p.pro
           return (
             <div>
               {/* Controles de carga manual visibles solo en pantalla */}
-              <div data-guide="quote-photos" className="no-print" style={{ marginTop: '2rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+              <div className="no-print" style={{ marginTop: '2rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.8rem' }}>
                   📸 Anexo: Imágenes del Proyecto y Referencias ({annexImages.length} fotos — 2 por hoja en PDF)
                 </div>

@@ -11,6 +11,7 @@ import Asistencia from './Asistencia';
 import Proveedores from './Proveedores';
 import Avances from './Avances';
 import Login from './Login';
+import { SIDEBAR_NOTES, SIDEBAR_NOTES_KEY } from './sidebarNotes';
 import { 
   IconUsers, IconTrendingUp, IconFileText, IconPenTool, 
   IconHardHat, IconClock, IconWallet, IconSettings, 
@@ -33,6 +34,7 @@ function App() {
   const [logoAnimation, setLogoAnimation] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('rd_sidebar_collapsed') === '1');
+  const [notesHidden, setNotesHidden] = useState(() => localStorage.getItem(SIDEBAR_NOTES_KEY) === '1');
 
   // Logo panel / cambiar contraseña
   const [showLogoPanel, setShowLogoPanel] = useState(false);
@@ -337,6 +339,12 @@ function App() {
     });
   };
 
+  const setSidebarNotesHidden = (hidden) => {
+    localStorage.setItem(SIDEBAR_NOTES_KEY, hidden ? '1' : '0');
+    setNotesHidden(hidden);
+  };
+  const activeNote = SIDEBAR_NOTES[activeTab];
+
   const toggleLogoPanel = () => {
     if (sidebarCollapsed && !showLogoPanel) toggleSidebarCollapsed();
     const opening = !showLogoPanel;
@@ -614,6 +622,29 @@ function App() {
             {hasAccess('Accesos') && renderNavItem({ label: 'Accesos', Icon: IconLock, active: activeTab === 'Accesos', onClick: () => goTo('Accesos') })}
           </ul>
         </nav>
+
+        {activeNote && (
+          <div className="sidebar-notes">
+            {notesHidden ? (
+              <button type="button" className="sidebar-notes-show" onClick={() => setSidebarNotesHidden(false)} title="Mostrar notas de ayuda">
+                💡 Notas
+              </button>
+            ) : (
+              <div className="sidebar-notes-card" role="note" aria-label={`Notas de ${activeNote.title}`}>
+                <div className="sidebar-notes-head">
+                  <span>💡 {activeNote.title}</span>
+                  <button type="button" className="sidebar-notes-close" onClick={() => setSidebarNotesHidden(true)} aria-label="Ocultar notas" title="Ocultar notas">✕</button>
+                </div>
+                <ul>
+                  {activeNote.lines.map(line => <li key={line}>{line}</li>)}
+                </ul>
+                <button type="button" className="sidebar-notes-hide" onClick={() => setSidebarNotesHidden(true)}>
+                  Ocultar notas
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </aside>
 
       <main className="main-content">

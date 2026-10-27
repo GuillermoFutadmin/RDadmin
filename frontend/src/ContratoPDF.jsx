@@ -506,7 +506,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
       </div>
 
       {/* Preview View (Editable) */}
-      <div data-guide="contract-document" style={{ background: 'white', padding: '40px 48px', maxWidth: '860px', margin: '0 auto', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', borderRadius: '6px', color: '#000', fontFamily: 'Arial, sans-serif', fontSize: '10.5pt' }}>
+      <div style={{ background: 'white', padding: '40px 48px', maxWidth: '860px', margin: '0 auto', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', borderRadius: '6px', color: '#000', fontFamily: 'Arial, sans-serif', fontSize: '10.5pt' }}>
         
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #b45309', paddingBottom: '12px', marginBottom: '20px' }}>

@@ -2789,7 +2789,7 @@ function Pedidos() {
                     {selectedDayActions.map(action => {
                       const progressLabel = getCalendarEventLabel(action);
                       return (
-                        <button data-guide="production-open" key={action.id} type="button" onClick={() => openCalendarProject(action.project)}
+                        <button key={action.id} type="button" onClick={() => openCalendarProject(action.project)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '0.45rem 0.55rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${action.isStale ? '#dc2626' : getProjectColor(action.project)}`, borderRadius: 7, background: action.isStale ? '#fef2f2' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
                           <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                             {action.isStale && <span aria-hidden="true" style={{ flexShrink: 0, fontSize: '1rem' }}>⚠</span>}
@@ -2830,7 +2830,7 @@ function Pedidos() {
                 {calendarProjects.length ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 8 }}>
                     {calendarProjects.map(project => (
-                      <button data-guide="production-open" key={getSemaforoProjectKey(project)} type="button" onClick={() => openCalendarProject(project)}
+                      <button key={getSemaforoProjectKey(project)} type="button" onClick={() => openCalendarProject(project)}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, padding: '0.75rem', border: '1px solid #e2e8f0', borderLeft: `4px solid ${getProjectColor(project)}`, borderRadius: 9, background: '#fff', textAlign: 'left', cursor: 'pointer' }}>
                         <span style={{ minWidth: 0 }}>
                           <strong style={{ display: 'block', overflow: 'hidden', color: '#1e3a5f', fontSize: '0.8rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name || 'Cliente sin nombre'}</strong>
@@ -3310,7 +3310,7 @@ function Pedidos() {
                 <textarea value={areaAdvanceComment} onChange={event => setAreaAdvanceComment(event.target.value)} disabled={selected.status === 'ENTREGADO'} placeholder="Comentario del avance de hoy para esta área..."
                   rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: `1px solid ${stageNeedsWork ? '#fdba74' : '#cbd5e1'}`, borderRadius: 10, background: '#fff', font: 'inherit', fontSize: '0.85rem' }} />
               ) : (
-                <textarea data-guide="production-note" value={note} onChange={event => updateNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
+                <textarea value={note} onChange={event => updateNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
                   rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: `1px solid ${stageNeedsWork ? '#fdba74' : '#cbd5e1'}`, borderRadius: 10, background: '#fff', font: 'inherit', fontSize: '0.85rem' }} />
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
@@ -3322,7 +3322,7 @@ function Pedidos() {
                   <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={advanceDisabled} onClick={handleAdvanceClick} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#ea580c', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
+                  <button type="button" disabled={advanceDisabled} onClick={handleAdvanceClick} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#ea580c', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
                       {selected.status === 'ENTREGADO' ? (isAreaSelection ? 'Área entregada' : 'Proyecto entregado') : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `${isAreaSelection ? 'Pasar área' : 'Guardar avance y pasar'} a ${STAGE_NAMES[currentStage + 1]} →`}
                   </button>
                 </div>

@@ -59,7 +59,7 @@ function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
       <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', width: '440px', maxWidth: '95vw', boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}>
-        <h3 data-guide="approval-dialog" style={{ margin: '0 0 0.3rem', color: '#1e293b', fontSize: '1.1rem' }}>Se aprobó el proyecto?</h3>
+        <h3 style={{ margin: '0 0 0.3rem', color: '#1e293b', fontSize: '1.1rem' }}>Se aprobó el proyecto?</h3>
         <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '0 0 1.2rem' }}>
           <strong>{prospect.name}</strong> · {prospect.project_type}
         </p>
@@ -223,7 +223,7 @@ function EmpathyGuide({ onContinue, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', gap: '1rem' }}>
-        <button data-guide="prospect-intro" onClick={onContinue}
+        <button onClick={onContinue}
           style={{ flex: 1, backgroundColor: 'var(--accent)', color: 'white', padding: '0.9rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
           Continuar al formulario ➡️
         </button>
@@ -1467,19 +1467,19 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
         </h2>
         <span />
       </div>
-      <form data-guide="prospect-form" onSubmit={handleSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') e.preventDefault(); }} style={{ display: 'grid', gap: '1.5rem' }}>
+      <form onSubmit={handleSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') e.preventDefault(); }} style={{ display: 'grid', gap: '1.5rem' }}>
 
         {/* Cliente */}
         <div style={sectionStyle}>
           <p style={sectionTitleStyle}> Información del Cliente</p>
           <div>
             <label style={labelStyle}>Nombre de prospecto *</label>
-            <input data-guide="prospect-name" type="text" name="name" required value={formData.name} onChange={handleChange} style={inputStyle} />
+            <input type="text" name="name" required value={formData.name} onChange={handleChange} style={inputStyle} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={labelStyle}>Número o correo</label>
-              <input data-guide="prospect-contact" required type="text" name="contact_info" value={formData.contact_info} onChange={handleChange} style={inputStyle} />
+              <input required type="text" name="contact_info" value={formData.contact_info} onChange={handleChange} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Ubicación</label>
@@ -2622,7 +2622,7 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
 
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button
-            data-guide="prospect-save" type="submit"
+            type="submit"
             disabled={submitting}
             style={{
               flex: 1,
@@ -3332,7 +3332,7 @@ function Prospects() {
                           ? <><IconUsers style={{ width:'16px', height:'16px', marginRight:0 }} /> Volver a Prospectos</>
                           : <><IconTrash style={{ width:'16px', height:'16px', marginRight:0 }} /> Ver Papelera</>}
                       </button>
-                      <button data-guide="prospect-new" onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                      <button onClick={() => setView('intro')} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display:'flex', alignItems:'center', gap:'0.4rem' }}>
                         <><IconPlusCircle style={{ width:'16px', height:'16px', marginRight:0 }} /> Nuevo Prospecto</>
                 </button>
               </div>
@@ -3578,7 +3578,7 @@ function Prospects() {
                               </button>
 
                               {/* 2. VALORACION */}
-                              <button data-guide="valuation-open" onClick={() => setViewingValuation(p)}
+                              <button onClick={() => setViewingValuation(p)}
                                 style={{ padding: '0.2rem 0.4rem', backgroundColor: p.valuation_data ? '#fef3c7' : '#f1f5f9', color: p.valuation_data ? '#d97706' : '#94a3b8', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                 onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.95)'}
                                 onMouseLeave={e => e.currentTarget.style.filter = 'none'}>
@@ -3589,7 +3589,7 @@ function Prospects() {
                               </button>
 
                               {/* 3. COTIZACION */}
-                              <button data-guide="quote-open" onClick={() => {
+                              <button onClick={() => {
                                 if (!p.valuation_data && !p.has_quote) {
                                   alert("⚠️ Primero debe agregar una valoración para poder cotizar.");
                                   return;
@@ -3607,7 +3607,7 @@ function Prospects() {
 
                               {/* 4. APROBADO */}
                               {p.has_quote && p.valuation_data && !p.is_contract && !p.is_papelera && (
-                                <button data-guide="approval-open" onClick={() => setApproveModalFor(p)}
+                                <button onClick={() => setApproveModalFor(p)}
                                   style={{ padding: '0.2rem 0.4rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
                                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#059669'}
                                   onMouseLeave={e => e.currentTarget.style.backgroundColor = '#10b981'}>
@@ -3914,7 +3914,7 @@ export function ValuationModal({ prospect, onClose, onDeleteWork, onSave }) {
         {!visibleSheets.length && <p>No quedan valoraciones pendientes para este prospecto.</p>}
         {!prospect.is_contract && activeSheet && (
           <div style={{ marginBottom: '1rem' }}>
-            <button data-guide="valuation-delete" type="button" disabled={deleting || editing} onClick={deleteActiveWork}
+            <button type="button" disabled={deleting || editing} onClick={deleteActiveWork}
               style={{ color: '#b91c1c', padding: '8px 12px', border: '1px solid #fca5a5', borderRadius: '6px', background: '#fef2f2', cursor: 'pointer' }}>
               {deleting ? 'Eliminando...' : `Eliminar valoración de ${activeSheet.type}`}
             </button>
