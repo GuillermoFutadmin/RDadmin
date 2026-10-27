@@ -221,10 +221,29 @@ const collectImageUrls = (...values) => {
 function InfoCard({ label, children }) {
   if (children === null || children === undefined || children === '') return null;
   return (
-    <div style={{ minWidth: 0, padding: '0.85rem 1rem', border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff' }}>
-      <div style={{ color: '#2563a8', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
+    <div style={{ minWidth: 0, padding: '0.85rem 1rem', border: '1px solid #e2e8f0', borderRadius: 12, background: '#f5f7fa' }}>
+      <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
       <div style={{ color: '#263449', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{children}</div>
     </div>
+  );
+}
+
+const SECTION_KIND_STYLES = {
+  info: { label: '🔒 Información · solo consulta', color: '#475569', background: '#e2e8f0' },
+  action: { label: '✏️ Por capturar / revisar', color: '#9a3412', background: '#ffedd5' },
+  done: { label: '✅ Resuelto', color: '#166534', background: '#dcfce7' }
+};
+const SECTION_BLOCK_STYLES = {
+  info: { background: '#f8fafc', border: '1px solid #e2e8f0' },
+  action: { background: '#fffaf3', border: '1.5px solid #fb923c', boxShadow: '0 2px 10px rgba(249, 115, 22, 0.10)' }
+};
+
+function SectionTag({ kind, children }) {
+  const style = SECTION_KIND_STYLES[kind] || SECTION_KIND_STYLES.info;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.18rem 0.55rem', borderRadius: 20, background: style.background, color: style.color, fontSize: '0.66rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+      {children || style.label}
+    </span>
   );
 }
 
@@ -321,9 +340,19 @@ function Pedidos() {
   const [uploadingRender, setUploadingRender] = useState(false);
   const [renderUploadOk, setRenderUploadOk] = useState(false);
 
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState(null);
+  const [areaAdvanceFiles, setAreaAdvanceFiles] = useState([]);
+  const [areaAdvanceComment, setAreaAdvanceComment] = useState('');
+
   const clearProductionSelection = () => {
     setShowTechnicalSheet(false);
     setSelectedId(null);
+    setSelectedWorkItemId(null);
+  };
+  const updateContractRecord = (contractId, update) => {
+    const apply = current => current.map(item => item.id === contractId ? update(item) : item);
+    setProjects(apply);
+    setWorkItemContracts(apply);
   };
 
   const refresh = useCallback(async ({ silent = false } = {}) => {
@@ -346,10 +375,10 @@ function Pedidos() {
         !Array.isArray(parseJson(project.production_data, {}).work_items)
       );
       setProjects(current => productionProjects.map(project => mergeHeavy(project, current.find(item => item.id === project.id))));
-      if (selectedId && !productionProjects.some(project => project.id === selectedId)) {
+      if (selectedId && !allProductionProjects.some(project => project.id === selectedId)) {
         setShowTechnicalSheet(false);
       }
-      setSelectedId(current => productionProjects.some(project => project.id === current) ? current : null);
+      setSelectedId(current => allProductionProjects.some(project => project.id === current) ? current : null);
     } catch (error) {
       setMessage(error.message || 'Error al cargar los proyectos.');
     } finally {
@@ -436,17 +465,14 @@ function Pedidos() {
     const seed = [...getSemaforoProjectKey(project)].reduce((total, char) => total + char.charCodeAt(0), 0);
     return `hsl(${Math.round((seed * 137.508) % 360)} 70% 36%)`;
   };
-  const openCalendarProject = project => {
-    if (project.workItemName) {
-      setShowSemaforo(true);
-      setSemaforoSelected(project);
-      setSemaforoSelectedDayKey(null);
-      setSemaforoAdvanceFiles([]);
-      setSemaforoAdvanceComment('');
-      return;
-    }
-    selectProductionProject(project);
+  const openProjectInSemaforo = project => {
+    setShowSemaforo(true);
+    setSemaforoSelected(project);
+    setSemaforoSelectedDayKey(null);
+    setSemaforoAdvanceFiles([]);
+    setSemaforoAdvanceComment('');
   };
+  const openCalendarProject = project => selectProductionProject(project);
   const calendarEvents = useMemo(() => {
     const events = new Map();
     const addEvent = (dateValue, event) => {
@@ -546,15 +572,25 @@ function Pedidos() {
     ? (stagesWithProjects.length ? stagesWithProjects[stagesWithProjects.length - 1] : -1)
     : overviewStage;
 
-  const selected = projects.find(project => project.id === selectedId) || null;
+  const selectedContract = selectedWorkItemId
+    ? workItemContracts.find(project => project.id === selectedId) || null
+    : projects.find(project => project.id === selectedId) || null;
+  // En contratos con áreas, la ficha trabaja sobre la producción del área seleccionada.
+  const selected = selectedWorkItemId
+    ? (selectedContract ? getSemaforoWorkItems([selectedContract]).find(item => item.workItemId === selectedWorkItemId) || null : null)
+    : selectedContract;
+  const isAreaSelection = Boolean(selected?.workItemId);
+  const selectionKey = selectedWorkItemId ? `${selectedId}:${selectedWorkItemId}` : selectedId;
   // El listado es ligero: al seleccionar un proyecto se descarga su registro completo.
-  const selectedIsLight = !!selected?.is_light;
+  const selectedIsLight = !!selectedContract?.is_light;
   useEffect(() => {
     if (!selectedId || !selectedIsLight) return;
     let cancelled = false;
     fetchFullProspect(selectedId).then(full => {
       if (cancelled || !full) return;
-      setProjects(current => current.map(item => item.id === full.id ? full : item));
+      const apply = current => current.map(item => item.id === full.id ? full : item);
+      setProjects(apply);
+      setWorkItemContracts(apply);
     });
     return () => { cancelled = true; };
   }, [selectedId, selectedIsLight]);
@@ -562,17 +598,18 @@ function Pedidos() {
   const production = normalizeProduction(selected?.production_data);
   const stages = Array.isArray(production.stages) ? production.stages : [];
   const currentStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
-  const activeStage = activeStageSelection?.projectId === selectedId
+  const areaDailyAdvances = isAreaSelection && Array.isArray(production.daily_advances) ? production.daily_advances : [];
+  const activeStage = activeStageSelection?.projectId === selectionKey
     && activeStageSelection.currentStage === currentStage
     ? activeStageSelection.stage
     : currentStage;
-  const note = noteDraft?.projectId === selectedId
+  const note = noteDraft?.projectId === selectionKey
     && noteDraft.currentStage === currentStage
     && noteDraft.stage === activeStage
     ? noteDraft.value
     : stages[activeStage]?.note || '';
   const updateNote = value => setNoteDraft({
-    projectId: selectedId,
+    projectId: selectionKey,
     currentStage,
     stage: activeStage,
     value
@@ -594,7 +631,7 @@ function Pedidos() {
   const projectDetails = estimation.projectDetails || {};
   const estimationMeasures = estimation.measures && typeof estimation.measures === 'object' ? estimation.measures : {};
   const estimationMeasurePhotos = estimation.photos && typeof estimation.photos === 'object' ? estimation.photos : {};
-  const measurementLabels = new Map(getMeasureSections(selected?.project_type || '').flatMap(group =>
+  const measurementLabels = new Map(getMeasureSections(selectedContract?.project_type || '').flatMap(group =>
     group.sections.flatMap(section => section.fields.map(field => [
       `${section.key}_${field.id}`,
       { label: field.label, group: group._groupLabel || 'Medidas capturadas', suffix: field.suffix }
@@ -648,7 +685,7 @@ function Pedidos() {
     group.materials.push(material);
     return groups;
   }, []);
-  const savedPurchaseRecords = normalizeProduction(selected?.production_data).materialPurchases;
+  const savedPurchaseRecords = normalizeProduction(selectedContract?.production_data).materialPurchases;
   const purchaseRecords = savedPurchaseRecords && typeof savedPurchaseRecords === 'object'
     ? savedPurchaseRecords
     : {};
@@ -667,7 +704,7 @@ function Pedidos() {
     syncedPurchasesRef.current = { projectId: selectedId, records };
   }, [selectedId, purchaseRecordsFingerprint]);
   const persist = async (nextProduction, nextStatus) => {
-    if (!selected) return;
+    if (!selected || isAreaSelection) return;
     setSaving(true);
     setMessage('');
     try {
@@ -773,9 +810,81 @@ function Pedidos() {
       setShowPdfPrompt(true);
     }
   };
-  const handleAdvanceClick = advanceStage;
+  const handleAdvanceClick = () => (isAreaSelection ? changeAreaStage(currentStage + 1) : advanceStage());
+
+  const changeAreaStage = async targetStage => {
+    if (!isAreaSelection || targetStage < 0 || targetStage > STAGE_NAMES.length - 1) return;
+    if (activeStage !== currentStage) {
+      setMessage(`Para cambiar el flujo, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
+      return;
+    }
+    setSaving(true);
+    setMessage('');
+    try {
+      const response = await fetch(`${API}/api/prospects/${selected.id}/production-work-items/${encodeURIComponent(selected.workItemId)}/stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_stage: targetStage })
+      });
+      if (!response.ok) {
+        let detail = `No se pudo cambiar la etapa del área (${response.status})`;
+        try { detail = (await response.json()).detail || detail; } catch { /* respuesta sin JSON */ }
+        throw new Error(detail);
+      }
+      const result = await response.json();
+      updateContractRecord(selected.id, item => ({ ...item, production_data: result.production_data, status: result.status }));
+      setMessage(targetStage > currentStage
+        ? `Área ${selected.workItemName} pasó a ${STAGE_NAMES[targetStage]}.`
+        : `Área ${selected.workItemName} regresó a ${STAGE_NAMES[targetStage]}.`);
+    } catch (error) {
+      setMessage(error.message || 'No se pudo cambiar la etapa del área.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadAreaAdvance = async () => {
+    if (!isAreaSelection) return;
+    if (!areaAdvanceFiles.length) {
+      setMessage('Selecciona al menos una foto para registrar el avance del área.');
+      return;
+    }
+    setSaving(true);
+    setMessage('');
+    try {
+      let lastResult = null;
+      for (const file of areaAdvanceFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('date', getDateKey(new Date(getCurrentIsoTimestamp())));
+        formData.append('comment', areaAdvanceComment);
+        formData.append('published', 'true');
+        formData.append('stage', String(activeStage));
+        formData.append('work_item_id', selected.workItemId);
+        const response = await fetch(`${API}/api/prospects/${selected.id}/daily-advances`, { method: 'POST', body: formData });
+        if (!response.ok) {
+          let detail = `No se pudo guardar el avance (${response.status})`;
+          try { detail = (await response.json()).detail || detail; } catch { /* respuesta sin JSON */ }
+          throw new Error(detail);
+        }
+        lastResult = await response.json();
+      }
+      if (lastResult) updateContractRecord(selected.id, item => ({ ...item, production_data: lastResult.production_data }));
+      setAreaAdvanceFiles([]);
+      setAreaAdvanceComment('');
+      setMessage('✅ Avance del área guardado. Ya aparece en el calendario.');
+    } catch (error) {
+      setMessage(error.message || 'No se pudo guardar el avance del área.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const returnToPreviousStage = async () => {
+    if (isAreaSelection) {
+      await changeAreaStage(currentStage - 1);
+      return;
+    }
     if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
     if (activeStage !== currentStage) {
       setMessage(`Para cambiar el flujo, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
@@ -797,17 +906,21 @@ function Pedidos() {
 
   const selectProductionProject = (project) => {
     const stageIndex = productionStageIndex(project);
+    const workItemId = project.workItemId || null;
     setShowTechnicalSheet(false);
     setSelectedId(project.id);
+    setSelectedWorkItemId(workItemId);
+    setAreaAdvanceFiles([]);
+    setAreaAdvanceComment('');
     setActiveStageSelection({
-      projectId: project.id,
+      projectId: workItemId ? `${project.id}:${workItemId}` : project.id,
       currentStage: stageIndex,
       stage: stageIndex
     });
   };
 
   const uploadEvidence = async (file) => {
-    if (!file || !selected) return;
+    if (!file || !selected || isAreaSelection) return;
     setSaving(true);
     setMessage('');
     try {
@@ -831,6 +944,10 @@ function Pedidos() {
 
   const returnToClients = async () => {
     if (!selected) return;
+    if (isAreaSelection) {
+      setMessage('Las áreas no se regresan a contrato desde aquí; usa Regresar etapa para el área.');
+      return;
+    }
     if (!window.confirm(`¿Regresar a ${selected.name} a Clientes para volver a generar el contrato? Se conservarán las etapas y fotos de producción.`)) return;
     setSaving(true);
     setMessage('');
@@ -1177,6 +1294,12 @@ function Pedidos() {
         render_image_path: newImgPath,
         render_applies: true
       } : p));
+      setWorkItemContracts(prev => prev.map(p => p.id === selected.id ? {
+        ...p,
+        render_pdf_path: newPdfPath,
+        render_image_path: newImgPath,
+        render_applies: true
+      } : p));
       setMessage('✅ Archivo de render cargado correctamente y listo para el machote.');
       // Indicador visual de éxito en el botón
       setRenderUploadOk(true);
@@ -1193,7 +1316,7 @@ function Pedidos() {
     return (
       <div style={{ padding: '1rem' }}>
         <ContratoDetail
-          prospect={selected}
+          prospect={selectedContract || selected}
           productionMode
           onBack={() => setShowTechnicalSheet(false)}
           onRefresh={refresh}
@@ -2725,12 +2848,19 @@ function Pedidos() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#172b4d' }}>{selected.name}</h2>
-                  <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>{selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}</div>
+                  <div style={{ marginTop: 5, color: '#64748b', fontSize: '0.85rem' }}>
+                    {isAreaSelection ? <strong style={{ color: '#c2410c' }}>Área: {selected.workItemName}</strong> : selected.project_type || 'Proyecto'} · {selected.public_id || `ID ${selected.id}`}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <button type="button" onClick={clearProductionSelection} style={{ padding: '0.55rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#475569', fontWeight: 750, cursor: 'pointer' }}>
                       Cerrar ficha
                     </button>
+                    {isAreaSelection && (
+                      <button type="button" onClick={() => openProjectInSemaforo(selected)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 800, cursor: 'pointer' }}>
+                        🚦 Ver en semáforo
+                      </button>
+                    )}
                     <button type="button" disabled={exportingProjectPdf} onClick={downloadProjectPdf} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: exportingProjectPdf ? '#f1f5f9' : '#eff6ff', color: exportingProjectPdf ? '#94a3b8' : '#1d4f91', fontWeight: 800, cursor: exportingProjectPdf ? 'not-allowed' : 'pointer' }}>
                       {exportingProjectPdf ? 'Preparando machote...' : '⬇ Imprimir / guardar machote PDF'}
                     </button>
@@ -2743,15 +2873,18 @@ function Pedidos() {
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
-                  {currentStage <= 0 && selected.status !== 'ENTREGADO' ? (
+                  {currentStage <= 0 && selected.status !== 'ENTREGADO' && !isAreaSelection ? (
                     <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.55 : 1 }}>
                       ↩ Regresar a contrato
                     </button>
-                  ) : (
-                  <button type="button" disabled={saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer', opacity: currentStage <= 0 || selected.status === 'ENTREGADO' || activeStage !== currentStage ? 0.55 : 1 }}>
-                    {currentStage > 0 && selected.status !== 'ENTREGADO' ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
-                  </button>
-                  )}
+                  ) : (() => {
+                    const canReturn = currentStage > 0 && (isAreaSelection || selected.status !== 'ENTREGADO') && activeStage === currentStage;
+                    return (
+                      <button type="button" disabled={saving || !canReturn} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || !canReturn ? 'not-allowed' : 'pointer', opacity: canReturn ? 1 : 0.55 }}>
+                        {currentStage > 0 && (isAreaSelection || selected.status !== 'ENTREGADO') ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
+                      </button>
+                    );
+                  })()}
                   <span style={{ padding: '0.4rem 0.7rem', borderRadius: 20, background: '#eaf2ff', color: '#1d4f91', fontSize: '0.76rem', fontWeight: 800 }}>Etapa {currentStage + 1} de {STAGE_NAMES.length}</span>
                 </div>
               </div>
@@ -2760,14 +2893,23 @@ function Pedidos() {
                   const complete = index < currentStage;
                   const active = index === currentStage;
                   const stage = stages[index] || {};
-                  const photoCount = Array.isArray(stage.photos) ? stage.photos.length : 0;
+                  const photoCount = (Array.isArray(stage.photos) ? stage.photos.length : 0)
+                    + areaDailyAdvances.filter(advance => Number(advance.stage) === index).length;
+                  const viewing = index === activeStage;
+                  const working = active && selected.status !== 'ENTREGADO';
+                  const tone = working
+                    ? { border: '#f97316', background: '#fff7ed', circle: '#ea580c', text: '#9a3412', shadow: '0 0 0 3px rgba(249, 115, 22, 0.18)' }
+                    : complete || active
+                      ? { border: '#86efac', background: '#f0fdf4', circle: '#16a34a', text: '#166534', shadow: 'none' }
+                      : { border: '#e2e8f0', background: '#f8fafc', circle: '#cbd5e1', text: '#64748b', shadow: 'none' };
                   return (
-                    <button key={name} type="button" aria-current={active ? 'step' : undefined} onClick={() => { setActiveStageSelection({ projectId: selectedId, currentStage, stage: index }); setMessage(''); }}
-                      style={{ flex: '1 0 135px', minWidth: 125, padding: '0.75rem', border: `1px solid ${active ? '#2563eb' : complete ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 12, background: active ? '#eff6ff' : complete ? '#f8fbff' : '#fff', textAlign: 'left', cursor: 'pointer' }}>
+                    <button key={name} type="button" aria-current={active ? 'step' : undefined} onClick={() => { setActiveStageSelection({ projectId: selectionKey, currentStage, stage: index }); setMessage(''); }}
+                      style={{ flex: '1 0 135px', minWidth: 125, padding: '0.75rem', border: `${viewing ? 2 : 1}px solid ${viewing && !working ? '#1d4f91' : tone.border}`, borderRadius: 12, background: tone.background, boxShadow: tone.shadow, opacity: !complete && !active && !viewing ? 0.8 : 1, textAlign: 'left', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                        <span style={{ width: 22, height: 22, borderRadius: 99, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: complete || active ? '#2563eb' : '#e2e8f0', color: complete || active ? '#fff' : '#64748b', fontSize: 11, fontWeight: 800 }}>{complete ? '✓' : index + 1}</span>
-                        <span style={{ color: active ? '#1d4ed8' : '#334155', fontSize: '0.75rem', fontWeight: 800 }}>{name}</span>
+                        <span style={{ width: 22, height: 22, borderRadius: 99, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: tone.circle, color: complete || active ? '#fff' : '#475569', fontSize: 11, fontWeight: 800 }}>{complete || (active && !working) ? '✓' : index + 1}</span>
+                        <span style={{ color: tone.text, fontSize: '0.75rem', fontWeight: 800 }}>{name}</span>
                       </div>
+                      {working && <span style={{ display: 'table', marginBottom: 4, padding: '0.1rem 0.45rem', borderRadius: 20, background: '#ea580c', color: '#fff', fontSize: '0.6rem', fontWeight: 800 }}>✏️ Trabajar aquí</span>}
                       <span style={{ color: '#64748b', fontSize: '0.68rem' }}>{formatDate(stages[index]?.entered_at)}</span>
                       <span style={{ display: 'block', marginTop: 5, color: '#64748b', fontSize: '0.66rem' }}>
                         {[stage.note ? 'Comentario' : null, photoCount ? `${photoCount} ${photoCount === 1 ? 'foto' : 'fotos'}` : null].filter(Boolean).join(' · ') || 'Sin avances registrados'}
@@ -2780,6 +2922,10 @@ function Pedidos() {
 
             {activeStage === 0 && (
               <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 7px' }}>
+                  <strong style={{ color: '#475569', fontSize: '0.8rem' }}>Datos del proyecto</strong>
+                  <SectionTag kind="info" />
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 9, marginBottom: 14 }}>
                   <InfoCard label="Contacto">{selected.contact_info}</InfoCard>
                   <InfoCard label="Domicilio del proyecto">{selected.location}</InfoCard>
@@ -2789,8 +2935,11 @@ function Pedidos() {
                 </div>
 
                 {generalMeasurements.length > 0 && (
-                  <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
-                    <h3 style={{ margin: '0 0 0.75rem', color: '#1d4f91', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
+                  <section style={{ ...SECTION_BLOCK_STYLES.info, borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', margin: '0 0 0.75rem' }}>
+                      <h3 style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>Medidas generales del cliente</h3>
+                      <SectionTag kind="info" />
+                    </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', background: '#fff' }}>
                       <tbody>
                         {generalMeasurementRows.map((row, rowIndex) => (
@@ -2812,12 +2961,23 @@ function Pedidos() {
               </>
             )}
 
-            {activeStage === 1 && (
-              <section style={{ background: '#fff', border: '1px solid #bfdbfe', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+            {activeStage === 1 && (() => {
+              const pendingMaterialsCount = projectMaterials.filter(material => !(purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired).length;
+              const materialsNeedAction = !isAreaSelection && pendingMaterialsCount > 0;
+              return (
+              <section style={{ ...(materialsNeedAction ? SECTION_BLOCK_STYLES.action : SECTION_BLOCK_STYLES.info), borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
                   <div>
-                    <h3 style={{ margin: '0 0 3px', color: '#1d4f91', fontSize: '0.95rem' }}>Materiales y compras</h3>
-                    <div style={{ color: '#64748b', fontSize: '0.78rem' }}>Lista tomada de Estimación o del cotizador en vivo. Marca las compras conforme lleguen.</div>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 3px', color: materialsNeedAction ? '#9a3412' : '#475569', fontSize: '0.95rem' }}>
+                      Materiales y compras
+                      {pendingMaterialsCount > 0 && <span style={{ color: '#c2410c', fontSize: '0.78rem' }}>· {pendingMaterialsCount} por comprar</span>}
+                      <SectionTag kind={materialsNeedAction ? 'action' : pendingMaterialsCount ? 'info' : 'done'} />
+                    </h3>
+                    <div style={{ color: '#64748b', fontSize: '0.78rem' }}>
+                      {isAreaSelection
+                        ? 'Las compras pertenecen al contrato completo; en la ficha del área solo se consultan.'
+                        : 'Lista tomada de Estimación o del cotizador en vivo. Marca las compras conforme lleguen.'}
+                    </div>
                   </div>
                   <span style={{ padding: '0.35rem 0.65rem', borderRadius: 20, background: '#eff6ff', color: '#1d4f91', fontSize: '0.75rem', fontWeight: 800 }}>
                     {projectMaterials.filter(material => (purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired).length} / {projectMaterials.length} adquiridos
@@ -2834,9 +2994,9 @@ function Pedidos() {
                         Boolean((purchaseDrafts[material.purchaseKey] || purchaseRecords[material.purchaseKey])?.acquired) === acquired
                       );
                       return (
-                        <section key={String(acquired)} style={{ minWidth: 0, padding: '0.65rem', background: acquired ? '#f0fdf4' : '#f8fafc', border: `1px solid ${acquired ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 10 }}>
+                        <section key={String(acquired)} style={{ minWidth: 0, padding: '0.65rem', background: acquired ? '#f0fdf4' : isAreaSelection ? '#f8fafc' : '#fff', border: `1px solid ${acquired ? '#bbf7d0' : isAreaSelection ? '#e2e8f0' : '#fdba74'}`, borderRadius: 10 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                            <strong style={{ color: acquired ? '#166534' : '#475569', fontSize: '0.8rem' }}>{acquired ? 'Comprado' : 'Por comprar'}</strong>
+                            <strong style={{ color: acquired ? '#166534' : isAreaSelection ? '#475569' : '#c2410c', fontSize: '0.8rem' }}>{acquired ? 'Comprado' : 'Por comprar'}</strong>
                             <span style={{ padding: '0.2rem 0.45rem', borderRadius: 20, background: acquired ? '#dcfce7' : '#e2e8f0', color: acquired ? '#166534' : '#475569', fontSize: '0.68rem', fontWeight: 800 }}>{materials.length}</span>
                           </div>
                           {materials.length ? (
@@ -2848,7 +3008,7 @@ function Pedidos() {
                       return (
                         <article key={material.purchaseKey} style={{ overflow: 'hidden', background: '#fff', border: `1px solid ${expanded ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8 }}>
                           <button type="button" aria-expanded={expanded}
-                            onClick={() => setExpandedMaterialKey(current => current === material.purchaseKey ? null : material.purchaseKey)}
+                            onClick={() => { if (!isAreaSelection) setExpandedMaterialKey(current => current === material.purchaseKey ? null : material.purchaseKey); }}
                             style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0.48rem 0.65rem', border: 0, background: expanded ? '#eff6ff' : '#f8fafc', textAlign: 'left', cursor: 'pointer' }}>
                             <span style={{ minWidth: 0 }}>
                               <span style={{ color: '#64748b', fontSize: '0.66rem', fontWeight: 750 }}>{material.sheetName} · </span>
@@ -2861,10 +3021,10 @@ function Pedidos() {
                                 {record.store_price ? ` · $${record.store_price}` : ''}
                               </span>
                             </span>
-                            <span aria-hidden="true" style={{ flexShrink: 0, color: '#64748b', fontSize: '0.85rem' }}>{expanded ? '−' : '+'}</span>
+                            {!isAreaSelection && <span aria-hidden="true" style={{ flexShrink: 0, color: '#64748b', fontSize: '0.85rem' }}>{expanded ? '−' : '+'}</span>}
                           </button>
 
-                          {expanded && (
+                          {expanded && !isAreaSelection && (
                             <div style={{ padding: '0.65rem', borderTop: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: record.acquired ? '#15803d' : '#475569', fontSize: '0.74rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
@@ -2941,14 +3101,15 @@ function Pedidos() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
+                {!isAreaSelection && <div style={{ marginTop: 10, padding: '0.7rem 0.8rem', background: '#f0fdf4', color: '#166534', borderRadius: 9, fontSize: '0.78rem' }}>
                   Puedes iniciar Producción aunque falten materiales; marca las compras pendientes conforme se vayan adquiriendo.
-                </div>
+                </div>}
               </section>
-            )}
+              );
+            })()}
 
-            {activeStage === 0 && <details open style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, marginBottom: 14 }}>
-              <summary style={{ padding: '0.9rem 1rem', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>Información de Estimación y materiales</summary>
+            {activeStage === 0 && <details open style={{ ...SECTION_BLOCK_STYLES.info, borderRadius: 14, marginBottom: 14 }}>
+              <summary style={{ padding: '0.9rem 1rem', color: '#475569', fontWeight: 800, cursor: 'pointer' }}>Información de Estimación y materiales <SectionTag kind="info" /></summary>
               <div style={{ padding: '0 1rem 1rem' }}>
                 {Object.keys(projectDetails).length > 0 && (
                   <div style={{ marginBottom: 12 }}>
@@ -3033,19 +3194,18 @@ function Pedidos() {
 
             {activeStage === 0 && (
               <section style={{
-                background: '#fff',
-                border: selected.render_pdf_path ? '1px solid #bfdbfe' : '1.5px dashed #f97316',
+                ...(selected.render_pdf_path ? SECTION_BLOCK_STYLES.info : SECTION_BLOCK_STYLES.action),
                 borderRadius: 14,
                 padding: '0.9rem 1.15rem',
-                marginBottom: 14,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                marginBottom: 14
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: '1.5rem' }}>🎨</span>
                     <div>
-                      <strong style={{ display: 'block', color: '#1e3a5f', fontSize: '0.92rem' }}>
+                      <strong style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', color: selected.render_pdf_path ? '#1e3a5f' : '#9a3412', fontSize: '0.92rem' }}>
                         {selected.render_pdf_path ? 'PDF de Render / Planos disponible' : 'Cargar Render del proyecto'}
+                        <SectionTag kind={selected.render_pdf_path ? 'done' : 'action'}>{selected.render_pdf_path ? '✅ Cargado' : '✏️ Pendiente de cargar'}</SectionTag>
                       </strong>
                       <span style={{ display: 'block', marginTop: 2, color: '#64748b', fontSize: '0.78rem' }}>
                         {selected.render_pdf_path
@@ -3103,29 +3263,72 @@ function Pedidos() {
               </section>
             )}
 
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
+            {(() => {
+              const stageNeedsWork = activeStage === currentStage && selected.status !== 'ENTREGADO';
+              const advanceDisabled = saving || selected.status === 'ENTREGADO' || activeStage !== currentStage;
+              const stageAdvances = areaDailyAdvances.filter(advance => Number(advance.stage) === activeStage);
+              return (
+            <div style={{ ...(stageNeedsWork ? SECTION_BLOCK_STYLES.action : SECTION_BLOCK_STYLES.info), borderRadius: 14, padding: '1rem', marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div>
-                  <h3 style={{ margin: 0, color: '#1d4f91', fontSize: '1rem' }}>{STAGE_NAMES[activeStage]}</h3>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: 0, color: stageNeedsWork ? '#9a3412' : '#475569', fontSize: '1rem' }}>
+                    {STAGE_NAMES[activeStage]}{isAreaSelection ? ` · ${selected.workItemName}` : ''}
+                    <SectionTag kind={stageNeedsWork ? 'action' : activeStage < currentStage || selected.status === 'ENTREGADO' ? 'done' : 'info'}>
+                      {stageNeedsWork ? '✏️ Por capturar / revisar' : activeStage < currentStage || selected.status === 'ENTREGADO' ? '✅ Etapa terminada' : '⏳ Próxima etapa'}
+                    </SectionTag>
+                  </h3>
                   <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: '0.72rem' }}>
-                    {activeStage === currentStage ? 'Etapa actual · registra aquí el avance del proyecto.' : activeStage < currentStage ? 'Etapa anterior · consulta o completa sus comentarios y fotos.' : 'Etapa siguiente · puedes preparar sus comentarios y fotos antes de avanzar.'}
+                    {isAreaSelection
+                      ? 'Las fotos y el comentario se guardan como avance del día de esta área y se ven en el calendario.'
+                      : activeStage === currentStage ? 'Etapa actual · registra aquí el avance del proyecto.' : activeStage < currentStage ? 'Etapa anterior · consulta o completa sus comentarios y fotos.' : 'Etapa siguiente · puedes preparar sus comentarios y fotos antes de avanzar.'}
                   </span>
                 </div>
-                <label style={{ padding: '0.55rem 0.8rem', borderRadius: 9, background: '#eff6ff', color: '#1d4f91', fontSize: '0.78rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
-                  {saving ? 'Procesando...' : '＋ Agregar foto'}
-                  <input type="file" accept="image/*" disabled={saving} onChange={event => { uploadEvidence(event.target.files?.[0]); event.target.value = ''; }} style={{ display: 'none' }} />
-                </label>
+                {isAreaSelection ? (
+                  <label style={{ padding: '0.55rem 0.8rem', borderRadius: 9, background: selected.status === 'ENTREGADO' ? '#e2e8f0' : '#ea580c', color: selected.status === 'ENTREGADO' ? '#64748b' : '#fff', fontSize: '0.78rem', fontWeight: 800, cursor: saving || selected.status === 'ENTREGADO' ? 'not-allowed' : 'pointer' }}>
+                    {areaAdvanceFiles.length ? `📷 ${areaAdvanceFiles.length} ${areaAdvanceFiles.length === 1 ? 'foto lista' : 'fotos listas'}` : '＋ Seleccionar fotos'}
+                    <input type="file" accept="image/*" multiple disabled={saving || selected.status === 'ENTREGADO'} onChange={event => { setAreaAdvanceFiles(Array.from(event.target.files || [])); event.target.value = ''; }} style={{ display: 'none' }} />
+                  </label>
+                ) : (
+                  <label style={{ padding: '0.55rem 0.8rem', borderRadius: 9, background: stageNeedsWork ? '#ea580c' : '#eff6ff', color: stageNeedsWork ? '#fff' : '#1d4f91', fontSize: '0.78rem', fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
+                    {saving ? 'Procesando...' : '＋ Agregar foto'}
+                    <input type="file" accept="image/*" disabled={saving} onChange={event => { uploadEvidence(event.target.files?.[0]); event.target.value = ''; }} style={{ display: 'none' }} />
+                  </label>
+                )}
               </div>
-              <textarea data-guide="production-note" value={note} onChange={event => updateNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
-                rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, font: 'inherit', fontSize: '0.85rem' }} />
+              {isAreaSelection ? (
+                <textarea value={areaAdvanceComment} onChange={event => setAreaAdvanceComment(event.target.value)} disabled={selected.status === 'ENTREGADO'} placeholder="Comentario del avance de hoy para esta área..."
+                  rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: `1px solid ${stageNeedsWork ? '#fdba74' : '#cbd5e1'}`, borderRadius: 10, background: '#fff', font: 'inherit', fontSize: '0.85rem' }} />
+              ) : (
+                <textarea data-guide="production-note" value={note} onChange={event => updateNote(event.target.value)} placeholder="Describe el avance, acuerdos o pendientes de esta etapa..."
+                  rows={3} style={{ boxSizing: 'border-box', width: '100%', resize: 'vertical', margin: '0.85rem 0', padding: '0.75rem', border: `1px solid ${stageNeedsWork ? '#fdba74' : '#cbd5e1'}`, borderRadius: 10, background: '#fff', font: 'inherit', fontSize: '0.85rem' }} />
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
+                {isAreaSelection ? (
+                  <button type="button" disabled={saving || !areaAdvanceFiles.length || selected.status === 'ENTREGADO'} onClick={uploadAreaAdvance} style={{ padding: '0.65rem 0.9rem', border: '1px solid #fdba74', borderRadius: 9, background: '#fff', color: '#c2410c', fontWeight: 800, cursor: saving || !areaAdvanceFiles.length ? 'not-allowed' : 'pointer', opacity: !areaAdvanceFiles.length || selected.status === 'ENTREGADO' ? 0.6 : 1 }}>
+                    {saving ? 'Guardando...' : '💾 Guardar avance del día'}
+                  </button>
+                ) : (
+                  <button type="button" disabled={saving} onClick={saveNote} style={{ padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Guardar nota</button>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={saving || selected.status === 'ENTREGADO' || activeStage !== currentStage} onClick={handleAdvanceClick} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
-                      {selected.status === 'ENTREGADO' ? 'Proyecto entregado' : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `Guardar avance y pasar a ${STAGE_NAMES[currentStage + 1]} →`}
+                  <button data-guide={currentStage >= STAGE_NAMES.length - 1 ? 'delivery-confirm' : 'production-advance'} type="button" disabled={advanceDisabled} onClick={handleAdvanceClick} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: 9, background: selected.status === 'ENTREGADO' || activeStage !== currentStage ? '#cbd5e1' : '#ea580c', color: '#fff', fontWeight: 800, cursor: selected.status === 'ENTREGADO' || activeStage !== currentStage ? 'not-allowed' : 'pointer' }}>
+                      {selected.status === 'ENTREGADO' ? (isAreaSelection ? 'Área entregada' : 'Proyecto entregado') : activeStage !== currentStage ? `Selecciona ${STAGE_NAMES[currentStage]} para avanzar` : currentStage >= STAGE_NAMES.length - 1 ? 'Confirmar entrega' : `${isAreaSelection ? 'Pasar área' : 'Guardar avance y pasar'} a ${STAGE_NAMES[currentStage + 1]} →`}
                   </button>
                 </div>
               </div>
+              {stageAdvances.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginTop: 14 }}>
+                  {stageAdvances.map((advance, index) => {
+                    const src = imageUrl(advance.url);
+                    return (
+                      <a key={advance.id || `${src}-${index}`} href={src} target="_blank" rel="noreferrer" title={[advance.date, advance.comment].filter(Boolean).join(' · ')} style={{ display: 'grid', gap: 3, width: 130, color: '#64748b', fontSize: '0.66rem', textDecoration: 'none' }}>
+                        <img src={src} alt={`Avance ${index + 1} · ${STAGE_NAMES[activeStage]}`} style={{ width: 130, height: 95, objectFit: 'cover', borderRadius: 9, border: '1px solid #dbe3ec' }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatDate(advance.date)}{advance.comment ? ` · ${advance.comment}` : ''}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
               {!!(selectedStage.photos || []).length && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginTop: 14 }}>
                   {selectedStage.photos.map((photo, index) => {
@@ -3135,6 +3338,8 @@ function Pedidos() {
                 </div>
               )}
             </div>
+              );
+            })()}
             <div id="production-project-pdf" style={{ position: 'fixed', left: '-10000px', top: 0, width: '794px', padding: '28px', background: '#fff', color: '#1e293b', fontFamily: 'Arial, sans-serif', fontSize: '12px', lineHeight: 1.5 }}>
               <h1 style={{ margin: '0 0 4px', color: '#1d4f91', fontSize: '22px' }}>Machote de trabajo — Producción</h1>
               <p style={{ margin: '0 0 16px', color: '#475569' }}>ID: {selected.public_id || selected.id} · Cliente: {clientSurname}</p>
