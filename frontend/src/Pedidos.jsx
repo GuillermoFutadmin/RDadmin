@@ -3,7 +3,7 @@ import { ContratoDetail, getMeasureSections } from './Contratos';
 import useAutoRefresh from './useAutoRefresh';
 import { StageIcon, PRODUCTION_STAGE_NAMES } from './StageIcon';
 import { convertPdfToImageUrls } from './pdfUtils';
-import { getSemaforoWorkItems } from './productionWorkItems';
+import { getSemaforoWorkItems, getSemaforoWorkItemStageCounts } from './productionWorkItems';
 
 const API = import.meta.env.VITE_API_URL || '';
 import { fetchFullProspect, mergeHeavy } from './prospectData';
@@ -353,6 +353,10 @@ function Pedidos() {
   const projectsByStage = useMemo(() => STAGE_NAMES.map((_, index) =>
     filteredProjects.filter(project => productionStageIndex(project) === index)
   ), [filteredProjects]);
+  const flowStageCounts = useMemo(() => {
+    const workItemCounts = getSemaforoWorkItemStageCounts(semaforoWorkProjects);
+    return projectsByStage.map((stageProjects, index) => stageProjects.length + workItemCounts[index]);
+  }, [projectsByStage, semaforoWorkProjects]);
   const projectsWithoutSchedule = useMemo(
     () => filteredProjects.filter(project => !projectSchedules.get(project.id)),
     [filteredProjects, projectSchedules]
@@ -433,8 +437,8 @@ function Pedidos() {
   }).length;
   const activeProjectsCount = filteredProjects.filter(project => project.status !== 'ENTREGADO').length;
   const deliveredProjectsCount = filteredProjects.length - activeProjectsCount;
-  const stagesWithProjects = projectsByStage.reduce((indexes, stageProjects, index) => {
-    if (stageProjects.length) indexes.push(index);
+  const stagesWithProjects = flowStageCounts.reduce((indexes, count, index) => {
+    if (count) indexes.push(index);
     return indexes;
   }, []);
   const latestActiveStage = overviewStage === null
@@ -1157,7 +1161,7 @@ function Pedidos() {
           <>
             <div className="production-stage-flow">
               {STAGE_NAMES.map((name, index) => {
-                const count = projectsByStage[index].length;
+                const count = flowStageCounts[index];
                 const isActive = overviewStage === index;
                 const circleColor = isActive ? '#2563eb' : count ? '#16a34a' : '#cbd5e1';
                 const isNextStep = latestActiveStage === index - 1;

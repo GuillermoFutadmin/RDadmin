@@ -98,6 +98,17 @@ export function getSemaforoWorkItems(contracts) {
   });
 }
 
+export function getSemaforoWorkItemStageCounts(workItems) {
+  const counts = Array(PRODUCTION_WORK_STAGES.length).fill(0);
+  workItems.forEach(item => {
+    const stage = Number.isInteger(item.production_data?.current_stage)
+      ? Math.max(0, Math.min(item.production_data.current_stage, counts.length - 1))
+      : 0;
+    counts[stage] += 1;
+  });
+  return counts;
+}
+
 export function isInContracts(prospect) {
   return prospect.is_contract && (!['PRODUCCION', 'ENTREGADO'].includes(prospect.status) || getPendingContractWork(prospect).length > 0);
 }

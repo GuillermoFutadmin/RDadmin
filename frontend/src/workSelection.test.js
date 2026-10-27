@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProductionWorkOptions, getPendingContractWork, getSemaforoWorkItems, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
+import { getProductionWorkOptions, getPendingContractWork, getSemaforoWorkItems, getSemaforoWorkItemStageCounts, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
 import { getWorkSheets, getSheetPrice, getSelectedWorkIds, getSelectedTotal, getWorkSelectionPayload } from './workSelection.js';
 
 const sheets = [
@@ -99,4 +99,5 @@ test('the production traffic light includes active and delivered work items but 
   assert.equal(items[0].production_data.current_stage, 0);
   assert.equal(items[0].workItemName, 'Cocina');
   assert.equal(items[1].status, 'ENTREGADO');
+  assert.deepEqual(getSemaforoWorkItemStageCounts(items), [1, 0, 0, 0, 0, 1]);
 });
