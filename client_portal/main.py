@@ -144,6 +144,9 @@ def client_project(prospect):
             ],
         })
 
+    while len(public_stages) < 6:
+        public_stages.append({"entered_at": None, "note": None, "photos": []})
+
     current_stage = production.get("current_stage", 0)
     if not isinstance(current_stage, int) or isinstance(current_stage, bool):
         current_stage = 0
@@ -237,7 +240,7 @@ def client_project(prospect):
             "current_stage": current_stage,
             "stages": public_stages,
             "daily_advances": public_daily,
-        } if has_production else None,
+        },
     }
 
 

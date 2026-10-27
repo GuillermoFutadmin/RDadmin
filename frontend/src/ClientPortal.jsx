@@ -339,7 +339,29 @@ function MonarchButterfly() {
 
 const displayValue = (value) => {
   if (value === null || value === undefined || value === '') return '';
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => {
+            if (typeof item === 'object' && item !== null) {
+              const parts = [];
+              if (item.type || item.name) parts.push(item.type || item.name);
+              if (item.measurements && item.measurements !== '0') parts.push(`Medidas: ${item.measurements}`);
+              if (item.notes) parts.push(item.notes);
+              if (parts.length) return `• ${parts.join(' — ')}`;
+            }
+            return `• ${typeof item === 'string' ? item : JSON.stringify(item)}`;
+          }).join('\n');
+        }
+      } catch {
+        // Fallback al valor como texto
+      }
+    }
+    return value;
+  }
   return JSON.stringify(value, null, 2);
 };
 

@@ -31,29 +31,34 @@ const parseJson = (value) => {
 
 const normalizeProduction = (value) => {
   const production = parseJson(value);
-  if (!Array.isArray(production.stages)) return { ...production, stages: [] };
-  if (production.stages.length === PRODUCTION_STAGES.length + 1) {
+  const rawStages = Array.isArray(production.stages) ? production.stages : [];
+  let mappedStages = rawStages;
+  if (rawStages.length === PRODUCTION_STAGES.length + 1) {
     const legacyStage = Number.isInteger(production.current_stage) ? production.current_stage : 0;
-    const firstStage = production.stages[0] || {};
-    const secondStage = production.stages[1] || {};
-    return {
-      ...production,
-      current_stage: legacyStage <= 1 ? 0 : legacyStage - 1,
-      stages: [
-        {
-          ...firstStage,
-          name: PRODUCTION_STAGES[0],
-          entered_at: firstStage.entered_at || production.started_at || null,
-          note: [firstStage.note, secondStage.note].filter(Boolean).join('\n'),
-          photos: [...(firstStage.photos || []), ...(secondStage.photos || [])]
-        },
-        ...production.stages.slice(2).map((stage, index) => ({ ...stage, name: PRODUCTION_STAGES[index + 1] }))
-      ]
-    };
+    const firstStage = rawStages[0] || {};
+    const secondStage = rawStages[1] || {};
+    mappedStages = [
+      {
+        ...firstStage,
+        name: PRODUCTION_STAGES[0],
+        entered_at: firstStage.entered_at || production.started_at || null,
+        note: [firstStage.note, secondStage.note].filter(Boolean).join('\n'),
+        photos: [...(firstStage.photos || []), ...(secondStage.photos || [])]
+      },
+      ...rawStages.slice(2).map((stage, index) => ({ ...stage, name: PRODUCTION_STAGES[index + 1] }))
+    ];
   }
+  const stages = PRODUCTION_STAGES.map((name, index) => {
+    const stage = mappedStages[index] || {};
+    return {
+      ...stage,
+      name,
+      photos: Array.isArray(stage.photos) ? stage.photos : []
+    };
+  });
   return {
     ...production,
-    stages: production.stages.map((stage, index) => ({ ...stage, name: PRODUCTION_STAGES[index] || stage.name }))
+    stages
   };
 };
 
@@ -390,11 +395,30 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
               }))
             ];
             return (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <strong style={{ color: '#1e3a5f', fontSize: '0.78rem' }}>Avance de producción</strong>
-                  <span style={{ color: '#2563eb', fontSize: '0.72rem', fontWeight: 800 }}>
-                    {delivered ? 'Entrega confirmada' : PRODUCTION_STAGES[currentProductionStage]}
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                  <div>
+                    <strong style={{ color: '#0f172a', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🔄</span> Flujo y Avance por Etapas
+                    </strong>
+                    <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: 2 }}>
+                      Toca o haz clic en cualquier círculo para consultar planos, fotos y notas de cada etapa.
+                    </div>
+                  </div>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: 20,
+                    background: delivered ? '#f0fdf4' : '#eff6ff',
+                    border: `1px solid ${delivered ? '#bbf7d0' : '#bfdbfe'}`,
+                    color: delivered ? '#166534' : '#1d4ed8',
+                    fontSize: '0.74rem',
+                    fontWeight: 800
+                  }}>
+                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: delivered ? '#16a34a' : '#2563eb' }} />
+                    {delivered ? 'Proyecto entregado' : `Etapa actual: ${PRODUCTION_STAGES[currentProductionStage]}`}
                   </span>
                 </div>
                 <div className="production-stage-flow is-client">
@@ -426,11 +450,32 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                   })}
                 </div>
 
-                <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 11 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                    <strong style={{ color: '#172b4d', fontSize: '0.92rem' }}>{stageName}</strong>
-                    {formatDate(stageData.entered_at) && <span style={{ color: '#64748b', fontSize: '0.72rem' }}>{formatDate(stageData.entered_at)}</span>}
-                  </div>
+                {(() => {
+                  const stageDisplayDate = stageData.entered_at
+                    || (activeStage === 0 ? (prospect.capture_date || prospect.created_at) : null)
+                    || (activeStage === 1 ? (prospect.contract_date) : null)
+                    || (activeStage === 2 ? (production.started_at) : null)
+                    || (activeStage === 5 ? (production.delivered_at || prospect.delivery_date) : null);
+                  return (
+                    <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 11 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '1.25rem' }}>
+                            {activeStage === 0 ? '📋' : activeStage === 1 ? '🧰' : activeStage === 2 ? '📐' : activeStage === 3 ? '🔨' : activeStage === 4 ? '🔍' : '🚚'}
+                          </span>
+                          <div>
+                            <strong style={{ color: '#172b4d', fontSize: '0.98rem' }}>{stageName}</strong>
+                            <div style={{ fontSize: '0.7rem', color: stageComplete ? '#166534' : (!delivered && activeStage === currentProductionStage) ? '#1d4ed8' : '#64748b', fontWeight: 700 }}>
+                              {stageComplete ? '✓ Etapa completada' : (!delivered && activeStage === currentProductionStage) ? '● En proceso en taller' : '○ Etapa pendiente'}
+                            </div>
+                          </div>
+                        </div>
+                        {stageDisplayDate && (
+                          <span style={{ color: '#64748b', fontSize: '0.74rem', background: '#fff', padding: '3px 9px', borderRadius: 6, border: '1px solid #cbd5e1', fontWeight: 600 }}>
+                            📅 {formatDate(stageDisplayDate)}
+                          </span>
+                        )}
+                      </div>
 
                   {activeStage === 0 && (
                     <div style={{ marginTop: 10 }}>
@@ -1004,11 +1049,39 @@ export default function ProjectTracking({ prospect, compact = false, showEvidenc
                   )}
 
                   {activeStage !== 0 && (activeStage !== 1 || !hasRender) && !combinedStagePhotos.length && !stageData.note && (
-                    <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
-                      {stageComplete ? 'Esta etapa no tiene fotos ni notas registradas.' : 'Esta etapa aún no tiene avances registrados.'}
-                    </p>
+                    <div style={{
+                      marginTop: 12,
+                      padding: '1.4rem 1rem',
+                      textAlign: 'center',
+                      background: '#ffffff',
+                      borderRadius: 10,
+                      border: '1px dashed #cbd5e1',
+                      color: '#64748b'
+                    }}>
+                      <span style={{ fontSize: '1.6rem', display: 'block', marginBottom: 4 }}>
+                        {activeStage === 5 ? (delivered ? '✅' : '🚚') : stageComplete ? '✓' : '⏳'}
+                      </span>
+                      <strong style={{ display: 'block', color: '#334155', fontSize: '0.88rem' }}>
+                        {activeStage === 5
+                          ? (delivered ? '¡Proyecto entregado con éxito!' : 'Etapa de Entrega y Cierre')
+                          : stageComplete
+                            ? 'Etapa concluida en taller'
+                            : 'Etapa en proceso o próxima a iniciar'}
+                      </strong>
+                      <span style={{ fontSize: '0.76rem', marginTop: 3, display: 'inline-block' }}>
+                        {activeStage === 5
+                          ? (delivered
+                              ? (production.delivered_at ? `Entrega final realizada el ${formatDate(production.delivered_at)}.` : 'El proyecto ya fue entregado.')
+                              : (prospect.delivery_date ? `Fecha programada de entrega: ${formatDate(`${prospect.delivery_date}T12:00:00`) || prospect.delivery_date}.` : 'Te notificaremos cuando tu proyecto esté listo para entrega.'))
+                          : stageComplete
+                            ? 'El equipo de taller completó esta fase y continuó con el siguiente paso.'
+                            : 'Las fotografías de evidencia y notas se irán publicando aquí conforme el equipo trabaje en ella.'}
+                      </span>
+                    </div>
                   )}
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

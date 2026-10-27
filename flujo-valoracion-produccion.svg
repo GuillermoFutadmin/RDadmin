@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1780" viewBox="0 0 1680 1780" role="img" aria-labelledby="title desc">
+  <title id="title">Guía operativa: valoración, cotización y producción por área</title>
+  <desc id="desc">Libro de indicaciones ilustrado con el flujo completo, estados por área, acciones de avance y retroceso, producción independiente y reglas de seguridad de identidad.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#172554"/>
+      <stop offset="1" stop-color="#312e81"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#0f172a" flood-opacity=".10"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowAmber" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Segoe UI", Arial, sans-serif; fill: #0f172a; }
+      .muted { fill: #64748b; }
+      .white { fill: #fff; }
+      .tiny { font-size: 12px; }
+      .small { font-size: 14px; }
+      .body { font-size: 16px; }
+      .heading { font-size: 21px; font-weight: 800; }
+      .label { font-size: 13px; font-weight: 800; letter-spacing: .7px; }
+      .card { fill: #fff; stroke: #dbe3ef; stroke-width: 1.5; }
+      .flow { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .flowBlue { stroke: #2563eb; stroke-width: 3; fill: none; marker-end: url(#arrowBlue); }
+      .flowGreen { stroke: #059669; stroke-width: 3; fill: none; marker-end: url(#arrowGreen); }
+      .flowAmber { stroke: #d97706; stroke-width: 3; fill: none; marker-end: url(#arrowAmber); }
+      .return { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+
+  <rect width="1680" height="1780" fill="url(#page)"/>
+  <rect x="0" y="0" width="1680" height="12" fill="#f59e0b"/>
+  <text x="72" y="62" font-size="15" font-weight="800" fill="#4f46e5" letter-spacing="1.6">RD CARPINTERÍA · GUÍA DE OPERACIÓN</text>
+  <text x="72" y="109" font-size="36" font-weight="850">Valoración y producción por área</text>
+  <text x="72" y="143" font-size="18" class="muted">Una guía de seguimiento: qué avanza, qué se pausa, qué regresa y qué permanece pendiente.</text>
+  <rect x="1377" y="48" width="230" height="38" rx="19" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="1492" y="72" text-anchor="middle" class="label" fill="#9a3412">ESQUEMA CONCEPTUAL</text>
+
+  <!-- Chapter 1 -->
+  <text x="72" y="203" font-size="24" font-weight="800">1 · Recorrido principal</text>
+  <text x="72" y="230" class="body muted">Cada área lleva su propio estado; se puede cotizar y aprobar una parte sin cerrar las demás.</text>
+  <g filter="url(#shadow)">
+    <rect class="card" x="72" y="255" width="340" height="222" rx="18"/>
+    <rect x="72" y="255" width="340" height="9" rx="4" fill="#d97706"/>
+    <circle cx="108" cy="296" r="18" fill="#fef3c7"/><text x="108" y="302" text-anchor="middle" font-size="17" font-weight="800" fill="#92400e">1</text>
+    <text x="138" y="303" class="heading">Valoración</text>
+    <text x="96" y="339" class="small muted">Una hoja por área; cada hoja conserva</text>
+    <text x="96" y="360" class="small muted">sus materiales, mano de obra y conceptos.</text>
+    <rect x="96" y="380" width="292" height="30" rx="8" fill="#fff7ed"/>
+    <text x="110" y="400" class="small" font-weight="700">Cocina</text><text x="374" y="400" text-anchor="end" class="small muted">$13,000</text>
+    <rect x="96" y="416" width="292" height="30" rx="8" fill="#fff7ed"/>
+    <text x="110" y="436" class="small" font-weight="700">Clóset</text><text x="374" y="436" text-anchor="end" class="small muted">$6,500</text>
+    <text x="96" y="463" class="tiny muted">Los importes ilustran el ejemplo, no son datos reales.</text>
+
+    <rect class="card" x="488" y="255" width="340" height="222" rx="18"/>
+    <rect x="488" y="255" width="340" height="9" rx="4" fill="#2563eb"/>
+    <circle cx="524" cy="296" r="18" fill="#dbeafe"/><text x="524" y="302" text-anchor="middle" font-size="17" font-weight="800" fill="#1d4ed8">2</text>
+    <text x="554" y="303" class="heading">Cotización parcial</text>
+    <text x="512" y="339" class="small muted">Seleccionar áreas activas que se cotizan.</text>
+    <rect x="512" y="361" width="292" height="34" rx="9" fill="#eff6ff"/>
+    <text x="528" y="384" class="small" font-weight="700">✓ Cocina · incluida</text>
+    <rect x="512" y="402" width="292" height="34" rx="9" fill="#f8fafc"/>
+    <text x="528" y="425" class="small muted">Clóset · puede cotizarse después</text>
+    <text x="512" y="460" class="small" font-weight="700" fill="#1d4ed8">Total = suma de las áreas elegidas</text>
+
+    <rect class="card" x="904" y="255" width="340" height="222" rx="18"/>
+    <rect x="904" y="255" width="340" height="9" rx="4" fill="#7c3aed"/>
+    <circle cx="940" cy="296" r="18" fill="#ede9fe"/><text x="940" y="302" text-anchor="middle" font-size="17" font-weight="800" fill="#6d28d9">3</text>
+    <text x="970" y="303" class="heading">Aprobar áreas</text>
+    <text x="928" y="339" class="small muted">Al aprobar, se crea el contrato solo con</text>
+    <text x="928" y="360" class="small muted">el alcance cotizado que autorizó el cliente.</text>
+    <rect x="928" y="382" width="292" height="58" rx="11" fill="#f5f3ff"/>
+    <text x="1074" y="406" text-anchor="middle" class="small" font-weight="800" fill="#5b21b6">Contrato · Cocina</text>
+    <text x="1074" y="428" text-anchor="middle" class="tiny" fill="#6d28d9">Clóset permanece fuera de este contrato</text>
+    <text x="928" y="462" class="small" font-weight="700" fill="#6d28d9">Puede aprobarse en otro lote después</text>
+
+    <rect class="card" x="1320" y="255" width="288" height="222" rx="18"/>
+    <rect x="1320" y="255" width="288" height="9" rx="4" fill="#059669"/>
+    <circle cx="1356" cy="296" r="18" fill="#d1fae5"/><text x="1356" y="302" text-anchor="middle" font-size="17" font-weight="800" fill="#047857">4</text>
+    <text x="1386" y="303" class="heading">Producción</text>
+    <text x="1344" y="339" class="small muted">Elegir áreas contratadas que arrancan.</text>
+    <rect x="1344" y="361" width="240" height="34" rx="9" fill="#ecfdf5"/>
+    <text x="1360" y="384" class="small" font-weight="700" fill="#047857">✓ Cocina · iniciar</text>
+    <rect x="1344" y="402" width="240" height="34" rx="9" fill="#fffbeb"/>
+    <text x="1360" y="425" class="small" font-weight="700" fill="#92400e">Clóset · en espera</text>
+    <text x="1344" y="460" class="small" font-weight="700" fill="#047857">Cada área inicia por separado</text>
+  </g>
+  <path class="flow" d="M420 365H477"/>
+  <path class="flow" d="M836 365H893"/>
+  <path class="flow" d="M1252 365H1309"/>
+  <path d="M657 485V511H1068V485" class="flowBlue return"/>
+  <rect x="752" y="494" width="220" height="29" rx="14" fill="#eef2ff"/>
+  <text x="862" y="514" text-anchor="middle" class="tiny" font-weight="700" fill="#4338ca">áreas pendientes: cotizar después</text>
+
+  <!-- Chapter 2: area lifecycle -->
+  <text x="72" y="571" font-size="24" font-weight="800">2 · Ciclo de vida de cada área</text>
+  <text x="72" y="598" class="body muted">Las líneas sólidas muestran avance normal; las punteadas muestran retorno, pausa o un área que queda pendiente.</text>
+  <g filter="url(#shadow)">
+    <rect class="card" x="72" y="625" width="230" height="92" rx="15"/>
+    <text x="187" y="660" text-anchor="middle" class="label" fill="#92400e">VALORADA</text>
+    <text x="187" y="688" text-anchor="middle" class="small muted">Activa y disponible</text>
+
+    <rect class="card" x="392" y="625" width="230" height="92" rx="15"/>
+    <text x="507" y="660" text-anchor="middle" class="label" fill="#1d4ed8">COTIZADA</text>
+    <text x="507" y="688" text-anchor="middle" class="small muted">Incluida en alcance cotizado</text>
+
+    <rect class="card" x="712" y="625" width="230" height="92" rx="15"/>
+    <text x="827" y="660" text-anchor="middle" class="label" fill="#6d28d9">CONTRATADA</text>
+    <text x="827" y="688" text-anchor="middle" class="small muted">Transferida al contrato</text>
+
+    <rect class="card" x="1032" y="625" width="230" height="92" rx="15"/>
+    <text x="1147" y="660" text-anchor="middle" class="label" fill="#047857">EN PRODUCCIÓN</text>
+    <text x="1147" y="688" text-anchor="middle" class="small muted">Etapa y evidencia propias</text>
+
+    <rect class="card" x="1352" y="625" width="230" height="92" rx="15"/>
+    <text x="1467" y="660" text-anchor="middle" class="label" fill="#0f766e">ENTREGADA</text>
+    <text x="1467" y="688" text-anchor="middle" class="small muted">Cierre de esta área</text>
+  </g>
+  <path class="flow" d="M310 671H378"/>
+  <path class="flow" d="M630 671H698"/>
+  <path class="flow" d="M950 671H1018"/>
+  <path class="flow" d="M1270 671H1338"/>
+  <text x="344" y="649" text-anchor="middle" class="tiny muted">cotizar</text>
+  <text x="664" y="649" text-anchor="middle" class="tiny muted">aprobar</text>
+  <text x="984" y="649" text-anchor="middle" class="tiny muted">iniciar área</text>
+  <text x="1304" y="649" text-anchor="middle" class="tiny muted">etapa 6</text>
+
+  <!-- Returns, hold, and removal -->
+  <path d="M507 724V757H187V724" class="flowAmber return"/>
+  <rect x="259" y="742" width="176" height="29" rx="14" fill="#fffbeb"/>
+  <text x="347" y="762" text-anchor="middle" class="tiny" font-weight="700" fill="#92400e">Pausar → Retomar</text>
+  <path d="M187 724V789H1467V724" class="flowGreen return"/>
+  <rect x="666" y="774" width="290" height="29" rx="14" fill="#ecfdf5"/>
+  <text x="811" y="794" text-anchor="middle" class="tiny" font-weight="700" fill="#047857">área no elegida: queda activa / en espera; no se pierde</text>
+  <path d="M507 724V820H827V724" class="flowBlue return"/>
+  <rect x="592" y="806" width="148" height="29" rx="14" fill="#eff6ff"/>
+  <text x="666" y="826" text-anchor="middle" class="tiny" font-weight="700" fill="#1d4ed8">aprobar después</text>
+  <rect x="72" y="842" width="1510" height="58" rx="13" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="96" y="868" class="small" font-weight="800" fill="#9a3412">Retirar un área:</text>
+  <text x="217" y="868" class="small" fill="#7c2d12">la valoración queda en historial; se excluye de pendientes/cotización. No elimina las otras áreas.</text>
+  <text x="96" y="889" class="tiny" fill="#7c2d12">El área entregada puede retroceder una etapa desde Avances si se requiere corregir el estado; solo esa área cambia.</text>
+
+  <!-- Chapter 3: production timeline -->
+  <text x="72" y="953" font-size="24" font-weight="800">3 · Seguimiento dentro de Producción</text>
+  <text x="72" y="980" class="body muted">La ficha o selector de área mantiene el contexto: etapa, fechas, notas y fotos pertenecen al trabajo seleccionado.</text>
+  <g filter="url(#shadow)">
+    <rect x="72" y="1006" width="1536" height="344" rx="18" fill="#fff" stroke="#dbe3ef" stroke-width="1.5"/>
+    <rect x="72" y="1006" width="1536" height="54" rx="18" fill="url(#navy)"/>
+    <path d="M72 1042H1608V1060H72Z" fill="url(#navy)"/>
+    <text x="102" y="1041" font-size="19" font-weight="800" fill="#fff">AVANCES · CONTRATO DE CLIENTE EJEMPLO</text>
+    <text x="1578" y="1040" text-anchor="end" class="small" fill="#dbeafe">Área seleccionada: Cocina</text>
+
+    <rect x="100" y="1080" width="1480" height="50" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="122" y="1111" class="small" font-weight="800">Cocina</text>
+    <rect x="255" y="1093" width="138" height="25" rx="12" fill="#d1fae5"/>
+    <text x="324" y="1111" text-anchor="middle" class="tiny" font-weight="800" fill="#047857">EN PRODUCCIÓN</text>
+    <text x="440" y="1111" class="small">Etapa actual: Producción iniciada</text>
+    <text x="1553" y="1111" text-anchor="end" class="small muted">Su propio avance y evidencia</text>
+
+    <text x="104" y="1171" class="small" font-weight="800">Cocina · recorrido de etapas</text>
+    <text x="1575" y="1171" text-anchor="end" class="small muted">controles: etapa anterior ← / avanzar etapa →</text>
+    <path d="M145 1206H1535" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
+    <path d="M145 1206H702" stroke="#10b981" stroke-width="6" stroke-linecap="round"/>
+    <g text-anchor="middle">
+      <circle cx="145" cy="1206" r="15" fill="#059669"/><text x="145" y="1212" font-size="14" font-weight="800" fill="#fff">✓</text>
+      <circle cx="423" cy="1206" r="15" fill="#059669"/><text x="423" y="1212" font-size="14" font-weight="800" fill="#fff">✓</text>
+      <circle cx="702" cy="1206" r="15" fill="#059669"/><text x="702" y="1212" font-size="14" font-weight="800" fill="#fff">3</text>
+      <circle cx="980" cy="1206" r="15" fill="#cbd5e1"/><text x="980" y="1212" font-size="13" font-weight="800" fill="#475569">4</text>
+      <circle cx="1258" cy="1206" r="15" fill="#cbd5e1"/><text x="1258" y="1212" font-size="13" font-weight="800" fill="#475569">5</text>
+      <circle cx="1535" cy="1206" r="15" fill="#cbd5e1"/><text x="1535" y="1212" font-size="13" font-weight="800" fill="#475569">6</text>
+    </g>
+    <g text-anchor="middle" class="tiny">
+      <text x="145" y="1242" font-weight="700">Generando</text><text x="145" y="1258" class="muted">información</text>
+      <text x="423" y="1242" font-weight="700">Preparación</text><text x="423" y="1258" class="muted">de materiales</text>
+      <text x="702" y="1242" font-weight="700">Producción</text><text x="702" y="1258" class="muted">iniciada</text>
+      <text x="980" y="1242" font-weight="700">Avance 1</text><text x="980" y="1258" class="muted">seguimiento</text>
+      <text x="1258" y="1242" font-weight="700">Avance 2</text><text x="1258" y="1258" class="muted">/ revisión</text>
+      <text x="1535" y="1242" font-weight="700">Entrega</text><text x="1535" y="1258" class="muted">del proyecto</text>
+    </g>
+    <rect x="100" y="1281" width="1480" height="48" rx="10" fill="#eff6ff"/>
+    <text x="122" y="1311" class="small" font-weight="700" fill="#1e40af">Retroceso:</text>
+    <text x="213" y="1311" class="small" fill="#1e3a8a">“Etapa anterior” devuelve solo Cocina a la etapa previa; sus avances/fotos siguen asociados a Cocina.</text>
+  </g>
+
+  <!-- Chapter 4: instructions -->
+  <text x="72" y="1400" font-size="24" font-weight="800">4 · Indicaciones por área</text>
+  <g filter="url(#shadow)">
+    <rect class="card" x="72" y="1425" width="480" height="228" rx="16"/>
+    <circle cx="111" cy="1464" r="18" fill="#fff7ed"/><text x="111" y="1470" text-anchor="middle" font-size="16" font-weight="800" fill="#9a3412">A</text>
+    <text x="142" y="1471" class="heading">Antes de cotizar</text>
+    <text x="100" y="1510" class="small">1. Abrir la valoración y revisar cada hoja.</text>
+    <text x="100" y="1536" class="small">2. Confirmar cantidades, precios y margen.</text>
+    <text x="100" y="1562" class="small">3. Seleccionar solo las áreas autorizadas.</text>
+    <text x="100" y="1596" class="tiny muted">El total de la propuesta suma únicamente el alcance elegido.</text>
+    <text x="100" y="1618" class="tiny muted">Áreas no cotizadas siguen disponibles para otro lote.</text>
+
+    <rect class="card" x="600" y="1425" width="480" height="228" rx="16"/>
+    <circle cx="639" cy="1464" r="18" fill="#ede9fe"/><text x="639" y="1470" text-anchor="middle" font-size="16" font-weight="800" fill="#6d28d9">B</text>
+    <text x="670" y="1471" class="heading">Al aprobar</text>
+    <text x="628" y="1510" class="small">1. Aprobar solo lo que figura en la cotización.</text>
+    <text x="628" y="1536" class="small">2. Se genera el contrato con esas áreas.</text>
+    <text x="628" y="1562" class="small">3. Lo restante sigue en el prospecto.</text>
+    <text x="628" y="1596" class="tiny muted">El contrato no debe incorporar áreas no aprobadas.</text>
+    <text x="628" y="1618" class="tiny muted">La aprobación requiere permiso de Contratos.</text>
+
+    <rect class="card" x="1128" y="1425" width="480" height="228" rx="16"/>
+    <circle cx="1167" cy="1464" r="18" fill="#d1fae5"/><text x="1167" y="1470" text-anchor="middle" font-size="16" font-weight="800" fill="#047857">C</text>
+    <text x="1198" y="1471" class="heading">Durante producción</text>
+    <text x="1156" y="1510" class="small">1. Seleccionar una o varias áreas del contrato.</text>
+    <text x="1156" y="1536" class="small">2. Las no seleccionadas quedan en espera.</text>
+    <text x="1156" y="1562" class="small">3. Registrar etapa, nota y evidencia por área.</text>
+    <text x="1156" y="1596" class="tiny muted">Se puede avanzar o volver una etapa por área.</text>
+    <text x="1156" y="1618" class="tiny muted">Entregar un área no marca las demás entregadas.</text>
+  </g>
+
+  <!-- Identity and scope guardrails -->
+  <rect x="72" y="1680" width="1536" height="61" rx="14" fill="#172554"/>
+  <text x="98" y="1707" class="small" font-weight="800" fill="#bfdbfe">IDENTIDAD Y ALCANCE</text>
+  <text x="98" y="1729" class="small" fill="#fff">Cada hoja y cada fila se mantiene vinculada a su área. Reordenar áreas con seguimiento se bloquea; nombres repetidos no deben confundirlas.</text>
+  <text x="1550" y="1765" text-anchor="end" class="tiny muted">Mockup conceptual basado en cambios locales pendientes · no es una captura de producción</text>
+</svg>
