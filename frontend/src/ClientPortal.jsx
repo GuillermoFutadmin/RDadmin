@@ -196,6 +196,7 @@ function PortalSeasonalDecor({ theme }) {
 
   return (
     <div className={`client-season-decor client-season-decor--${theme}`} aria-hidden="true">
+      {/* Guirnalda superior de papel picado (papel china) */}
       <svg className="client-season-garland" viewBox="0 0 1000 60" preserveAspectRatio="none">
         <path d="M8 7 Q500 31 992 7" fill="none" stroke="#7c5c43" strokeWidth="2.5" />
         {flags.map((flag, index) => (
@@ -208,21 +209,60 @@ function PortalSeasonalDecor({ theme }) {
         ))}
         {flags}
       </svg>
-      {(theme === 'remembrance' || theme === 'spring' || theme === 'family') && (
+
+      {(theme === 'spring' || theme === 'family') && (
         <>
-          <span className="client-season-flower client-season-flower--left"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--right"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--top-left"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--top-right"><SeasonalFlower /></span>
         </>
       )}
+
       {theme === 'remembrance' && (
         <>
+          {/* Tiras laterales de papel china en ambos bordes */}
+          <SidePapelChina side="left" />
+          <SidePapelChina side="right" />
+
+          {/* Flores de cempasúchil en todo el borde izquierdo */}
+          <span className="client-season-flower client-season-flower--top-left"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--mid-left"><SeasonalFlower /></span>
           <span className="client-season-flower client-season-flower--lower-left"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--bottom-left"><SeasonalFlower /></span>
+
+          {/* Flores de cempasúchil en todo el borde derecho */}
+          <span className="client-season-flower client-season-flower--top-right"><SeasonalFlower /></span>
+          <span className="client-season-flower client-season-flower--mid-right"><SeasonalFlower /></span>
           <span className="client-season-flower client-season-flower--lower-right"><SeasonalFlower /></span>
-          <span className="client-season-skull"><SugarSkull /></span>
-          <span className="client-season-butterfly client-season-butterfly--upper"><MonarchButterfly /></span>
-          <span className="client-season-butterfly client-season-butterfly--lower"><MonarchButterfly /></span>
+          <span className="client-season-flower client-season-flower--bottom-right"><SeasonalFlower /></span>
+
+          {/* Mariposas monarca aleteando en ambos bordes */}
+          <span className="client-season-butterfly client-season-butterfly--top-left"><MonarchButterfly /></span>
+          <span className="client-season-butterfly client-season-butterfly--mid-left"><MonarchButterfly /></span>
+          <span className="client-season-butterfly client-season-butterfly--lower-left"><MonarchButterfly /></span>
+
+          <span className="client-season-butterfly client-season-butterfly--top-right"><MonarchButterfly /></span>
+          <span className="client-season-butterfly client-season-butterfly--mid-right"><MonarchButterfly /></span>
+          <span className="client-season-butterfly client-season-butterfly--lower-right"><MonarchButterfly /></span>
+
+          {/* Calaverita en los bordes laterales */}
+          <span className="client-season-skull client-season-skull--side-left"><SugarSkull /></span>
+          <span className="client-season-skull client-season-skull--side-right"><SugarSkull /></span>
+
+          {/* En el centro parte baja: Altarcito acompañado de dos calaveritas de azúcar a los lados */}
+          <div className="client-season-altar-dock">
+            <span className="client-season-altar-flank client-season-altar-flank--left" title="Calaverita de azúcar">
+              <SugarSkull />
+            </span>
+            <div className="client-season-altar" title="Altarcito de Día de Muertos">
+              <DiaDeMuertosAltar />
+            </div>
+            <span className="client-season-altar-flank client-season-altar-flank--right" title="Calaverita de azúcar">
+              <SugarSkull />
+            </span>
+          </div>
         </>
       )}
+
       {theme === 'revolution' && (
         <span className="client-season-rosette client-season-rosette--left">✦</span>
       )}
@@ -233,6 +273,153 @@ function PortalSeasonalDecor({ theme }) {
         </>
       )}
     </div>
+  );
+}
+
+function SidePapelChina({ side = 'left' }) {
+  const flags = [
+    { color: '#ea580c', delay: '-0.3s' },
+    { color: '#c026d3', delay: '-0.8s' },
+    { color: '#16a34a', delay: '-1.4s' },
+    { color: '#2563eb', delay: '-1.9s' },
+    { color: '#facc15', delay: '-2.5s' }
+  ];
+  return (
+    <div className={`client-season-side-flags client-season-side-flags--${side}`}>
+      {flags.map((item, index) => (
+        <svg key={index} viewBox="0 0 38 42" className="client-side-flag" style={{ animationDelay: item.delay }}>
+          <path d="M 3 2 h 32 v 28 l -8 -5 l -8 5 l -8 -5 l -8 5 Z" fill={item.color} />
+          <circle cx="19" cy="14" r="3.6" fill="#ffffff" opacity="0.85" />
+          <path d="M 11 8 l 4 4 M 27 8 l -4 4 M 13 20 l 3 -3 M 25 20 l -3 -3" stroke="#ffffff" strokeWidth="1.1" strokeLinecap="round" opacity="0.8" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function DiaDeMuertosAltar() {
+  return (
+    <svg viewBox="0 0 240 160" className="client-altar-svg" aria-label="Altarcito de Día de Muertos">
+      <defs>
+        <radialGradient id="altar-candle-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fef08a" stopOpacity="0.95" />
+          <stop offset="45%" stopColor="#f59e0b" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#ea580c" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="altar-bread-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fef3c7" />
+          <stop offset="45%" stopColor="#d97706" />
+          <stop offset="100%" stopColor="#78350f" />
+        </linearGradient>
+      </defs>
+
+      {/* Arco de flor de cempasúchil */}
+      <path d="M 40 148 C 40 38, 200 38, 200 148" fill="none" stroke="#78350f" strokeWidth="3" opacity="0.35" />
+      {Array.from({ length: 17 }, (_, i) => {
+        const t = (i + 0.5) / 17;
+        const angle = Math.PI * (1 - t);
+        const cx = 120 - 78 * Math.cos(angle);
+        const cy = 142 - 105 * Math.sin(angle);
+        const color = i % 2 === 0 ? '#f97316' : '#fbbf24';
+        const innerColor = i % 2 === 0 ? '#fbbf24' : '#ea580c';
+        return (
+          <g key={`arch-flower-${i}`} transform={`translate(${cx} ${cy})`}>
+            <circle r="7.2" fill={color} />
+            <circle r="4.2" fill={innerColor} />
+            <circle r="1.8" fill="#78350f" />
+          </g>
+        );
+      })}
+
+      {/* Nivel 3 - Escalon Superior */}
+      <g className="altar-tier-3">
+        <rect x="85" y="66" width="70" height="26" rx="3" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+        <path d="M 85 78 h 70 v 14 l -5 -4 l -5 4 l -5 -4 l -5 4 l -5 -4 l -5 4 l -5 -4 l -5 4 l -5 -4 l -5 4 l -5 -4 l -5 4 l -5 -4 l -5 4 Z" fill="#9333ea" />
+        <circle cx="95" cy="84" r="1.5" fill="#f8fafc" />
+        <circle cx="105" cy="84" r="1.5" fill="#f8fafc" />
+        <circle cx="115" cy="84" r="1.5" fill="#f8fafc" />
+        <circle cx="125" cy="84" r="1.5" fill="#f8fafc" />
+        <circle cx="135" cy="84" r="1.5" fill="#f8fafc" />
+        <circle cx="145" cy="84" r="1.5" fill="#f8fafc" />
+
+        {/* Retablo / Cuadro con recuerdo */}
+        <rect x="106" y="44" width="28" height="24" rx="2" fill="#fbbf24" stroke="#b45309" strokeWidth="1.8" />
+        <rect x="109" y="47" width="22" height="18" rx="1" fill="#475569" />
+        <circle cx="120" cy="56" r="4.8" fill="#fde047" opacity="0.9" />
+        <path d="M 120 50 Q 123 54 120 58 Q 117 54 120 50 Z" fill="#f97316" />
+      </g>
+
+      {/* Nivel 2 - Escalon Intermedio */}
+      <g className="altar-tier-2">
+        <rect x="58" y="90" width="124" height="28" rx="3" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" />
+        <path d="M 58 102 h 124 v 16 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 Z" fill="#db2777" />
+        {Array.from({ length: 11 }, (_, i) => (
+          <circle key={`t2-dot-${i}`} cx={64 + i * 11} cy="108" r="1.4" fill="#ffffff" />
+        ))}
+
+        {/* Veladora izquierda */}
+        <rect x="68" y="78" width="10" height="13" rx="1.5" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+        <path d="M 73 78 v -4" stroke="#334155" strokeWidth="1" strokeLinecap="round" />
+        <circle cx="73" cy="71" r="7" fill="url(#altar-candle-glow)" className="client-candle-glow" />
+        <path d="M 73 68 Q 75 72 73 75 Q 71 72 73 68 Z" fill="#f59e0b" className="client-candle-flame" />
+
+        {/* Veladora derecha */}
+        <rect x="162" y="78" width="10" height="13" rx="1.5" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+        <path d="M 167 78 v -4" stroke="#334155" strokeWidth="1" strokeLinecap="round" />
+        <circle cx="167" cy="71" r="7" fill="url(#altar-candle-glow)" className="client-candle-glow" />
+        <path d="M 167 68 Q 169 72 167 75 Q 165 72 167 68 Z" fill="#f59e0b" className="client-candle-flame" />
+
+        {/* Pan de Muerto tradicional */}
+        <g transform="translate(120 86)">
+          <ellipse cx="0" cy="2" rx="15" ry="9" fill="url(#altar-bread-grad)" stroke="#78350f" strokeWidth="1" />
+          <path d="M -11 0 Q 0 -3 11 0 M -8 -4 Q 0 4 8 4" stroke="#fef3c7" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          <circle cx="0" cy="-2" r="2.8" fill="#fef3c7" />
+          <circle cx="-5" cy="1" r="0.8" fill="#ffffff" />
+          <circle cx="5" cy="0" r="0.8" fill="#ffffff" />
+          <circle cx="1" cy="4" r="0.8" fill="#ffffff" />
+        </g>
+      </g>
+
+      {/* Nivel 1 - Escalon Inferior / Base */}
+      <g className="altar-tier-1">
+        <rect x="25" y="116" width="190" height="32" rx="4" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+        <path d="M 25 128 h 190 v 18 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 l -5.5 5 l -5.5 -5 Z" fill="#ea580c" />
+        {Array.from({ length: 17 }, (_, i) => (
+          <circle key={`t1-dot-${i}`} cx={32 + i * 11} cy="135" r="1.5" fill="#fef08a" />
+        ))}
+
+        {/* Jarrito de barro */}
+        <g transform="translate(42 114)">
+          <path d="M 0 0 Q -5 4 -3 10 Q 0 13 6 13 Q 12 13 15 10 Q 17 4 12 0 Z" fill="#c2410c" stroke="#7c2d12" strokeWidth="1" />
+          <circle cx="6" cy="-2" r="5" fill="#fbbf24" />
+          <circle cx="6" cy="-2" r="2.5" fill="#ea580c" />
+        </g>
+
+        {/* Canasta de frutas */}
+        <g transform="translate(182 116)">
+          <ellipse cx="6" cy="7" rx="10" ry="5" fill="#a16207" stroke="#78350f" strokeWidth="1" />
+          <circle cx="2" cy="4" r="3.5" fill="#dc2626" />
+          <circle cx="8" cy="3" r="3.8" fill="#f97316" />
+          <circle cx="11" cy="5" r="3" fill="#84cc16" />
+        </g>
+
+        {/* Sahumador con copal */}
+        <g transform="translate(120 118)">
+          <path d="M -6 10 L 6 10 L 4 4 L 7 1 L -7 1 L -4 4 Z" fill="#64748b" stroke="#334155" strokeWidth="1" />
+          <path d="M 0 0 Q 3 -5 0 -10 Q -3 -15 1 -20" fill="none" stroke="#cbd5e1" strokeWidth="1.6" strokeLinecap="round" opacity="0.75" className="client-copal-smoke" />
+        </g>
+      </g>
+
+      {/* Camino de pétalos en la base */}
+      <g className="altar-petals">
+        <ellipse cx="120" cy="152" rx="42" ry="5" fill="#f97316" opacity="0.85" />
+        <ellipse cx="120" cy="152" rx="28" ry="3.5" fill="#fbbf24" opacity="0.9" />
+        <circle cx="85" cy="151" r="2" fill="#ea580c" />
+        <circle cx="95" cy="154" r="2.5" fill="#fbbf24" />
+        <circle cx="145" cy="152" r="2" fill="#ea580c" />
+        <circle cx="155" cy="154" r="2.5" fill="#f97316" />
+      </g>
+    </svg>
   );
 }
 
