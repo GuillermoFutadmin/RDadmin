@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 
 export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -8,27 +8,9 @@ export default function Login({ onLoginSuccess }) {
   const [showLoginOptions, setShowLoginOptions] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [loginMode, setLoginMode] = useState('staff');
-  const [clientPortalHeight, setClientPortalHeight] = useState(240);
-  const clientPortalFrame = useRef(null);
 
   const API = '';
   const clientPortalUrl = import.meta.env.VITE_CLIENT_PORTAL_URL || 'https://lavish-happiness-production-e277.up.railway.app';
-
-  useEffect(() => {
-    if (!clientPortalUrl) return undefined;
-
-    const clientPortalOrigin = new URL(clientPortalUrl).origin;
-    const handleClientPortalMessage = (event) => {
-      if (event.origin !== clientPortalOrigin || event.source !== clientPortalFrame.current?.contentWindow) return;
-      if (event.data?.type !== 'rdadmin-client-portal-height' || !Number.isFinite(event.data.height)) return;
-
-      const nextH = Math.max(260, Math.ceil(event.data.height));
-      setClientPortalHeight(prev => (Math.abs(prev - nextH) >= 8 ? nextH : prev));
-    };
-
-    window.addEventListener('message', handleClientPortalMessage);
-    return () => window.removeEventListener('message', handleClientPortalMessage);
-  }, [clientPortalUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,12 +95,27 @@ export default function Login({ onLoginSuccess }) {
 
         {loginMode === 'client' ? (
           clientPortalUrl ? (
-            <iframe
-              ref={clientPortalFrame}
-              title="Acceso al portal de clientes"
-              src={clientPortalUrl}
-              style={{ display: 'block', width: '100%', height: clientPortalHeight, border: 0, background: 'transparent' }}
-            />
+            <div>
+              <p style={{ margin: '0 0 1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                Abre el portal seguro para consultar los avances de tu proyecto.
+              </p>
+              <a
+                href={clientPortalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  padding: '0.9rem 1rem',
+                  borderRadius: 8,
+                  background: '#7c2d12',
+                  color: '#fff',
+                  fontWeight: 700,
+                  textDecoration: 'none'
+                }}
+              >
+                Abrir portal de clientes
+              </a>
+            </div>
           ) : (
             <div role="alert" style={{ padding: '1rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
               El acceso de clientes aún no está configurado. Contacta al administrador.

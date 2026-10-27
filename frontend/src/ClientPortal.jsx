@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import ProjectTracking, { getProjectTrackingProgress } from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 
@@ -16,50 +16,6 @@ export default function ClientPortal() {
   const [syncError, setSyncError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (window.parent === window || !document.referrer) return undefined;
-
-    let parentOrigin;
-    try {
-      parentOrigin = new URL(document.referrer).origin;
-    } catch {
-      return undefined;
-    }
-
-    let lastSentHeight = 0;
-    let rafId = null;
-
-    const reportHeight = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const container = document.getElementById('client-portal-container') || document.body;
-        if (!container) return;
-        const currentHeight = Math.ceil(container.getBoundingClientRect().height);
-        if (currentHeight > 100 && Math.abs(currentHeight - lastSentHeight) >= 8) {
-          lastSentHeight = currentHeight;
-          window.parent.postMessage({
-            type: 'rdadmin-client-portal-height',
-            height: currentHeight
-          }, parentOrigin);
-        }
-      });
-    };
-
-    const container = document.getElementById('client-portal-container') || document.body;
-    const resizeObserver = new ResizeObserver(reportHeight);
-    if (container) {
-      resizeObserver.observe(container);
-    }
-    window.addEventListener('load', reportHeight);
-    reportHeight();
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-      window.removeEventListener('load', reportHeight);
-    };
-  }, [project]);
 
   const refreshProject = useCallback(async () => {
     if (!credentials) return;
