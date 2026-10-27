@@ -669,13 +669,24 @@ function Pedidos() {
   const materialSheets = estimationMaterialSheets.some(sheet => Array.isArray(sheet.materials) && sheet.materials.length)
     ? estimationMaterialSheets
     : valuationSheets;
-  const projectMaterials = materialSheets.flatMap((sheet, sheetIndex) =>
+  const normalizeSheetName = value => String(value || '').trim().toLocaleLowerCase();
+  const selectedWorkItemRecord = isAreaSelection
+    ? (parseJson(selectedContract?.production_data, {}).work_items || []).find(item => item.id === selected.workItemId) || null
+    : null;
+  const areaSheetNames = new Set([selectedWorkItemRecord?.valuation, selectedWorkItemRecord?.name, selected?.workItemName]
+    .map(normalizeSheetName).filter(Boolean));
+  const allProjectMaterials = materialSheets.flatMap((sheet, sheetIndex) =>
     (Array.isArray(sheet.materials) ? sheet.materials : []).map((item, itemIndex) => ({
       ...item,
       sheetName: sheet.type || `Proyecto ${sheetIndex + 1}`,
       purchaseKey: `${sheetIndex}:${item.id ?? ''}:${itemIndex}`
     }))
-  );
+  ).filter(material => Number(material.qty) > 0);
+  const areaMaterials = areaSheetNames.size
+    ? allProjectMaterials.filter(material => areaSheetNames.has(normalizeSheetName(material.sheetName)))
+    : [];
+  // Si la hoja del área no se identifica, se muestra el contrato completo para no ocultar materiales.
+  const projectMaterials = isAreaSelection && areaMaterials.length ? areaMaterials : allProjectMaterials;
   const projectMaterialGroups = projectMaterials.reduce((groups, material) => {
     let group = groups.find(item => item.name === material.sheetName);
     if (!group) {
@@ -2986,7 +2997,7 @@ function Pedidos() {
 
                 {supplierError && <div role="alert" style={{ marginBottom: 10, color: '#b91c1c', fontSize: '0.8rem' }}>{supplierError}</div>}
                 {!projectMaterials.length ? (
-                  <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 9, color: '#64748b', fontSize: '0.83rem' }}>La estimación no tiene materiales capturados todavía.</div>
+                  <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 9, color: '#64748b', fontSize: '0.83rem' }}>La estimación no tiene materiales con cantidad capturada.</div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 10, alignItems: 'start' }}>
                     {[false, true].map(acquired => {
@@ -3119,18 +3130,18 @@ function Pedidos() {
                     </div>
                   </div>
                 )}
-                {estimationSheets.map((sheet, index) => (
-                  <div key={`${sheet.type}-${index}`} style={{ margin: '0 0 14px', padding: '0.8rem', background: '#f8fafc', borderRadius: 10 }}>
-                    <div style={{ fontWeight: 800, color: '#334155', marginBottom: 7 }}>{sheet.type || `Proyecto ${index + 1}`}</div>
-                    {(Array.isArray(sheet.materials) ? sheet.materials : []).length > 0 && <div style={{ marginTop: 8 }}>
+                {projectMaterialGroups.map(group => (
+                  <div key={group.name} style={{ margin: '0 0 14px', padding: '0.8rem', background: '#f8fafc', borderRadius: 10 }}>
+                    <div style={{ fontWeight: 800, color: '#334155', marginBottom: 7 }}>{group.name}</div>
+                    <div style={{ marginTop: 8 }}>
                       <div style={{ color: '#2563a8', fontSize: '0.72rem', fontWeight: 800, marginBottom: 4 }}>Materiales</div>
-                      {sheet.materials.map((row, rowIndex) => <div key={row.id || rowIndex} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '0.3rem 0', borderBottom: '1px solid #e8edf3', color: '#475569', fontSize: '0.8rem' }}>
-                        <span>{row.desc || 'Material'}{Number(row.qty) > 0 ? ` · ${row.qty} ${row.unit || 'pza'}` : ''}</span>
+                      {group.materials.map(row => <div key={row.purchaseKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '0.3rem 0', borderBottom: '1px solid #e8edf3', color: '#475569', fontSize: '0.8rem' }}>
+                        <span>{row.desc || 'Material'} · {row.qty} {row.unit || 'pza'}</span>
                       </div>)}
-                    </div>}
+                    </div>
                   </div>
                 ))}
-                {!projectMaterials.length && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>No hay materiales capturados en la estimación.</div>}
+                {!projectMaterials.length && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>La estimación no tiene materiales con cantidad capturada.</div>}
                 {croquisImages.length > 0 && (
                   <details style={{ marginTop: 8 }}>
                     <summary style={{ cursor: 'pointer', color: '#334155', fontSize: '0.82rem', fontWeight: 700 }}>Croquis del proyecto ({croquisImages.length})</summary>
@@ -3412,7 +3423,7 @@ function Pedidos() {
                       </table>
                     </div>
                   ))
-                ) : <p>Sin materiales capturados.</p>}
+                ) : <p>Sin materiales con cantidad capturada.</p>}
               </section>
               {croquisPages.map((page, pageIndex) => (
                 <section key={`croquis-page-${pageIndex}`} className="production-pdf-image-page production-pdf-new-page">
