@@ -916,16 +916,21 @@ function Pedidos() {
   };
 
   const returnToPreviousStage = async () => {
-    if (isAreaSelection) {
-      await changeAreaStage(currentStage - 1);
-      return;
-    }
     if (!selected || currentStage <= 0 || selected.status === 'ENTREGADO') return;
     if (activeStage !== currentStage) {
       setMessage(`Para cambiar el flujo, selecciona la etapa actual: ${STAGE_NAMES[currentStage]}.`);
       return;
     }
     const previousStage = currentStage - 1;
+    const confirmMsg = isAreaSelection
+      ? `¿Estás seguro de regresar el área "${selected.workItemName}" a la etapa "${STAGE_NAMES[previousStage]}"?`
+      : `¿Estás seguro de regresar el proyecto a la etapa "${STAGE_NAMES[previousStage]}"?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    if (isAreaSelection) {
+      await changeAreaStage(previousStage);
+      return;
+    }
     const nextStages = stages.map((stage, index) =>
       index === activeStage ? { ...stage, note } : stage
     );
@@ -978,29 +983,46 @@ function Pedidos() {
   };
 
   const returnToClients = async () => {
-    if (!selected) return;
-    if (isAreaSelection) {
-      setMessage('Las áreas no se regresan a contrato desde aquí; usa Regresar etapa para el área.');
-      return;
-    }
-    if (!window.confirm(`¿Regresar a ${selected.name} a Clientes para volver a generar el contrato? Se conservarán las etapas y fotos de producción.`)) return;
+    const target = selectedContract || selected;
+    if (!target) return;
+    const confirmMsg = `¿Regresar a ${target.name} a Clientes para volver a generar o modificar el contrato?\n\nSe conservarán las etapas, fotos y notas de producción registradas.`;
+    if (!window.confirm(confirmMsg)) return;
     setSaving(true);
     setMessage('');
     try {
-      const response = await fetch(`${API}/api/prospects/${selected.id}`, {
+      const currentProd = parseJson(target.production_data, {});
+      let updatedProd = currentProd;
+      if (Array.isArray(currentProd.work_items) && currentProd.work_items.length > 0) {
+        updatedProd = {
+          ...currentProd,
+          work_items: currentProd.work_items.map(item => ({
+            ...item,
+            status: 'STANDBY'
+          }))
+        };
+      }
+      const response = await fetch(`${API}/api/prospects/${target.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CONTRATO PENDIENTE' })
+        body: JSON.stringify({
+          status: 'CONTRATO',
+          production_data: JSON.stringify(updatedProd)
+        })
       });
       if (!response.ok) throw new Error(`No se pudo regresar el proyecto a Clientes (${response.status})`);
-      const returnedId = selected.id;
-      const remaining = projects.filter(project => project.id !== returnedId);
-      setProjects(remaining);
-      setSelectedId(remaining[0]?.id ?? null);
+      const returnedId = target.id;
+      setProjects(current => current.filter(project => project.id !== returnedId));
+      setWorkItemContracts(current => current.filter(project => project.id !== returnedId));
+      setSelectedId(null);
+      setSelectedWorkItemId(null);
       setShowTechnicalSheet(false);
-      setMessage('El proyecto regresó a Clientes en Contrato pendiente. Su historial de producción se conservó.');
+      await refresh();
+      window.alert(`El proyecto "${target.name}" regresó exitosamente a Clientes / Contratos.`);
     } catch (error) {
-      setMessage(error.message || 'No se pudo regresar el proyecto a Clientes.');
+      console.error(error);
+      const errMsg = error.message || 'No se pudo regresar el proyecto a Clientes.';
+      setMessage(errMsg);
+      window.alert('❌ ' + errMsg);
     } finally {
       setSaving(false);
     }
@@ -2908,15 +2930,15 @@ function Pedidos() {
                     <button type="button" onClick={() => setShowTechnicalSheet(true)} style={{ padding: '0.55rem 0.8rem', border: '1px solid #bfdbfe', borderRadius: 9, background: '#fff', color: '#1d4f91', fontWeight: 800, cursor: 'pointer' }}>
                     📋 Ficha técnica
                   </button>
-                  {currentStage <= 0 && selected.status !== 'ENTREGADO' && !isAreaSelection ? (
+                  {currentStage <= 0 && selected.status !== 'ENTREGADO' ? (
                     <button type="button" disabled={saving} onClick={returnToClients} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.55 : 1 }}>
                       ↩ Regresar a contrato
                     </button>
                   ) : (() => {
-                    const canReturn = currentStage > 0 && (isAreaSelection || selected.status !== 'ENTREGADO') && activeStage === currentStage;
+                    const canReturn = currentStage > 0 && selected.status !== 'ENTREGADO' && activeStage === currentStage;
                     return (
                       <button type="button" disabled={saving || !canReturn} onClick={returnToPreviousStage} style={{ padding: '0.55rem 0.8rem', border: '1px solid #fed7aa', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontWeight: 800, cursor: saving || !canReturn ? 'not-allowed' : 'pointer', opacity: canReturn ? 1 : 0.55 }}>
-                        {currentStage > 0 && (isAreaSelection || selected.status !== 'ENTREGADO') ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
+                        {currentStage > 0 && selected.status !== 'ENTREGADO' ? activeStage !== currentStage ? 'Selecciona la etapa actual para regresar' : `↩ Regresar a ${STAGE_NAMES[currentStage - 1]}` : '↩ Sin etapa anterior'}
                       </button>
                     );
                   })()}
