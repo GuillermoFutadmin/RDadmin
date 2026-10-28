@@ -300,6 +300,66 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
   const [portalActive, setPortalActive] = React.useState(prospect.portal_access_active !== false);
   const [togglingPortal, setTogglingPortal] = React.useState(false);
 
+  // ── Vinculación de clientes ──────────────────────────────────────────────
+  const [showLinkPanel, setShowLinkPanel] = React.useState(false);
+  const [linkSearch, setLinkSearch] = React.useState('');
+  const [linkResults, setLinkResults] = React.useState([]);
+  const [linkSearching, setLinkSearching] = React.useState(false);
+  const [linkSelected, setLinkSelected] = React.useState([]);
+  const [linkSaving, setLinkSaving] = React.useState(false);
+  const [linkResult, setLinkResult] = React.useState(null); // resultado post-vinculación
+
+  const handleLinkSearch = async () => {
+    const q = linkSearch.trim();
+    if (!q) return;
+    setLinkSearching(true);
+    setLinkResults([]);
+    setLinkSelected([]);
+    try {
+      const res = await fetch(`${API}/api/prospects?light=true`);
+      const all = await res.json();
+      const ql = q.toLowerCase();
+      const filtered = all.filter(p =>
+        p.id !== prospect.id &&
+        !(p.is_papelera) &&
+        (
+          (p.name || '').toLowerCase().includes(ql) ||
+          (p.public_id || '').toLowerCase().includes(ql)
+        )
+      );
+      setLinkResults(filtered.slice(0, 40));
+    } catch {
+      alert('Error al buscar proyectos');
+    } finally {
+      setLinkSearching(false);
+    }
+  };
+
+  const handleLinkClients = async () => {
+    if (!linkSelected.length) { alert('Selecciona al menos un proyecto para vincular'); return; }
+    const confirmMsg = `¿Vincular ${linkSelected.length} proyecto(s) al cliente "${prospect.name}"?\n\nEsto igualará el nombre y contraseña de portal en todos ellos.`;
+    if (!window.confirm(confirmMsg)) return;
+    setLinkSaving(true);
+    try {
+      const res = await fetch(`${API}/api/prospects/${prospect.id}/link-client`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_ids: linkSelected })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al vincular'); }
+      const data = await res.json();
+      setLinkResult(data);
+      setLinkSelected([]);
+      setLinkResults([]);
+      setLinkSearch('');
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      alert(e.message || 'Error al vincular proyectos');
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
   React.useEffect(() => {
     setCustomPassword(prospect.contract_password || '');
     setPortalActive(prospect.portal_access_active !== false);
@@ -490,6 +550,159 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
           </button>
         )}
       </div>
+
+      {/* ── Panel de Vinculación de Clientes ── */}
+      {!productionMode && (
+        <div style={{ marginBottom: '0.85rem' }}>
+          <button
+            type="button"
+            onClick={() => { setShowLinkPanel(v => !v); setLinkResult(null); setLinkResults([]); setLinkSearch(''); setLinkSelected([]); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '0.55rem 1rem', background: showLinkPanel ? '#1e40af' : '#fff',
+              border: '1.5px solid #3b82f6', borderRadius: '10px', cursor: 'pointer',
+              color: showLinkPanel ? '#fff' : '#1d4ed8', fontWeight: 800, fontSize: '0.82rem',
+              boxShadow: '0 1px 4px rgba(59,130,246,0.10)'
+            }}
+          >
+            🔗 {showLinkPanel ? 'Cerrar vinculación' : 'Vincular proyectos del mismo cliente'}
+          </button>
+
+          {showLinkPanel && (
+            <div style={{ marginTop: '0.65rem', padding: '1.1rem', background: '#f0f7ff', border: '1.5px solid #bfdbfe', borderRadius: '14px' }}>
+              <p style={{ margin: '0 0 0.8rem', fontSize: '0.82rem', color: '#1e3a5f', lineHeight: 1.5 }}>
+                Busca proyectos de <strong>clientes viejos</strong> por nombre o folio y vincúlalos a <strong>{prospect.name}</strong>.
+                Al vincular, se unificarán automáticamente con el mismo ID y contraseña de portal.
+              </p>
+
+              {/* Búsqueda */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '0.75rem' }}>
+                <input
+                  type="text"
+                  value={linkSearch}
+                  onChange={e => setLinkSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLinkSearch()}
+                  placeholder="Nombre del cliente o folio (ej. Juan García, BXU61X)"
+                  style={{
+                    flex: 1, padding: '0.55rem 0.85rem', border: '1.5px solid #93c5fd',
+                    borderRadius: '8px', fontSize: '0.85rem', outline: 'none', background: '#fff'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleLinkSearch}
+                  disabled={linkSearching || !linkSearch.trim()}
+                  style={{
+                    padding: '0.55rem 1rem', background: '#2563eb', color: '#fff',
+                    border: 'none', borderRadius: '8px', fontWeight: 800, fontSize: '0.82rem',
+                    cursor: 'pointer', opacity: linkSearching || !linkSearch.trim() ? 0.6 : 1
+                  }}
+                >
+                  {linkSearching ? '🔍…' : '🔍 Buscar'}
+                </button>
+              </div>
+
+              {/* Resultados de búsqueda */}
+              {linkResults.length > 0 && (
+                <div style={{ marginBottom: '0.85rem' }}>
+                  <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '0 0 0.45rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                    {linkResults.length} resultado(s) — marca los proyectos a vincular
+                  </p>
+                  <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {linkResults.map(p => {
+                      const checked = linkSelected.includes(p.id);
+                      return (
+                        <label key={p.id} style={{
+                          display: 'flex', gap: '0.65rem', alignItems: 'center', padding: '0.55rem 0.75rem',
+                          border: `1px solid ${checked ? '#3b82f6' : '#dbeafe'}`,
+                          borderRadius: '8px', background: checked ? '#eff6ff' : '#fff', cursor: 'pointer'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setLinkSelected(prev =>
+                              prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id]
+                            )}
+                          />
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ display: 'block', fontSize: '0.85rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.name}
+                            </strong>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                              Folio: <strong style={{ fontFamily: 'monospace', color: '#1d4ed8' }}>{p.public_id}</strong>
+                              {' · '}{p.project_type || '—'}
+                              {p.is_contract ? ' · 📋 Contrato' : ' · 📝 Prospecto'}
+                            </span>
+                          </span>
+                          {p.contract_password && (
+                            <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '12px', background: '#fef9c3', color: '#854d0e', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                              🔑 {p.contract_password}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {linkResults.length === 0 && !linkSearching && linkSearch && (
+                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 0.75rem' }}>Sin resultados para «{linkSearch}»</p>
+              )}
+
+              {/* Botón vincular */}
+              {linkSelected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleLinkClients}
+                  disabled={linkSaving}
+                  style={{
+                    padding: '0.6rem 1.1rem', background: '#059669', color: '#fff',
+                    border: 'none', borderRadius: '9px', fontWeight: 800, fontSize: '0.84rem',
+                    cursor: linkSaving ? 'wait' : 'pointer', opacity: linkSaving ? 0.7 : 1,
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  {linkSaving ? '⏳ Vinculando…' : `🔗 Vincular ${linkSelected.length} proyecto(s) a ${prospect.name}`}
+                </button>
+              )}
+
+              {/* Resultado de vinculación */}
+              {linkResult && (
+                <div style={{ marginTop: '1rem', padding: '1rem 1.1rem', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '12px' }}>
+                  <p style={{ margin: '0 0 0.55rem', fontWeight: 800, fontSize: '0.9rem', color: '#166534' }}>
+                    ✅ Vinculación completada — {linkResult.newly_linked?.length ?? 0} nuevo(s) proyecto(s) añadido(s)
+                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.65rem', padding: '0.65rem 0.85rem', background: '#dcfce7', borderRadius: '9px', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ fontSize: '0.65rem', color: '#15803d', margin: '0 0 0.15rem', textTransform: 'uppercase', fontWeight: 800 }}>Contraseña unificada</p>
+                      <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '1.15rem', color: '#14532d', margin: 0, letterSpacing: '0.12em' }}>{linkResult.unified_password}</p>
+                    </div>
+                    <div style={{ width: '1px', height: '32px', background: '#86efac' }} />
+                    <div>
+                      <p style={{ fontSize: '0.65rem', color: '#15803d', margin: '0 0 0.15rem', textTransform: 'uppercase', fontWeight: 800 }}>Cliente</p>
+                      <p style={{ fontWeight: 800, fontSize: '0.92rem', color: '#14532d', margin: 0 }}>{linkResult.client_name}</p>
+                    </div>
+                  </div>
+                  <p style={{ margin: '0 0 0.45rem', fontSize: '0.73rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>Todos los proyectos vinculados:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {linkResult.projects?.map(p => (
+                      <div key={p.id} style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', padding: '0.45rem 0.75rem', background: '#fff', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#1d4ed8', fontSize: '0.9rem', letterSpacing: '0.06em' }}>{p.public_id}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#475569' }}>{p.project_type || '—'}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: p.is_contract ? '#dbeafe' : '#fef9c3', color: p.is_contract ? '#1d4ed8' : '#92400e', fontWeight: 700 }}>
+                          {p.is_contract ? '📋 Contrato' : '📝 Prospecto'}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>{p.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}
       {!productionMode && valuationSummary.length > 0 && (

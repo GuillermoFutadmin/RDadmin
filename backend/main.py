@@ -834,6 +834,91 @@ def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = De
     return db_prospect
 
 
+class LinkClientRequest(BaseModel):
+    target_ids: List[int]   # IDs de proyectos a vincular con este cliente
+
+
+@app.post("/api/prospects/{prospect_id}/link-client")
+def link_client_projects(prospect_id: int, body: LinkClientRequest, db: Session = Depends(get_db)):
+    """
+    Vincula proyectos huérfanos/viejos al mismo cliente del prospect_id dado.
+    - Iguala el nombre del cliente en todos los proyectos vinculados.
+    - Hereda la contraseña del prospect_id (o la genera si no tiene ninguna).
+    - Sincroniza portal_access_active.
+    Retorna: public_id + contraseña de TODOS los proyectos del cliente (incluyendo los recién vinculados).
+    """
+    from sqlalchemy import func
+
+    master = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
+    if not master:
+        raise HTTPException(status_code=404, detail="Contrato master no encontrado")
+
+    # Determinar contraseña unificada
+    unified_pwd = master.contract_password
+    if not unified_pwd:
+        # Buscar si algún proyecto hermano ya tiene contraseña
+        sibling = db.query(models.Prospect).filter(
+            func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(master.name or "")),
+            models.Prospect.contract_password.isnot(None),
+            models.Prospect.contract_password != "",
+            (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+        ).first()
+        unified_pwd = sibling.contract_password if sibling else uuid.uuid4().hex[:10].upper()
+        # Guardar en master
+        master.contract_password = unified_pwd
+
+    portal_state = master.portal_access_active if master.portal_access_active is not None else True
+
+    if not body.target_ids:
+        raise HTTPException(status_code=400, detail="Debes seleccionar al menos un proyecto para vincular")
+
+    linked = []
+    for tid in body.target_ids:
+        if tid == prospect_id:
+            continue
+        target = db.query(models.Prospect).filter(models.Prospect.id == tid).first()
+        if not target:
+            continue
+        target.name = master.name           # Igualar nombre exacto
+        target.contract_password = unified_pwd
+        target.portal_access_active = portal_state
+        linked.append({"id": target.id, "public_id": target.public_id, "project_type": target.project_type})
+
+    # Actualizar también todos los proyectos que ya pertenecen al mismo cliente
+    db.query(models.Prospect).filter(
+        func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(master.name or "")),
+        models.Prospect.id != master.id,
+        (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+    ).update({"contract_password": unified_pwd, "portal_access_active": portal_state}, synchronize_session=False)
+
+    master.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(master)
+
+    # Recolectar TODOS los proyectos del cliente unificado para retornarlos
+    all_projects = db.query(models.Prospect).filter(
+        func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(master.name or "")),
+        (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+    ).all()
+
+    return {
+        "client_name": master.name,
+        "unified_password": unified_pwd,
+        "portal_access_active": portal_state,
+        "projects": [
+            {
+                "id": p.id,
+                "public_id": p.public_id,
+                "project_type": p.project_type,
+                "is_contract": p.is_contract,
+                "status": p.status,
+            }
+            for p in all_projects
+        ],
+        "newly_linked": linked,
+    }
+
+
 @app.delete("/api/prospects/{prospect_id}")
 def delete_prospect(prospect_id: int, db: Session = Depends(get_db)):
     db_prospect = db.query(models.Prospect).filter(models.Prospect.id == prospect_id).first()
