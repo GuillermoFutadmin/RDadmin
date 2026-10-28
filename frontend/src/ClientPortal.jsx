@@ -835,7 +835,10 @@ export default function ClientPortal() {
                       projectsInThisStage.map(p => {
                         const isThisActive = String(p.public_id || p.id).toUpperCase() === String(activeProject.public_id || activeProject.id).toUpperCase();
                         const pTr = getProjectTrackingProgress(p);
-                        const subStage = stage.key === 'produccion' ? PRODUCTION_STAGES[pTr.currentProductionStage] : null;
+                        // Etiqueta de sub-etapa para proyectos en producción; stageLabel para los demás
+                        const stageTag = stage.key === 'produccion'
+                          ? PRODUCTION_STAGES[pTr.currentProductionStage]
+                          : pTr.stageLabel;
 
                         return (
                           <button
@@ -864,7 +867,7 @@ export default function ClientPortal() {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, fontSize: '0.62rem', color: isThisActive ? '#fed7aa' : '#64748b' }}>
                               <span>Folio: {p.public_id || `#${p.id}`}</span>
-                              {subStage && <span style={{ fontWeight: 700 }}>{subStage}</span>}
+                              {stageTag && <span style={{ fontWeight: 700 }}>{stageTag}</span>}
                             </div>
                           </button>
                         );

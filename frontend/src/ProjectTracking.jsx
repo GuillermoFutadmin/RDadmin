@@ -83,9 +83,9 @@ export function getProjectTrackingProgress(prospect) {
   const workItems = Array.isArray(production.work_items) ? production.work_items : [];
   const firstTrackedWork = workItems.find(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
   const delivered = status === 'ENTREGADO' || !!production.delivered_at;
+  const productionStarted = !!production.started_at || workItems.some(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
   const inProduction = status === 'PRODUCCION' || delivered
-    || workItems.some(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO')
-    || (!!prospect.production_data && workItems.length === 0);
+    || productionStarted;
   const underContract = !!prospect.is_contract || !!prospect.contract_date || [
     'APROBADO', 'CONTRATO', 'CONTRATO PENDIENTE', 'PRODUCCION', 'ENTREGADO'
   ].includes(status);
@@ -97,7 +97,7 @@ export function getProjectTrackingProgress(prospect) {
   const productionStage = Number.isInteger(production.current_stage)
     ? production.current_stage
     : firstTrackedWork?.production_data?.current_stage;
-  const currentProductionStage = Number.isInteger(productionStage)
+  const currentProductionStage = Number.isInteger(productionStage) && productionStarted
     ? Math.max(0, Math.min(productionStage, PRODUCTION_STAGES.length - 1))
     : 0;
   const activeWorkCount = workItems.filter(item => item.status === 'PRODUCCION').length;
