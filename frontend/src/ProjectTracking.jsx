@@ -349,6 +349,15 @@ export default function ProjectTracking({
                 })
                 .filter(item => Boolean(item.url))
             ];
+
+            const activeWorkItems = workItems.filter(wi => wi.status === 'PRODUCCION');
+            const hasActiveWorkItems = activeWorkItems.length > 0;
+            const maxReachedStage = delivered
+              ? PRODUCTION_STAGES.length
+              : hasActiveWorkItems
+                ? Math.max(0, ...activeWorkItems.map(wi => wi.production_data?.current_stage ?? 0))
+                : currentProductionStage;
+
             return (
               <div style={{ marginTop: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -382,13 +391,6 @@ export default function ProjectTracking({
                 </div>
                 <div className="production-stage-flow is-client">
                   {PRODUCTION_STAGES.map((name, index) => {
-                    const activeWorkItems = workItems.filter(wi => wi.status === 'PRODUCCION');
-                    const hasActiveWorkItems = activeWorkItems.length > 0;
-                    const maxReachedStage = delivered
-                      ? PRODUCTION_STAGES.length
-                      : hasActiveWorkItems
-                        ? Math.max(0, ...activeWorkItems.map(wi => wi.production_data?.current_stage ?? 0))
-                        : currentProductionStage;
 
                     // Si algún trabajo activo ya superó esta etapa
                     const isWorkPassed = hasActiveWorkItems && activeWorkItems.some(wi => (wi.production_data?.current_stage ?? 0) > index);
