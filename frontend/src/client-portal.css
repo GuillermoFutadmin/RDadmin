@@ -317,21 +317,46 @@ body {
     padding: 0.5rem 0.5rem 1.5rem;
   }
 
-  .client-card-flower--left {
-    left: -10px;
-    width: 32px;
-    height: 32px;
+  .client-monthly-card-wrapper {
+    margin-bottom: 85px;
   }
 
-  .client-card-flower--right {
-    right: -10px;
-    width: 32px;
-    height: 32px;
+  .client-card-side-border--left {
+    left: -14px;
+  }
+
+  .client-card-side-border--right {
+    right: -14px;
+  }
+
+  .client-card-item--flower {
+    width: 26px;
+    height: 26px;
+  }
+
+  .client-card-item--skull {
+    width: 22px;
+    height: 26px;
   }
 
   .client-card-garland {
-    height: 24px;
+    height: 26px;
     top: -6px;
+  }
+
+  .client-card-altar-dock {
+    bottom: -82px;
+    gap: 8px;
+  }
+
+  .client-card-altar {
+    flex: 0 0 145px;
+  }
+
+  .client-card-altar-flank {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
   }
 
   .client-season-side-flags {
@@ -392,8 +417,9 @@ body {
 /* ── Decoración conmemorativa acotada exclusivamente a la tarjeta "Se Acerca" ── */
 .client-monthly-card-wrapper {
   position: relative;
-  margin-top: 1.8rem;
-  padding-top: 8px;
+  margin-top: 2.2rem;
+  margin-bottom: 105px; /* Espacio para que el altarcito descanse en la base inferior */
+  padding-top: 10px;
 }
 
 .client-card-season-decor {
@@ -404,52 +430,105 @@ body {
   z-index: 2;
 }
 
+/* 1. Guirnalda superior de papel picado arribita de la tarjeta */
 .client-card-garland {
   position: absolute;
-  top: -8px;
+  top: -10px;
   left: 2%;
   width: 96%;
-  height: 32px;
+  height: 36px;
   overflow: visible;
   animation: client-garland-sway 6s ease-in-out infinite;
 }
 
-.client-card-flower {
+/* 2. Contorno lateral: columnas de flores y calaveritas a los lados */
+.client-card-side-border {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  top: 18px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.client-card-side-border--left {
+  left: -28px;
+}
+
+.client-card-side-border--right {
+  right: -28px;
+}
+
+.client-card-item {
+  display: block;
   filter: drop-shadow(0 3px 6px rgba(124, 45, 18, 0.22));
   animation: client-flower-sway 5s ease-in-out infinite;
 }
 
-.client-card-flower--left {
-  left: -22px;
+.client-card-item--flower {
+  width: 38px;
+  height: 38px;
 }
 
-.client-card-flower--right {
-  right: -22px;
-  animation-delay: -2.5s;
+.client-card-item--skull {
+  width: 32px;
+  height: 38px;
+  animation-delay: -2s;
 }
 
-.client-card-flower svg {
+.client-card-item svg {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.client-card-butterfly {
+/* 3. Base inferior: Altarcito de Día de Muertos debajo de la tarjeta */
+.client-card-altar-dock {
   position: absolute;
-  top: -14px;
-  right: 28px;
-  width: 38px;
-  height: 32px;
-  filter: drop-shadow(0 2px 4px rgba(124, 45, 18, 0.25));
-  animation: client-butterfly-flight 8s ease-in-out infinite;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 2.5vw, 18px);
+  width: min(96%, 460px);
+  pointer-events: none;
+  z-index: 2;
 }
 
-.client-card-butterfly svg {
+.client-card-altar {
+  flex: 0 0 clamp(165px, 26vw, 220px);
+  filter: drop-shadow(0 5px 16px rgba(124, 45, 18, 0.3));
+}
+
+.client-card-altar svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.client-card-altar-flank {
+  flex: 0 0 clamp(30px, 5vw, 40px);
+  width: clamp(30px, 5vw, 40px);
+  height: auto;
+  filter: drop-shadow(0 3px 6px rgba(124, 45, 18, 0.22));
+  animation: client-flower-sway 5s ease-in-out infinite;
+}
+
+.client-card-altar-flank--left {
+  animation-delay: -1.2s;
+}
+
+.client-card-altar-flank--right {
+  animation-delay: -3.4s;
+}
+
+.client-card-altar-flank svg {
   display: block;
   width: 100%;
   height: 100%;

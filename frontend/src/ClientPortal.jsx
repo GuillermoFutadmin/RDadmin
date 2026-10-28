@@ -195,7 +195,7 @@ function CardSeasonalDecor({ theme }) {
 
   return (
     <div className={`client-card-season-decor client-card-season-decor--${theme}`} aria-hidden="true">
-      {/* Mini guirnalda festiva sobre la parte superior de la tarjeta */}
+      {/* 1. Guirnalda superior de papel picado arribita de la tarjeta */}
       <svg className="client-card-garland" viewBox="0 0 1000 38" preserveAspectRatio="none">
         <path d="M8 4 Q500 20 992 4" fill="none" stroke="#7c5c43" strokeWidth="2" />
         {flags}
@@ -203,25 +203,43 @@ function CardSeasonalDecor({ theme }) {
 
       {theme === 'remembrance' && (
         <>
-          {/* Cempasúchil en el flanco izquierdo de la tarjeta */}
-          <span className="client-card-flower client-card-flower--left" title="Cempasúchil">
-            <SeasonalFlower />
-          </span>
-          {/* Calaverita de azúcar en el flanco derecho de la tarjeta */}
-          <span className="client-card-flower client-card-flower--right" title="Día de Muertos">
-            <SugarSkull />
-          </span>
-          {/* Mariposa monarca reposando en la esquina superior */}
-          <span className="client-card-butterfly" title="Mariposa Monarca">
-            <MonarchButterfly />
-          </span>
+          {/* 2. Contorno lateral izquierdo: flores y calaveritas alternadas */}
+          <div className="client-card-side-border client-card-side-border--left">
+            <span className="client-card-item client-card-item--flower" title="Flor de cempasúchil"><SeasonalFlower /></span>
+            <span className="client-card-item client-card-item--skull" title="Calaverita de azúcar"><SugarSkull /></span>
+            <span className="client-card-item client-card-item--flower" title="Flor de cempasúchil"><SeasonalFlower /></span>
+          </div>
+
+          {/* 3. Contorno lateral derecho: flores y calaveritas alternadas */}
+          <div className="client-card-side-border client-card-side-border--right">
+            <span className="client-card-item client-card-item--skull" title="Calaverita de azúcar"><SugarSkull /></span>
+            <span className="client-card-item client-card-item--flower" title="Flor de cempasúchil"><SeasonalFlower /></span>
+            <span className="client-card-item client-card-item--skull" title="Calaverita de azúcar"><SugarSkull /></span>
+          </div>
+
+          {/* 4. Parte baja: Altarcito de Día de Muertos en la base de la tarjeta */}
+          <div className="client-card-altar-dock">
+            <span className="client-card-altar-flank client-card-altar-flank--left" title="Cempasúchil">
+              <SeasonalFlower />
+            </span>
+            <div className="client-card-altar" title="Altar de Día de Muertos">
+              <DiaDeMuertosAltar />
+            </div>
+            <span className="client-card-altar-flank client-card-altar-flank--right" title="Cempasúchil">
+              <SeasonalFlower />
+            </span>
+          </div>
         </>
       )}
 
       {(theme === 'spring' || theme === 'family') && (
         <>
-          <span className="client-card-flower client-card-flower--left"><SeasonalFlower /></span>
-          <span className="client-card-flower client-card-flower--right"><SeasonalFlower /></span>
+          <div className="client-card-side-border client-card-side-border--left">
+            <span className="client-card-item client-card-item--flower"><SeasonalFlower /></span>
+          </div>
+          <div className="client-card-side-border client-card-side-border--right">
+            <span className="client-card-item client-card-item--flower"><SeasonalFlower /></span>
+          </div>
         </>
       )}
 
