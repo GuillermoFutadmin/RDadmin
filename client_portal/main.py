@@ -133,7 +133,7 @@ def client_project(prospect):
             public_stages.append({"entered_at": None, "note": None, "photos": []})
             continue
         valid_photos = []
-        for photo in photos:
+        for photo in stage.get("photos", []):
             if isinstance(photo, dict):
                 p_url = safe_photo_url(photo.get("url"))
                 if p_url:

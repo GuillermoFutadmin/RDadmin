@@ -155,13 +155,22 @@ export default function ProjectTracking({
             : null
   }));
 
-  const rawPdfUrl = prospect.public_id
-    ? `/api/client-portal/${prospect.public_id}/render-pdf`
-    : (prospect.id ? `/api/prospects/${prospect.id}/render-pdf` : null);
+  // Only build the PDF URL when the server signals the project could have a render
+  const mayHaveRender = Boolean(
+    prospect.render_pdf_path ||
+    prospect.has_render_pdf ||
+    prospect.render_applies ||
+    prospect.render_image_path
+  );
+  const rawPdfUrl = mayHaveRender
+    ? (prospect.public_id
+        ? `/api/client-portal/${prospect.public_id}/render-pdf`
+        : (prospect.id ? `/api/prospects/${prospect.id}/render-pdf` : null))
+    : null;
 
   const [pdfStatus, setPdfStatus] = useState(() => {
     if (prospect.render_pdf_path || prospect.has_render_pdf) return 'ready';
-    if (prospect.has_render_pdf === false && !prospect.render_pdf_path) return 'not_found';
+    if (!mayHaveRender) return 'not_found';
     return rawPdfUrl ? 'checking' : 'not_found';
   });
 
@@ -185,7 +194,7 @@ export default function ProjectTracking({
         setPdfStatus('not_found');
       });
     return () => { active = false; };
-  }, [rawPdfUrl, prospect.has_render_pdf, prospect.render_pdf_path]);
+  }, [rawPdfUrl, prospect.has_render_pdf, prospect.render_pdf_path, mayHaveRender]);
 
   const renderPdfUrl = pdfStatus === 'ready' ? rawPdfUrl : null;
   const hasRender = Boolean(
