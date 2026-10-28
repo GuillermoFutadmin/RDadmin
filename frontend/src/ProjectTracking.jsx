@@ -366,51 +366,114 @@ export default function ProjectTracking({
                     gap: 6,
                     padding: '0.35rem 0.75rem',
                     borderRadius: 20,
-                    background: delivered ? '#f0fdf4' : '#eff6ff',
-                    border: `1px solid ${delivered ? '#bbf7d0' : '#bfdbfe'}`,
-                    color: delivered ? '#166534' : '#1d4ed8',
+                    background: delivered ? '#f0fdf4' : (hasActiveWorkItems || currentProductionStage > 0) ? '#f0fdf4' : '#eff6ff',
+                    border: `1px solid ${delivered ? '#bbf7d0' : (hasActiveWorkItems || currentProductionStage > 0) ? '#bbf7d0' : '#bfdbfe'}`,
+                    color: delivered ? '#166534' : (hasActiveWorkItems || currentProductionStage > 0) ? '#166534' : '#1d4ed8',
                     fontSize: '0.74rem',
                     fontWeight: 800
                   }}>
-                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: delivered ? '#16a34a' : '#2563eb' }} />
-                    {delivered ? 'Proyecto entregado' : `Etapa actual: ${PRODUCTION_STAGES[currentProductionStage]}`}
+                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: delivered ? '#16a34a' : (hasActiveWorkItems || currentProductionStage > 0) ? '#16a34a' : '#2563eb' }} />
+                    {delivered
+                      ? 'Proyecto entregado'
+                      : hasActiveWorkItems
+                        ? `Producción activa · ${activeWorkItems.length} ${activeWorkItems.length === 1 ? 'área' : 'áreas'}`
+                        : `Etapa actual: ${PRODUCTION_STAGES[currentProductionStage]}`}
                   </span>
                 </div>
                 <div className="production-stage-flow is-client">
                   {PRODUCTION_STAGES.map((name, index) => {
-                    const complete = delivered || index < currentProductionStage;
-                    const current = !delivered && index === currentProductionStage;
-                    const isActive = activeStage === index;
-                    const reached = complete || current;
-                    const color = complete ? '#16a34a' : current ? '#2563eb' : '#cbd5e1';
+                    const activeWorkItems = workItems.filter(wi => wi.status === 'PRODUCCION');
+                    const hasActiveWorkItems = activeWorkItems.length > 0;
+                    const maxReachedStage = delivered
+                      ? PRODUCTION_STAGES.length
+                      : hasActiveWorkItems
+                        ? Math.max(0, ...activeWorkItems.map(wi => wi.production_data?.current_stage ?? 0))
+                        : currentProductionStage;
 
-                    // Proyectos (hermanos o activo) que estén en esta etapa de taller
-                    const projectsHere = allProjects.filter(p => {
+                    // Si algún trabajo activo ya superó esta etapa
+                    const isWorkPassed = hasActiveWorkItems && activeWorkItems.some(wi => (wi.production_data?.current_stage ?? 0) > index);
+                    // Si algún trabajo activo está en esta etapa actualmente
+                    const isWorkHere = hasActiveWorkItems && activeWorkItems.some(wi => (wi.production_data?.current_stage ?? 0) === index);
+
+                    // Para proyectos sin áreas desglosadas:
+                    const isSinglePassed = !hasActiveWorkItems && currentProductionStage > index;
+                    const isSingleHere = !hasActiveWorkItems && currentProductionStage === index;
+
+                    const complete = delivered || isWorkPassed || isSinglePassed;
+                    const current = !delivered && (isWorkHere || isSingleHere);
+                    const reached = complete || current;
+                    const isActive = activeStage === index;
+
+                    // Verde (#16a34a) para etapas completadas o en curso con avance; gris (#cbd5e1) para pendientes
+                    const color = reached ? '#16a34a' : '#cbd5e1';
+                    const surface = reached ? '#f0fdf4' : '#f8fafc';
+                    const statusText = complete ? 'Completada' : current ? 'En proceso' : 'Pendiente';
+                    const statusColor = reached ? '#15803d' : '#64748b';
+
+                    // Trabajos con escuadra del proyecto actual en esta etapa
+                    const myWorkItemsHere = activeWorkItems.filter(wi => (wi.production_data?.current_stage ?? 0) === index);
+
+                    // Trabajos con escuadra de proyectos vinculados (hermanos) en esta etapa
+                    const siblingWorkItemsHere = allProjects.flatMap(p => {
+                      const isCurrentProject = String(p.public_id || p.id).toUpperCase() === String(prospect.public_id || prospect.id).toUpperCase();
+                      if (isCurrentProject) return [];
                       const pTr = getProjectTrackingProgress(p);
-                      return !pTr.delivered && pTr.currentIndex === 4 && pTr.currentProductionStage === index;
+                      return (pTr.workItems || []).filter(wi => wi.status === 'PRODUCCION' && (wi.production_data?.current_stage ?? 0) === index);
                     });
-                    const workItemsHere = workItems.filter(wi => {
-                      const wiStage = wi.production_data?.current_stage;
-                      return wi.status === 'PRODUCCION' && Number.isInteger(wiStage) && wiStage === index;
+
+                    // Todos los trabajos con escuadra en esta etapa
+                    const allWorkItemsHere = [...myWorkItemsHere, ...siblingWorkItemsHere];
+
+                    // Proyectos independientes que NO tienen áreas desglosadas
+                    const standaloneProjectsHere = allProjects.filter(p => {
+                      const isCurrentProject = String(p.public_id || p.id).toUpperCase() === String(prospect.public_id || prospect.id).toUpperCase();
+                      const pTr = isCurrentProject ? progress : getProjectTrackingProgress(p);
+                      const hasItems = (pTr.workItems || []).some(wi => wi.status === 'PRODUCCION');
+                      if (hasItems) return false; // Si tiene escuadras, no mostrar etiqueta duplicada del proyecto
+                      return !pTr.delivered && pTr.currentIndex === 4 && pTr.currentProductionStage === index;
                     });
 
                     return (
                       <React.Fragment key={name}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
-                          <button type="button" aria-pressed={isActive} aria-label={`${name}, ${complete ? 'completada' : current ? 'etapa actual' : 'pendiente'}`}
+                          <button type="button" aria-pressed={isActive} aria-label={`${name}, ${statusText.toLowerCase()}`}
                             onClick={() => { setSelectedStage(index); setGalleryLightboxIndex(null); }}
                             className={`production-stage-button${isActive ? ' is-selected' : ''}${reached ? ' has-projects' : ''}`}
-                            style={{ '--stage-color': color, '--stage-surface': complete ? '#f0fdf4' : current ? '#eff6ff' : '#f8fafc', color: current ? '#1d4ed8' : complete ? '#166534' : '#334155' }}>
+                            style={{ '--stage-color': color, '--stage-surface': surface, color: reached ? '#166534' : '#334155' }}>
                             <span className="production-stage-icon"><StageIcon stage={index} /></span>
                             <span className="production-stage-name">{name}</span>
-                            <span className="production-stage-count" style={{ color: current ? '#1d4ed8' : complete ? '#15803d' : '#64748b' }}>
-                              {complete ? 'Completada' : current ? 'Etapa actual' : 'Pendiente'}
+                            <span className="production-stage-count" style={{ color: statusColor, fontWeight: reached ? 700 : 400 }}>
+                              {statusText}
                             </span>
                           </button>
 
-                          {(projectsHere.length > 0 || workItemsHere.length > 0) && (
+                          {(allWorkItemsHere.length > 0 || standaloneProjectsHere.length > 0) && (
                             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', width: '100%' }}>
-                              {projectsHere.map(p => {
+                              {allWorkItemsHere.map(wi => (
+                                <span
+                                  key={wi.id}
+                                  title={`Área: ${wi.name}`}
+                                  style={{
+                                    display: 'inline-block',
+                                    maxWidth: '100%',
+                                    padding: '2px 6px',
+                                    borderRadius: 5,
+                                    background: '#e0f2fe',
+                                    border: '1px solid #7dd3fc',
+                                    color: '#0369a1',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 800,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    textAlign: 'center',
+                                    boxShadow: '0 1px 3px rgba(3, 105, 161, 0.12)'
+                                  }}
+                                >
+                                  📐 {wi.name}
+                                </span>
+                              ))}
+                              {standaloneProjectsHere.map(p => {
                                 const isThisActive = String(p.public_id || p.id).toUpperCase() === String(prospect.public_id || prospect.id).toUpperCase();
                                 return (
                                   <span
@@ -443,34 +506,11 @@ export default function ProjectTracking({
                                   </span>
                                 );
                               })}
-                              {workItemsHere.map(wi => (
-                                <span
-                                  key={wi.id}
-                                  title={`Área: ${wi.name}`}
-                                  style={{
-                                    display: 'inline-block',
-                                    maxWidth: '100%',
-                                    padding: '1px 5px',
-                                    borderRadius: 4,
-                                    background: '#e0f2fe',
-                                    border: '1px solid #bae6fd',
-                                    color: '#0369a1',
-                                    fontSize: '0.58rem',
-                                    fontWeight: 700,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    textAlign: 'center'
-                                  }}
-                                >
-                                  📐 {wi.name}
-                                </span>
-                              ))}
                             </div>
                           )}
                         </div>
                         {index < PRODUCTION_STAGES.length - 1 && (
-                          <span className={`production-stage-connector${index < currentProductionStage || delivered ? ' is-lit' : ''}${!delivered && index === currentProductionStage ? ' is-next' : ''}`} aria-hidden="true" style={{ marginTop: 'clamp(20px, 4vw, 34px)' }}>
+                          <span className={`production-stage-connector${index < maxReachedStage || delivered ? ' is-lit' : ''}`} aria-hidden="true" style={{ marginTop: 'clamp(20px, 4vw, 34px)' }}>
                             <span>›</span>
                           </span>
                         )}
