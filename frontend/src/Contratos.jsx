@@ -294,6 +294,68 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
     ['Detalles de restauración', prospect.restoration_details && !restorationIsStructured && restorations.length === 0 ? prospect.restoration_details : null]
   ];
 
+  const [isEditingPassword, setIsEditingPassword] = React.useState(false);
+  const [customPassword, setCustomPassword] = React.useState(prospect.contract_password || '');
+  const [savingPassword, setSavingPassword] = React.useState(false);
+  const [portalActive, setPortalActive] = React.useState(prospect.portal_access_active !== false);
+  const [togglingPortal, setTogglingPortal] = React.useState(false);
+
+  React.useEffect(() => {
+    setCustomPassword(prospect.contract_password || '');
+    setPortalActive(prospect.portal_access_active !== false);
+  }, [prospect.contract_password, prospect.portal_access_active]);
+
+  const handleSaveCustomPassword = async () => {
+    const clean = (customPassword || '').trim().toUpperCase();
+    if (!clean) {
+      alert('La contraseña no puede estar vacía');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const res = await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contract_password: clean })
+      });
+      if (!res.ok) throw new Error('No se pudo guardar la contraseña');
+      setLocalProspect(prev => ({ ...prev, contract_password: clean }));
+      setIsEditingPassword(false);
+      if (onRefresh) onRefresh();
+      alert(`✅ Contraseña guardada y sincronizada para todos los proyectos del cliente: ${clean}`);
+    } catch (e) {
+      alert(e.message || 'Error al guardar contraseña');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handleTogglePortalAccess = async () => {
+    const nextState = !portalActive;
+    const confirmMsg = nextState
+      ? '¿Reactivar el acceso al portal de clientes para este cliente?'
+      : '¿Inactivar / suspender el acceso al portal de clientes? El cliente no podrá entrar al portal hasta que lo reactives.';
+    if (!window.confirm(confirmMsg)) return;
+
+    setTogglingPortal(true);
+    try {
+      const res = await fetch(`${API}/api/prospects/${prospect.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portal_access_active: nextState })
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar el estado de acceso');
+      setPortalActive(nextState);
+      setLocalProspect(prev => ({ ...prev, portal_access_active: nextState }));
+      if (onRefresh) onRefresh();
+      alert(nextState ? '🟢 Acceso al portal REACTIVADO con éxito' : '🔴 Acceso al portal INACTIVADO / SUSPENDIDO con éxito');
+    } catch (e) {
+      alert(e.message || 'Error al cambiar estado de acceso');
+    } finally {
+      setTogglingPortal(false);
+    }
+  };
+
   const generatePassword = async () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let pwd = '';
@@ -307,7 +369,7 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
       // Actualizar estado local inmediatamente para reflejar en UI
       setLocalProspect(prev => ({ ...prev, contract_password: pwd }));
       if (onRefresh) onRefresh();
-      alert(`Nueva contraseña guardada: ${pwd}`);
+      alert(`Nueva contraseña guardada y sincronizada para todos los proyectos del cliente: ${pwd}`);
     } catch (e) {
       alert('Error al generar contraseña');
     }
@@ -335,25 +397,98 @@ export function ContratoDetail({ prospect: _prospectProp, onBack, onEstimacion, 
 
       <ProjectTracking prospect={prospect} />
 
-      {/* ── Contraseña del contrato ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'0.85rem', padding:'0.9rem 1rem', backgroundColor:'#fff', border:'1px solid #e6e9ee', borderRadius:'14px', flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flex:1, flexWrap:'wrap' }}>
+      {/* ── Contraseña del contrato y Control de Acceso ── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'1rem', marginBottom:'0.85rem', padding:'0.9rem 1.1rem', backgroundColor:'#fff', border: portalActive ? '1px solid #e6e9ee' : '1.5px solid #fecaca', borderRadius:'14px', flexWrap:'wrap', boxShadow:'0 1px 4px rgba(0,0,0,0.03)' }}>
+        <div style={{ display:'flex', gap:'1.4rem', alignItems:'center', flex:1, flexWrap:'wrap' }}>
           <div>
             <p style={{ fontSize:'0.65rem', color:'#8993a1', margin:'0 0 0.2rem', textTransform:'uppercase', fontWeight:'700', letterSpacing:'0.06em' }}>ID del contrato</p>
-            <p style={{ fontWeight:700, fontSize:'0.96rem', color:'#202938', margin:0, letterSpacing:'0.04em' }}>{prospect.public_id}</p>
+            <p style={{ fontWeight:800, fontSize:'0.98rem', color:'#202938', margin:0, letterSpacing:'0.04em' }}>{prospect.public_id}</p>
           </div>
-          <div style={{ width:'1px', height:'32px', background:'#bbf7d0' }} />
+          <div style={{ width:'1px', height:'32px', background:'#e2e8f0' }} />
           <div>
             <p style={{ fontSize:'0.65rem', color:'#8993a1', margin:'0 0 0.2rem', textTransform:'uppercase', fontWeight:'700', letterSpacing:'0.06em' }}>Contraseña de acceso</p>
-            <p style={{ fontWeight:700, fontSize:'1rem', color: prospect.contract_password ? '#202938' : '#94a3b8', margin:0, letterSpacing:'0.1em', fontFamily:'monospace' }}>
-              {prospect.contract_password || '— Sin contraseña —'}
-            </p>
+            {isEditingPassword ? (
+              <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                <input
+                  type="text"
+                  value={customPassword}
+                  onChange={e => setCustomPassword(e.target.value.toUpperCase())}
+                  placeholder="Contraseña"
+                  maxLength={20}
+                  style={{ padding:'4px 8px', fontSize:'0.9rem', fontWeight:700, fontFamily:'monospace', borderRadius:'6px', border:'1.5px solid #2563eb', outline:'none', letterSpacing:'0.08em', width:'130px' }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveCustomPassword}
+                  disabled={savingPassword}
+                  style={{ padding:'4px 9px', background:'#2563eb', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:700, fontSize:'0.75rem' }}
+                >
+                  {savingPassword ? 'Guardando...' : '💾 Guardar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsEditingPassword(false); setCustomPassword(prospect.contract_password || ''); }}
+                  disabled={savingPassword}
+                  style={{ padding:'4px 8px', background:'#e2e8f0', color:'#475569', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:700, fontSize:'0.75rem' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                <p style={{ fontWeight:800, fontSize:'1rem', color: prospect.contract_password ? '#1e293b' : '#94a3b8', margin:0, letterSpacing:'0.1em', fontFamily:'monospace' }}>
+                  {prospect.contract_password || '— Sin contraseña —'}
+                </p>
+                {!productionMode && (
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditingPassword(true); setCustomPassword(prospect.contract_password || ''); }}
+                    title="Editar o escribir contraseña a mano"
+                    style={{ background:'transparent', border:'1px solid #cbd5e1', borderRadius:'6px', padding:'2px 7px', fontSize:'0.72rem', cursor:'pointer', color:'#475569', fontWeight:600 }}
+                  >
+                    ✏️ Cambiar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div style={{ width:'1px', height:'32px', background:'#e2e8f0' }} />
+          <div>
+            <p style={{ fontSize:'0.65rem', color:'#8993a1', margin:'0 0 0.2rem', textTransform:'uppercase', fontWeight:'700', letterSpacing:'0.06em' }}>Estado del Portal</p>
+            <button
+              type="button"
+              onClick={handleTogglePortalAccess}
+              disabled={togglingPortal}
+              title={portalActive ? 'Clic para suspender/inactivar acceso al portal de clientes' : 'Clic para reactivar acceso al portal de clientes'}
+              style={{
+                display:'inline-flex',
+                alignItems:'center',
+                gap:'6px',
+                padding:'4px 10px',
+                borderRadius:'20px',
+                border: portalActive ? '1px solid #86efac' : '1px solid #fca5a5',
+                background: portalActive ? '#f0fdf4' : '#fef2f2',
+                color: portalActive ? '#15803d' : '#b91c1c',
+                fontSize:'0.74rem',
+                fontWeight:800,
+                cursor: togglingPortal ? 'wait' : 'pointer'
+              }}
+            >
+              <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background: portalActive ? '#22c55e' : '#ef4444' }} />
+              {togglingPortal ? 'Actualizando...' : portalActive ? 'Portal Activo (Inactivar)' : 'Portal Inactivo (Reactivar)'}
+            </button>
           </div>
         </div>
-        {!productionMode && <button onClick={generatePassword}
-          style={{ padding:'0.4rem 0.9rem', background:'#16a34a', color:'white', border:'none', borderRadius:'7px', cursor:'pointer', fontWeight:'800', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
-          🔄 Nueva Contraseña
-        </button>}
+        {!productionMode && (
+          <button
+            type="button"
+            onClick={generatePassword}
+            style={{ padding:'0.45rem 0.9rem', background:'#16a34a', color:'white', border:'none', borderRadius:'7px', cursor:'pointer', fontWeight:'800', fontSize:'0.78rem', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'5px' }}
+          >
+            🔄 Generar Aleatoria
+          </button>
+        )}
       </div>
 
       {stageSection('Prospecto', 'Captura inicial y valoración', prospectItems, '#3973c6')}

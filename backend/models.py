@@ -112,6 +112,7 @@ class Prospect(Base):
     contract_signature_client = Column(String, nullable=True)
     contract_photo_rep = Column(String, nullable=True)
     contract_photo_client = Column(String, nullable=True)
+    portal_access_active = Column(Boolean, default=True)
 
 class ImagesBackup(Base):
     """Copia íntegra (base64 original) de cada campo antes de migrar sus imágenes a Cloudinary."""

@@ -29,9 +29,12 @@ function ApproveRejectModal({ prospect, fetchProspects, onClose }) {
       await fetchProspects();
       return;
     }
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let pwd = '';
-    for (let i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    const pwd = prospect.contract_password || (() => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let p = '';
+      for (let i = 0; i < 10; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
+      return p;
+    })();
 
     const response = await fetch(`${API}/api/prospects/${prospect.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1445,12 +1448,23 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
   };
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Existing client link (only for new prospects) ──
+  const [isExistingClient, setIsExistingClient] = useState(''); // '' | 'si' | 'no'
+  const [existingPassword, setExistingPassword] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
+    if (!editingId && isExistingClient === 'si' && !existingPassword.trim()) {
+      alert('Por favor ingresa la contraseña del cliente existente para vincularlo.');
+      return;
+    }
     setSubmitting(true);
     try {
-      await onSave(formData, { spaceImageFile, refImageFile }, editingId);
+      const extraData = (!editingId && isExistingClient === 'si' && existingPassword.trim())
+        ? { contract_password: existingPassword.trim().toUpperCase() }
+        : {};
+      await onSave(formData, { spaceImageFile, refImageFile }, editingId, extraData);
     } finally {
       setSubmitting(false);
     }
@@ -1509,6 +1523,58 @@ function ProspectForm({ initial, onSave, onCancel, editingId }) {
             </div>
           </div>
         </div>
+
+        {/* ── ¿Cliente existente? (solo al crear nuevo) ── */}
+        {!editingId && (
+          <div style={{ padding: '1rem 1.2rem', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            <p style={{ margin: 0, fontWeight: 800, fontSize: '0.92rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <span>🔗</span> ¿Este cliente ya tiene trabajos activos o terminados con nosotros?
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {[{ v: 'no', label: 'No, es cliente nuevo', color: '#16a34a', bg: '#f0fdf4', border: '#86efac' }, { v: 'si', label: 'Sí, ya tiene proyectos', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa' }].map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setIsExistingClient(opt.v)}
+                  style={{
+                    padding: '0.45rem 1.1rem',
+                    borderRadius: '20px',
+                    border: isExistingClient === opt.v ? `2px solid ${opt.border}` : '1.5px solid #e2e8f0',
+                    background: isExistingClient === opt.v ? opt.bg : '#fff',
+                    color: isExistingClient === opt.v ? opt.color : '#64748b',
+                    fontWeight: isExistingClient === opt.v ? 800 : 600,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {isExistingClient === 'si' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0369a1' }}>
+                  🔑 Ingresa la contraseña de acceso del cliente (de cualquiera de sus proyectos existentes):
+                </label>
+                <input
+                  type="text"
+                  value={existingPassword}
+                  onChange={e => setExistingPassword(e.target.value.toUpperCase())}
+                  placeholder="Ej. 59A9A65D53"
+                  maxLength={20}
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.95rem', fontFamily: 'monospace', fontWeight: 800, borderRadius: '8px', border: '1.5px solid #7dd3fc', outline: 'none', letterSpacing: '0.08em', maxWidth: '220px' }}
+                />
+                <p style={{ margin: 0, fontSize: '0.72rem', color: '#64748b' }}>
+                  El nuevo proyecto quedará vinculado con la misma contraseña y el cliente podrá ver todos sus trabajos con un solo acceso.
+                </p>
+              </div>
+            )}
+            {isExistingClient === 'no' && (
+              <p style={{ margin: 0, fontSize: '0.75rem', color: '#15803d' }}>✅ Se generará una contraseña de portal nueva automáticamente al aprobar el contrato.</p>
+            )}
+          </div>
+        )}
 
         {/* Tipo de Proyecto (Debajo de Información del Cliente) */}
         <div style={sectionStyle}>
@@ -3166,11 +3232,11 @@ function Prospects() {
 
   const isSavingRef = useRef(false);
 
-  const handleSave = async (formData, imageFiles, editingId) => {
+  const handleSave = async (formData, imageFiles, editingId, extraData = {}) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
     try {
-      const payload = formToPayload(formData);
+      const payload = { ...formToPayload(formData), ...extraData };
       // Solo al crear un prospecto nuevo le asignamos estado 'Prospecto'
       if (!editingId) {
         payload.status = 'Prospecto';
@@ -3204,6 +3270,7 @@ function Prospects() {
       isSavingRef.current = false;
     }
   };
+
 
   const handleDelete = async (id) => {
     await fetch(`${API}/api/prospects/${id}`, { method: 'DELETE' });

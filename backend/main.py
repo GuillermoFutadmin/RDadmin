@@ -55,6 +55,7 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_signature_client VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_rep VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN contract_photo_client VARCHAR;")
+    safe_alter("ALTER TABLE prospects ADD COLUMN portal_access_active BOOLEAN DEFAULT TRUE;")
     safe_alter("ALTER TABLE prospects ADD COLUMN other_projects VARCHAR;")
     safe_alter("ALTER TABLE prospects ADD COLUMN updated_at TIMESTAMP;")
     safe_alter("UPDATE prospects SET updated_at = capture_date WHERE updated_at IS NULL;")
@@ -391,6 +392,7 @@ class ProspectCreate(BaseModel):
     contract_signature_client: Optional[str] = None
     contract_photo_rep: Optional[str] = None
     contract_photo_client: Optional[str] = None
+    portal_access_active: Optional[bool] = True
 
 class ProspectUpdate(ProspectCreate):
     pass
@@ -629,9 +631,25 @@ def work_cascade_action(prospect_id: int, data: WorkCascadeAction, db: Session =
                       if column.name not in ("id", "public_id", "updated_at", "capture_date")}
             total = selected["grandTotal"]
             names = [sheet.get("type") or "Proyecto" for sheet in selected["sheets"]]
+
+            # Inherit existing client password if available, otherwise generate a new one
+            from sqlalchemy import func
+            client_pwd = prospect.contract_password
+            if not client_pwd and prospect.name:
+                existing_contract = db.query(models.Prospect).filter(
+                    func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(prospect.name)),
+                    models.Prospect.contract_password.isnot(None),
+                    models.Prospect.contract_password != "",
+                    (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+                ).first()
+                if existing_contract:
+                    client_pwd = existing_contract.contract_password
+            if not client_pwd:
+                client_pwd = uuid.uuid4().hex[:10].upper()
+
             values.update(
                 source_prospect_id=prospect.id, work_flow=None, is_contract=True,
-                contract_date=datetime.utcnow(), status="APROBADO", contract_password=uuid.uuid4().hex[:10].upper(),
+                contract_date=datetime.utcnow(), status="APROBADO", contract_password=client_pwd,
                 production_data=None, contract_work_item_ids=None,
                 contract_signature_rep=None, contract_signature_client=None,
                 contract_photo_rep=None, contract_photo_client=None,
@@ -763,6 +781,21 @@ def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = De
         if any(item.get("status") in ("PRODUCCION", "ENTREGADO") and item.get("id") not in selected_ids
                for item in production.get("work_items", [])):
             raise HTTPException(status_code=409, detail="No se puede quitar un trabajo que ya inició producción")
+    # Auto-inherit password if this project is becoming a contract and doesn't have one
+    if update_fields.get("is_contract") and (not update_fields.get("contract_password") or not db_prospect.contract_password):
+        cname = update_fields.get("name") or db_prospect.name
+        if cname and cname.strip():
+            from sqlalchemy import func
+            existing_sibling = db.query(models.Prospect).filter(
+                func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(cname)),
+                models.Prospect.contract_password.isnot(None),
+                models.Prospect.contract_password != "",
+                models.Prospect.id != db_prospect.id,
+                (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+            ).first()
+            if existing_sibling:
+                update_fields["contract_password"] = existing_sibling.contract_password
+
     for key, value in update_fields.items():
         # Prevent overriding read-only fields on update if they happen to be in the payload
         if key not in ['id', 'public_id', 'capture_date', 'updated_at', 'source_prospect_id', 'work_flow']:
@@ -770,6 +803,31 @@ def update_prospect(prospect_id: int, prospect: ProspectUpdate, db: Session = De
                 # Las fotos y croquis nuevos se guardan en Cloudinary; si fallan, se conserva el base64.
                 value, _, _ = imagestore.externalize_json(value, prospect_id)
             setattr(db_prospect, key, value)
+
+    # Synchronize contract_password to all other active projects of the same client
+    if "contract_password" in update_fields:
+        new_pwd = update_fields["contract_password"]
+        cname = update_fields.get("name") or db_prospect.name
+        if new_pwd and cname and cname.strip():
+            from sqlalchemy import func
+            db.query(models.Prospect).filter(
+                func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(cname)),
+                models.Prospect.id != db_prospect.id,
+                (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+            ).update({"contract_password": new_pwd}, synchronize_session=False)
+
+    # Synchronize portal_access_active to all other active projects of the same client
+    if "portal_access_active" in update_fields:
+        is_active = update_fields["portal_access_active"]
+        cname = update_fields.get("name") or db_prospect.name
+        if cname and cname.strip():
+            from sqlalchemy import func
+            db.query(models.Prospect).filter(
+                func.lower(func.trim(models.Prospect.name)) == func.lower(func.trim(cname)),
+                models.Prospect.id != db_prospect.id,
+                (models.Prospect.is_papelera.is_(None) | (models.Prospect.is_papelera == False))
+            ).update({"portal_access_active": is_active}, synchronize_session=False)
+
     db_prospect.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_prospect)

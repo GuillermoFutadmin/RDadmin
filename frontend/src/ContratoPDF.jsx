@@ -309,7 +309,15 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contract_password: pwd })
-      }).catch(err => console.error('Error auto-generating contract password', err));
+      })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.contract_password) {
+          setContractPassword(data.contract_password);
+          prospect.contract_password = data.contract_password;
+        }
+      })
+      .catch(err => console.error('Error auto-generating contract password', err));
     }
   }, [prospect]);
 

@@ -44,6 +44,7 @@ _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_path VARC
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_image_path VARCHAR;")
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_applies BOOLEAN;")
 _safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS render_pdf_data BYTEA;")
+_safe_alter("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS portal_access_active BOOLEAN DEFAULT TRUE;")
 
 app = FastAPI(title="RDadmin Client Portal")
 from web_security import security_headers
@@ -344,7 +345,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "other_projects, restoration_details, quote_description, project_priorities, "
             "expectations, capture_date, contract_date, delivery_date, status, is_contract, "
             "has_quote, valuation_data, production_data, production_days, "
-            "render_pdf_path, render_image_path, render_applies, "
+            "render_pdf_path, render_image_path, render_applies, portal_access_active, "
             "CASE WHEN render_pdf_data IS NOT NULL THEN TRUE ELSE FALSE END AS has_render_pdf"
         )
         cols_base = (
@@ -352,7 +353,7 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
             "restoration_details, quote_description, project_priorities, expectations, "
             "capture_date, contract_date, delivery_date, status, is_contract, has_quote, "
             "valuation_data, production_data, production_days, "
-            "render_pdf_path, render_image_path, render_applies"
+            "render_pdf_path, render_image_path, render_applies, portal_access_active"
         )
         cols_fallback = (
             "id, public_id, contract_password, name, project_type, project_type_other, "
@@ -421,23 +422,41 @@ def client_portal_login(req: ClientPortalLogin, db: Session = Depends(get_db)):
 
         # Primary project (the one whose public_id was entered)
         primary_row = next((r for r in rows if r.get("public_id", "").upper() == public_id), rows[0])
+        if primary_row.get("portal_access_active") is False:
+            raise HTTPException(
+                status_code=403,
+                detail="El acceso al portal de clientes para este contrato se encuentra actualmente suspendido o inactivo. Contacte a RD Carpintería."
+            )
         primary = client_project(primary_row)
 
-        # --- Sibling projects: same client_name + same password, different public_id ---
+        # --- Sibling projects: same client_name ---
         sibling_rows: list = []
         client_name = primary_row.get("name") or ""
-        if client_name:
-            params_name = {"cname": client_name.strip(), "pwd": password}
+        if client_name and client_name.strip():
+            params_name = {"cname": client_name.strip(), "pwd": password, "excl": public_id}
             try:
                 sibling_rows = [dict(r) for r in db.execute(
                     text(f"SELECT {cols_all} FROM prospects "
                          "WHERE LOWER(TRIM(name)) = LOWER(TRIM(:cname)) "
-                         "AND (contract_password = :pwd OR TRIM(contract_password) = :pwd) "
                          "AND UPPER(TRIM(public_id)) != :excl "
                          "AND (is_papelera IS NULL OR is_papelera = FALSE) "
+                         "AND (portal_access_active IS NULL OR portal_access_active != FALSE) "
                          "ORDER BY capture_date ASC"),
-                    {**params_name, "excl": public_id},
+                    params_name,
                 ).mappings().all()]
+
+                # Auto-sync password for all siblings of this authenticated client so they share the same password
+                try:
+                    db.execute(
+                        text("UPDATE prospects SET contract_password = :pwd "
+                             "WHERE LOWER(TRIM(name)) = LOWER(TRIM(:cname)) "
+                             "AND (contract_password IS NULL OR contract_password != :pwd OR TRIM(contract_password) != :pwd) "
+                             "AND (is_papelera IS NULL OR is_papelera = FALSE)"),
+                        params_name,
+                    )
+                    db.commit()
+                except Exception as sync_err:
+                    logger.warning("Could not auto-sync password for siblings: %s", sync_err)
             except Exception as sib_err:
                 logger.warning("Could not fetch sibling projects for %s: %s", client_name, sib_err)
 
