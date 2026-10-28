@@ -167,12 +167,14 @@ function getSeasonalDecoration(date) {
   return 'summer';
 }
 
-function PortalSeasonalDecor({ theme }) {
+function CardSeasonalDecor({ theme }) {
   const decoration = SEASONAL_DECORATIONS[theme];
-  const flags = Array.from({ length: 14 }, (_, index) => {
-    const x = 12 + index * 70;
+  if (!decoration) return null;
+
+  const flags = Array.from({ length: 12 }, (_, index) => {
+    const x = 16 + index * 82;
     const position = x / 1000;
-    const y = 7 + 48 * position * (1 - position);
+    const y = 3 + 22 * position * (1 - position);
     return (
       <g key={x} transform={`translate(${x} ${y})`}>
         <g
@@ -180,96 +182,57 @@ function PortalSeasonalDecor({ theme }) {
           style={{ '--flag-index': index }}
         >
           <path
-            d="M0 0h60v27c-6-4-10-3-13 3l-5 7c-3 5-9 5-12 0l-5-7c-3-6-8-7-13-3L0 27Z"
+            d="M0 0h52v22c-5-3-9-2-11 2l-4 5c-3 4-8 4-11 0l-4-5c-3-5-7-5-11-2L0 22Z"
             fill={decoration.colors[index % decoration.colors.length]}
           />
-          <path d="M30 5c-5-6-10 0 0 7 10-7 5-13 0-7Z" fill="#fff8ed" opacity=".92" />
-          <path d="M30 14v10m-9-5h18m-14-4 10 10m0-10L25 25" stroke="#fff8ed" strokeWidth="1.8" opacity=".9" />
-          <circle cx="30" cy="19" r="3.3" fill={decoration.colors[index % decoration.colors.length]} />
-          <path d="M7 24c4-5 7-5 11 0m35 0c-4-5-7-5-11 0M10 8l5 4m35-4-5 4" fill="none" stroke="#fff8ed" strokeLinecap="round" strokeWidth="1.6" opacity=".9" />
-          <circle cx="11" cy="18" r="1.4" fill="#fff8ed" />
-          <circle cx="49" cy="18" r="1.4" fill="#fff8ed" />
+          <path d="M26 4c-4-4-7 0 0 5 7-5 4-9 0-5Z" fill="#fff8ed" opacity=".92" />
+          <path d="M26 11v8m-7-4h14" stroke="#fff8ed" strokeWidth="1.5" opacity=".9" />
+          <circle cx="26" cy="15" r="2.6" fill={decoration.colors[index % decoration.colors.length]} />
         </g>
       </g>
     );
   });
 
   return (
-    <div className={`client-season-decor client-season-decor--${theme}`} aria-hidden="true">
-      {/* Guirnalda superior de papel picado (papel china) */}
-      <svg className="client-season-garland" viewBox="0 0 1000 60" preserveAspectRatio="none">
-        <path d="M8 7 Q500 31 992 7" fill="none" stroke="#7c5c43" strokeWidth="2.5" />
-        {flags.map((flag, index) => (
-          <path
-            key={`string-${index}`}
-            d={`M${12 + index * 70} ${7 + 48 * (12 + index * 70) / 1000 * (1 - (12 + index * 70) / 1000)} v4`}
-            stroke="#7c5c43"
-            strokeWidth="1.4"
-          />
-        ))}
+    <div className={`client-card-season-decor client-card-season-decor--${theme}`} aria-hidden="true">
+      {/* Mini guirnalda festiva sobre la parte superior de la tarjeta */}
+      <svg className="client-card-garland" viewBox="0 0 1000 38" preserveAspectRatio="none">
+        <path d="M8 4 Q500 20 992 4" fill="none" stroke="#7c5c43" strokeWidth="2" />
         {flags}
       </svg>
 
-      {(theme === 'spring' || theme === 'family') && (
+      {theme === 'remembrance' && (
         <>
-          <span className="client-season-flower client-season-flower--top-left"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--top-right"><SeasonalFlower /></span>
+          {/* Cempasúchil en el flanco izquierdo de la tarjeta */}
+          <span className="client-card-flower client-card-flower--left" title="Cempasúchil">
+            <SeasonalFlower />
+          </span>
+          {/* Calaverita de azúcar en el flanco derecho de la tarjeta */}
+          <span className="client-card-flower client-card-flower--right" title="Día de Muertos">
+            <SugarSkull />
+          </span>
+          {/* Mariposa monarca reposando en la esquina superior */}
+          <span className="client-card-butterfly" title="Mariposa Monarca">
+            <MonarchButterfly />
+          </span>
         </>
       )}
 
-      {theme === 'remembrance' && (
+      {(theme === 'spring' || theme === 'family') && (
         <>
-          {/* Tiras laterales de papel china en ambos bordes */}
-          <SidePapelChina side="left" />
-          <SidePapelChina side="right" />
-
-          {/* Flores de cempasúchil en todo el borde izquierdo */}
-          <span className="client-season-flower client-season-flower--top-left"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--mid-left"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--lower-left"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--bottom-left"><SeasonalFlower /></span>
-
-          {/* Flores de cempasúchil en todo el borde derecho */}
-          <span className="client-season-flower client-season-flower--top-right"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--mid-right"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--lower-right"><SeasonalFlower /></span>
-          <span className="client-season-flower client-season-flower--bottom-right"><SeasonalFlower /></span>
-
-          {/* Mariposas monarca aleteando en ambos bordes */}
-          <span className="client-season-butterfly client-season-butterfly--top-left"><MonarchButterfly /></span>
-          <span className="client-season-butterfly client-season-butterfly--mid-left"><MonarchButterfly /></span>
-          <span className="client-season-butterfly client-season-butterfly--lower-left"><MonarchButterfly /></span>
-
-          <span className="client-season-butterfly client-season-butterfly--top-right"><MonarchButterfly /></span>
-          <span className="client-season-butterfly client-season-butterfly--mid-right"><MonarchButterfly /></span>
-          <span className="client-season-butterfly client-season-butterfly--lower-right"><MonarchButterfly /></span>
-
-          {/* Calaverita en los bordes laterales */}
-          <span className="client-season-skull client-season-skull--side-left"><SugarSkull /></span>
-          <span className="client-season-skull client-season-skull--side-right"><SugarSkull /></span>
-
-          {/* En el centro parte baja: Altarcito acompañado de dos calaveritas de azúcar a los lados */}
-          <div className="client-season-altar-dock">
-            <span className="client-season-altar-flank client-season-altar-flank--left" title="Calaverita de azúcar">
-              <SugarSkull />
-            </span>
-            <div className="client-season-altar" title="Altarcito de Día de Muertos">
-              <DiaDeMuertosAltar />
-            </div>
-            <span className="client-season-altar-flank client-season-altar-flank--right" title="Calaverita de azúcar">
-              <SugarSkull />
-            </span>
-          </div>
+          <span className="client-card-flower client-card-flower--left"><SeasonalFlower /></span>
+          <span className="client-card-flower client-card-flower--right"><SeasonalFlower /></span>
         </>
       )}
 
       {theme === 'revolution' && (
-        <span className="client-season-rosette client-season-rosette--left">✦</span>
+        <span className="client-card-rosette">✦</span>
       )}
+
       {theme === 'holidays' && (
         <>
-          <span className="client-season-ornament client-season-ornament--left">✦</span>
-          <span className="client-season-ornament client-season-ornament--right">✦</span>
+          <span className="client-card-ornament client-card-ornament--left">✦</span>
+          <span className="client-card-ornament client-card-ornament--right">✦</span>
         </>
       )}
     </div>
@@ -758,7 +721,6 @@ export default function ClientPortal() {
       boxSizing: 'border-box'
     }}>
       <div className={`client-portal-frame client-portal-frame--${seasonalTheme || 'default'}`}>
-        {seasonalTheme && <PortalSeasonalDecor theme={seasonalTheme} />}
         <div id="client-portal-container" className="client-portal-content" style={{ width: 'min(100%, 960px)', margin: '0 auto' }}>
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '0.9rem 1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -928,41 +890,46 @@ export default function ClientPortal() {
           </section>
         )}
 
-        {monthlyHighlight && <section className={`client-monthly-highlight client-monthly-highlight--${monthlyHighlight.theme}`} aria-labelledby="client-monthly-title">
-          <div className="client-monthly-heading">
-            <span className="client-monthly-icon" aria-hidden="true">{monthlyHighlight.icon}</span>
-            <div>
-              <div className="client-monthly-eyebrow">{monthlyContext.isPreviewingNextMonth ? 'Se acerca' : 'Este mes'}</div>
-              <h2 id="client-monthly-title">Tradiciones de {monthlyHighlight.month}</h2>
-            </div>
-          </div>
-          <div className="client-monthly-events">
-            {monthlyHighlight.celebrations.map(event => (
-              <article className="client-monthly-event" key={event.title}>
-                <span className="client-monthly-date">{event.date}</span>
+        {monthlyHighlight && (
+          <div className="client-monthly-card-wrapper">
+            {seasonalTheme && <CardSeasonalDecor theme={seasonalTheme} />}
+            <section className={`client-monthly-highlight client-monthly-highlight--${monthlyHighlight.theme}`} aria-labelledby="client-monthly-title">
+              <div className="client-monthly-heading">
+                <span className="client-monthly-icon" aria-hidden="true">{monthlyHighlight.icon}</span>
                 <div>
-                  <h3>{event.title}</h3>
-                  <p>{event.detail}</p>
+                  <div className="client-monthly-eyebrow">{monthlyContext.isPreviewingNextMonth ? 'Se acerca' : 'Este mes'}</div>
+                  <h2 id="client-monthly-title">Tradiciones de {monthlyHighlight.month}</h2>
                 </div>
-              </article>
-            ))}
+              </div>
+              <div className="client-monthly-events">
+                {monthlyHighlight.celebrations.map(event => (
+                  <article className="client-monthly-event" key={event.title}>
+                    <span className="client-monthly-date">{event.date}</span>
+                    <div>
+                      <h3>{event.title}</h3>
+                      <p>{event.detail}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="client-monthly-toggle"
+                aria-expanded={showMonthlyCuriosity}
+                aria-controls="client-monthly-curiosity"
+                onClick={() => setShowMonthlyCuriosity(value => !value)}
+              >
+                {showMonthlyCuriosity ? 'Ocultar dato curioso' : 'Descubrir dato curioso'}
+                <span aria-hidden="true">{showMonthlyCuriosity ? '−' : '+'}</span>
+              </button>
+              {showMonthlyCuriosity && (
+                <p className="client-monthly-curiosity" id="client-monthly-curiosity">
+                  <strong>¿Sabías que?</strong> {monthlyHighlight.curiosity}
+                </p>
+              )}
+            </section>
           </div>
-          <button
-            type="button"
-            className="client-monthly-toggle"
-            aria-expanded={showMonthlyCuriosity}
-            aria-controls="client-monthly-curiosity"
-            onClick={() => setShowMonthlyCuriosity(value => !value)}
-          >
-            {showMonthlyCuriosity ? 'Ocultar dato curioso' : 'Descubrir dato curioso'}
-            <span aria-hidden="true">{showMonthlyCuriosity ? '−' : '+'}</span>
-          </button>
-          {showMonthlyCuriosity && (
-            <p className="client-monthly-curiosity" id="client-monthly-curiosity">
-              <strong>¿Sabías que?</strong> {monthlyHighlight.curiosity}
-            </p>
-          )}
-        </section>}
+        )}
 
         <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
           La información de avance se actualiza automáticamente.

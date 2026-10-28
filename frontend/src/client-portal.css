@@ -32,25 +32,23 @@ body {
 .client-portal-frame {
   --season-accent: #64748b;
   position: relative;
-  isolation: isolate;
-  width: min(100%, 1040px);
+  width: min(100%, 980px);
   margin: 0 auto;
-  padding: 70px 50px 34px;
+  padding: 0.5rem 0.75rem 2rem;
 }
 
-.client-portal-frame--remembrance {
-  --season-accent: #c2410c;
-  padding: 70px 52px 175px;
-}
-.client-portal-frame--revolution { --season-accent: #15803d; }
-.client-portal-frame--holidays { --season-accent: #b91c1c; }
-.client-portal-frame--independence { --season-accent: #15803d; }
+.client-portal-frame--remembrance,
+.client-portal-frame--revolution,
+.client-portal-frame--holidays,
+.client-portal-frame--independence,
 .client-portal-frame--spring,
-.client-portal-frame--family { --season-accent: #be185d; }
-.client-portal-frame--summer { --season-accent: #0369a1; }
-.client-portal-frame--autumn { --season-accent: #c2410c; }
-.client-portal-frame--winter { --season-accent: #2563eb; }
-.client-portal-frame--candle { --season-accent: #a16207; }
+.client-portal-frame--family,
+.client-portal-frame--summer,
+.client-portal-frame--autumn,
+.client-portal-frame--winter,
+.client-portal-frame--candle {
+  padding: 0.5rem 0.75rem 2rem;
+}
 
 .client-season-decor {
   position: absolute;
@@ -314,12 +312,26 @@ body {
 }
 
 @media (max-width: 700px) {
-  .client-portal-frame {
-    padding: 108px 8px 150px;
+  .client-portal-frame,
+  .client-portal-frame--remembrance {
+    padding: 0.5rem 0.5rem 1.5rem;
   }
 
-  .client-portal-frame--remembrance {
-    padding: 108px 8px 165px;
+  .client-card-flower--left {
+    left: -10px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .client-card-flower--right {
+    right: -10px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .client-card-garland {
+    height: 24px;
+    top: -6px;
   }
 
   .client-season-side-flags {
@@ -377,10 +389,90 @@ body {
   }
 }
 
+/* ── Decoración conmemorativa acotada exclusivamente a la tarjeta "Se Acerca" ── */
+.client-monthly-card-wrapper {
+  position: relative;
+  margin-top: 1.8rem;
+  padding-top: 8px;
+}
+
+.client-card-season-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.client-card-garland {
+  position: absolute;
+  top: -8px;
+  left: 2%;
+  width: 96%;
+  height: 32px;
+  overflow: visible;
+  animation: client-garland-sway 6s ease-in-out infinite;
+}
+
+.client-card-flower {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 3px 6px rgba(124, 45, 18, 0.22));
+  animation: client-flower-sway 5s ease-in-out infinite;
+}
+
+.client-card-flower--left {
+  left: -22px;
+}
+
+.client-card-flower--right {
+  right: -22px;
+  animation-delay: -2.5s;
+}
+
+.client-card-flower svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.client-card-butterfly {
+  position: absolute;
+  top: -14px;
+  right: 28px;
+  width: 38px;
+  height: 32px;
+  filter: drop-shadow(0 2px 4px rgba(124, 45, 18, 0.25));
+  animation: client-butterfly-flight 8s ease-in-out infinite;
+}
+
+.client-card-butterfly svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.client-card-rosette,
+.client-card-ornament {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--month-accent);
+  font-size: 1.6rem;
+  text-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
+}
+
+.client-card-ornament--left { left: -18px; }
+.client-card-ornament--right { right: -18px; }
+
 .client-monthly-highlight {
   --month-accent: #9a3412;
-  margin-top: 12px;
-  padding: 1rem;
+  position: relative;
+  margin-top: 0;
+  padding: 1.15rem 1.25rem 1rem;
   border: 1px solid color-mix(in srgb, var(--month-accent) 20%, white);
   border-radius: 14px;
   background:
