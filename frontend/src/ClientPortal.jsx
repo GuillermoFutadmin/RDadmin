@@ -691,27 +691,6 @@ export default function ClientPortal() {
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 
-  if (!project) {
-    return (
-      <main className="client-portal-login" style={{ minHeight: isEmbedded ? 'auto' : '100vh', padding: isEmbedded ? '0.25rem 0' : '1.5rem 0' }}>
-        <section id="client-portal-container" className="client-portal-login-form">
-          {loginError && <div role="alert" style={{ marginBottom: 14, padding: '0.7rem 0.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: '0.82rem' }}>{loginError}</div>}
-          <form onSubmit={handleLogin}>
-            <label htmlFor="client-public-id" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>ID del contrato</label>
-            <input id="client-public-id" type="text" required autoCapitalize="characters" autoComplete="username" value={publicId} onChange={event => setPublicId(event.target.value)} placeholder="Ej. DSN49X"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '0.78rem 0.85rem', marginBottom: 14, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.95rem' }} />
-            <label htmlFor="client-password" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>Contraseña de acceso</label>
-            <input id="client-password" type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Tu contraseña"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '0.78rem 0.85rem', marginBottom: 18, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.95rem' }} />
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.82rem', background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)', color: '#fff', border: 0, borderRadius: 8, fontWeight: 800, fontSize: '0.95rem', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Validando...' : 'Ver mi proyecto'}
-            </button>
-          </form>
-        </section>
-      </main>
-    );
-  }
-
   const [selectedProjectId, setSelectedProjectId] = useState(null);
 
   const allProjects = useMemo(() => {
@@ -740,11 +719,35 @@ export default function ClientPortal() {
     ].map(([label, value]) => [label, displayValue(value)]).filter(([, value]) => value);
   }, [activeProject]);
 
-  const tracking = activeProject ? getProjectTrackingProgress(activeProject) : null;
-  const hasProductionStages = tracking
-    ? (tracking.production.stages.length > 0 || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0))
-    : false;
+  const tracking = useMemo(() => {
+    return activeProject ? getProjectTrackingProgress(activeProject) : null;
+  }, [activeProject]);
+
+  const hasProductionStages = Boolean(tracking
+    && (tracking.production.stages.length > 0 || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0)));
+
   const monthlyHighlight = monthlyContext ? MONTHLY_HIGHLIGHTS[monthlyContext.monthIndex] : null;
+
+  if (!project) {
+    return (
+      <main className="client-portal-login" style={{ minHeight: isEmbedded ? 'auto' : '100vh', padding: isEmbedded ? '0.25rem 0' : '1.5rem 0' }}>
+        <section id="client-portal-container" className="client-portal-login-form">
+          {loginError && <div role="alert" style={{ marginBottom: 14, padding: '0.7rem 0.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: '0.82rem' }}>{loginError}</div>}
+          <form onSubmit={handleLogin}>
+            <label htmlFor="client-public-id" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>ID del contrato</label>
+            <input id="client-public-id" type="text" required autoCapitalize="characters" autoComplete="username" value={publicId} onChange={event => setPublicId(event.target.value)} placeholder="Ej. DSN49X"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.78rem 0.85rem', marginBottom: 14, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.95rem' }} />
+            <label htmlFor="client-password" style={{ display: 'block', marginBottom: 5, color: '#475569', fontSize: '0.82rem', fontWeight: 700 }}>Contraseña de acceso</label>
+            <input id="client-password" type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Tu contraseña"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.78rem 0.85rem', marginBottom: 18, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: '0.95rem' }} />
+            <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.82rem', background: 'linear-gradient(135deg, #ba4b24 0%, #7c2d12 100%)', color: '#fff', border: 0, borderRadius: 8, fontWeight: 800, fontSize: '0.95rem', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Validando...' : 'Ver mi proyecto'}
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main style={{
