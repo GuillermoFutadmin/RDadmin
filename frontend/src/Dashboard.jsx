@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconPlusCircle, IconTrendingUp, IconTrash, IconPackage, IconClock } from './icons';
 import useAutoRefresh from './useAutoRefresh';
+import { isInProspects } from './workCascade';
 
 const API = '';
 
@@ -101,7 +102,7 @@ function Dashboard() {
     if (!response.ok) throw new Error(`No se pudo sincronizar el panel (${response.status})`);
     const data = await response.json();
     const all = Array.isArray(data) ? data : [];
-    setProspects(all.filter(p => !p.is_contract));
+    setProspects(all.filter(p => !p.is_contract && (p.is_papelera || isInProspects(p))));
     setContratos(all.filter(p => p.is_contract && !['PRODUCCION', 'ENTREGADO'].includes(p.status)));
     setProductionProjects(all.filter(p =>
       p.is_contract && p.production_data && ['PRODUCCION', 'ENTREGADO'].includes(p.status)
@@ -115,9 +116,15 @@ function Dashboard() {
   const prospectStages = PROSPECT_STAGES.map(st => {
     let filtered = [];
     if (prospects) {
-      if (st.key === 'papelera') filtered = prospects.filter(p => p.is_papelera);
-      else if (st.key === 'Valoración') filtered = prospects.filter(p => !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion'));
-      else filtered = prospects.filter(p => !p.is_papelera && (p.status === st.key || (!p.status && st.key === 'Prospecto')));
+      if (st.key === 'papelera') {
+        filtered = prospects.filter(p => p.is_papelera);
+      } else if (st.key === 'Valoración') {
+        filtered = prospects.filter(p => isInProspects(p) && !p.is_papelera && (p.status === 'Valoración' || p.status === 'Valoracion'));
+      } else if (st.key === 'Cotización') {
+        filtered = prospects.filter(p => isInProspects(p) && !p.is_papelera && p.status === 'Cotización');
+      } else {
+        filtered = prospects.filter(p => isInProspects(p) && !p.is_papelera && (!p.status || p.status === 'New' || p.status === 'Prospecto'));
+      }
     }
     return {
       ...st,
@@ -125,7 +132,7 @@ function Dashboard() {
       items: filtered
     };
   });
-  const totalProspects = prospects ? prospects.length : null;
+  const totalProspects = prospects ? prospectStages.reduce((sum, s) => sum + (s.count || 0), 0) : null;
 
   // Client pipeline counts
   const clientStages = CLIENT_STAGES.map(st => {
