@@ -1255,11 +1255,20 @@ def delete_daily_advance(prospect_id: int, advance_id: str, work_item_id: Option
     target = production
     if work_item_id:
         work_item = next((item for item in production.get("work_items", []) if item.get("id") == work_item_id), None)
-        if not work_item:
-            raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
-        target = work_item.setdefault("production_data", {})
+        if work_item:
+            target = work_item.setdefault("production_data", {})
     advances = target.get("daily_advances", [])
     target["daily_advances"] = [a for a in advances if str(a.get("id")) != advance_id and a.get("url") != advance_id]
+
+    # También asegurar eliminación en raíz y en cualquier otro work_item si existía duplicado o fue guardado previamente
+    if "daily_advances" in production:
+        production["daily_advances"] = [a for a in production["daily_advances"] if str(a.get("id")) != advance_id and a.get("url") != advance_id]
+    for wi in production.get("work_items", []):
+        wiprod = wi.get("production_data") or {}
+        if "daily_advances" in wiprod:
+            wiprod["daily_advances"] = [a for a in wiprod["daily_advances"] if str(a.get("id")) != advance_id and a.get("url") != advance_id]
+            wi["production_data"] = wiprod
+
     prospect.production_data = json.dumps(production, ensure_ascii=False)
     prospect.updated_at = datetime.utcnow()
     db.commit()
@@ -1288,9 +1297,8 @@ def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUp
     target = production
     if work_item_id:
         work_item = next((item for item in production.get("work_items", []) if item.get("id") == work_item_id), None)
-        if not work_item:
-            raise HTTPException(status_code=404, detail="Trabajo de producción no encontrado")
-        target = work_item.setdefault("production_data", {})
+        if work_item:
+            target = work_item.setdefault("production_data", {})
     advances = target.get("daily_advances", [])
     updated = False
     for a in advances:
@@ -1302,6 +1310,25 @@ def update_daily_advance(prospect_id: int, advance_id: str, data: DailyAdvanceUp
             if data.comment is not None:
                 a["comment"] = data.comment
             updated = True
+
+    # Si no se encontró en target, buscar en raíz y en todos los work_items
+    if not updated:
+        candidates = [production.get("daily_advances", [])]
+        for wi in production.get("work_items", []):
+            candidates.append((wi.get("production_data") or {}).get("daily_advances", []))
+        for cand_list in candidates:
+            for a in (cand_list or []):
+                if str(a.get("id")) == advance_id or a.get("url") == advance_id:
+                    if data.published is not None:
+                        a["published"] = data.published
+                    else:
+                        a["published"] = not a.get("published", True)
+                    if data.comment is not None:
+                        a["comment"] = data.comment
+                    updated = True
+                    break
+            if updated:
+                break
 
     if not updated:
         raise HTTPException(status_code=404, detail="Avance no encontrado")

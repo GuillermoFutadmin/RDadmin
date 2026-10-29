@@ -337,6 +337,7 @@ function Pedidos() {
   const [semaforoAdvancePublished, setSemaforoAdvancePublished] = useState(true);
   const [semaforoUploadingAdvance, setSemaforoUploadingAdvance] = useState(false);
   const [semaforoLightboxUrl, setSemaforoLightboxUrl] = useState(null);
+  const [semaforoPhotoTab, setSemaforoPhotoTab] = useState('day'); // 'day' | 'all'
   const [uploadingRender, setUploadingRender] = useState(false);
   const [renderUploadOk, setRenderUploadOk] = useState(false);
 
@@ -1713,10 +1714,33 @@ function Pedidos() {
                     const rawProjectDays = getProjectBusinessDaysList(sStartDate, sPlannedDays);
                     const projectDays = rawProjectDays.length > 0 ? rawProjectDays : getProjectBusinessDaysList(new Date(), 30);
 
+                    // Obtener contrato padre y sus áreas para combinar todos los avances
+                    const parentContract = sp.workItemId ? (workItemContracts.find(c => c.id === sp.id) || null) : null;
+                    const parentProd = parentContract ? normalizeProduction(parentContract.production_data) : null;
+                    const allSiblingWorkItems = parentProd && Array.isArray(parentProd.work_items) ? parentProd.work_items : [];
+
+                    // Todos los avances diarios de esta área, del contrato padre y de las áreas hermanas
+                    const ownAdvances = Array.isArray(sprod.daily_advances) ? sprod.daily_advances : [];
+                    const parentAdvances = parentProd && Array.isArray(parentProd.daily_advances) ? parentProd.daily_advances : [];
+                    const otherWorkAdvances = allSiblingWorkItems.flatMap(wi => (wi.production_data?.daily_advances || []).map(a => ({ ...a, sourceLabel: wi.name })));
+
+                    // Mapa de avances únicos
+                    const combinedAdvancesMap = new Map();
+                    [...ownAdvances.map(a => ({ ...a, sourceLabel: sp.workItemName || 'Área actual' })),
+                     ...parentAdvances.map(a => ({ ...a, sourceLabel: 'Contrato general' })),
+                     ...otherWorkAdvances
+                    ].forEach(a => {
+                      const key = a.id || a.url;
+                      if (key && !combinedAdvancesMap.has(key)) {
+                        combinedAdvancesMap.set(key, a);
+                      }
+                    });
+                    const allDailyAdvances = Array.from(combinedAdvancesMap.values())
+                      .sort((a, b) => String(b.date || b.created_at || '').localeCompare(String(a.date || a.created_at || '')));
+
                     // Avances diarios por fecha
-                    const dailyAdvances = Array.isArray(sprod.daily_advances) ? sprod.daily_advances : [];
                     const advancesByDate = new Map();
-                    dailyAdvances.forEach(adv => {
+                    allDailyAdvances.forEach(adv => {
                       const k = adv.date || (adv.created_at ? getDateKey(new Date(adv.created_at)) : null);
                       if (!k) return;
                       if (!advancesByDate.has(k)) advancesByDate.set(k, []);
@@ -1728,6 +1752,12 @@ function Pedidos() {
                     const activeDayKey = semaforoSelectedDayKey || (projectDays.some(d => d.dateKey === todayKey) ? todayKey : projectDays[0]?.dateKey);
                     const activeDayObj = projectDays.find(d => d.dateKey === activeDayKey) || projectDays[0];
                     const activeDayAdvances = activeDayKey ? (advancesByDate.get(activeDayKey) || []) : [];
+
+                    // Fotos fuera del calendario de días hábiles actuales (ej. fechas previas)
+                    const outOfRangeAdvances = allDailyAdvances.filter(a => {
+                      const k = a.date || (a.created_at ? getDateKey(new Date(a.created_at)) : null);
+                      return !projectDays.some(d => d.dateKey === k);
+                    });
                     const updateSemaforoProduction = (project, parentProductionData) => {
                       if (project.workItemId) {
                         const parentProduction = parseJson(parentProductionData, {});
@@ -2376,18 +2406,56 @@ function Pedidos() {
                                   </div>
                                 </div>
 
-                                {/* COLUMNA DERECHA: Panel de fotos del día seleccionado */}
+                                {/* COLUMNA DERECHA: Panel de fotos del día seleccionado o todas */}
                                 <div style={{ background: '#090d16', border: '2px solid #38bdf844', borderRadius: 12, padding: '0.85rem', minWidth: 0 }}>
+                                  {/* Pestañas de selector: Por día vs Ver todas */}
+                                  <div style={{ display: 'flex', gap: 6, marginBottom: 10, background: '#070c18', padding: 3, borderRadius: 8, border: '1px solid #1e293b' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSemaforoPhotoTab('day')}
+                                      style={{
+                                        flex: 1, padding: '5px 8px', borderRadius: 6, border: 'none',
+                                        background: semaforoPhotoTab === 'day' ? '#1d4ed8' : 'transparent',
+                                        color: semaforoPhotoTab === 'day' ? '#ffffff' : '#94a3b8',
+                                        fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer'
+                                      }}>
+                                      📅 Por día ({activeDayAdvances.length})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSemaforoPhotoTab('all')}
+                                      style={{
+                                        flex: 1, padding: '5px 8px', borderRadius: 6, border: 'none',
+                                        background: semaforoPhotoTab === 'all' ? '#1d4ed8' : 'transparent',
+                                        color: semaforoPhotoTab === 'all' ? '#ffffff' : '#94a3b8',
+                                        fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer'
+                                      }}>
+                                      🖼️ Ver todas ({allDailyAdvances.length})
+                                    </button>
+                                  </div>
+
+                                  {/* Alerta si hay fotos previas fuera del calendario */}
+                                  {outOfRangeAdvances.length > 0 && semaforoPhotoTab === 'day' && (
+                                    <div style={{ padding: '6px 10px', background: '#451a03', border: '1px solid #9a3412', borderRadius: 6, color: '#fde047', fontSize: '0.65rem', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                                      <span>⚠️ Hay {outOfRangeAdvances.length} fotos de fechas anteriores (ej. {outOfRangeAdvances[0]?.date}).</span>
+                                      <button type="button" onClick={() => setSemaforoPhotoTab('all')} style={{ background: '#ea580c', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 6px', fontSize: '0.62rem', fontWeight: 800, cursor: 'pointer' }}>
+                                        Verlas y apagar
+                                      </button>
+                                    </div>
+                                  )}
+
                                   {/* Header del panel derecho */}
                                   <div style={{ marginBottom: 12 }}>
-                                    <div style={{ color: '#38bdf8', fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Registro fotográfico</div>
-                                    <div style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 900, marginTop: 2 }}>
-                                      📸 {activeDayObj ? `Día ${activeDayObj.dayNumber} de ${totalDays}` : 'Selecciona un día'}
+                                    <div style={{ color: '#38bdf8', fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                      {semaforoPhotoTab === 'all' ? 'Galería completa del proyecto' : 'Registro fotográfico por día'}
                                     </div>
-                                    {activeDayKey && (
+                                    <div style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 900, marginTop: 2 }}>
+                                      📸 {semaforoPhotoTab === 'all' ? `Todas las fotos registradas (${allDailyAdvances.length})` : activeDayObj ? `Día ${activeDayObj.dayNumber} de ${totalDays}` : 'Selecciona un día'}
+                                    </div>
+                                    {semaforoPhotoTab === 'day' && activeDayKey && (
                                       <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: 2 }}>{formatReadableDate(activeDayKey)}</div>
                                     )}
-                                    {activeDayKey && (
+                                    {semaforoPhotoTab === 'day' && activeDayKey && (
                                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
                                         <span style={{
                                           padding: '2px 8px', borderRadius: 5,
@@ -2413,8 +2481,84 @@ function Pedidos() {
                                     )}
                                   </div>
 
-                                  {/* Galería de fotos del día con control de visibilidad */}
-                                  {!activeDayKey ? (
+                                  {/* Galería de fotos del día o de todas con control de visibilidad */}
+                                  {semaforoPhotoTab === 'all' ? (
+                                    allDailyAdvances.length === 0 ? (
+                                      <div style={{ padding: '1.5rem', textAlign: 'center', background: '#0b1329', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.75rem', marginBottom: 12 }}>
+                                        No hay fotografías registradas aún en este proyecto.
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 115px), 1fr))', gap: 8, maxHeight: '380px', overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
+                                        {allDailyAdvances.map(adv => {
+                                          const isPub = adv.published !== false;
+                                          return (
+                                            <div key={adv.id || adv.url} style={{
+                                              position: 'relative',
+                                              borderRadius: 8,
+                                              overflow: 'hidden',
+                                              border: `2px solid ${isPub ? '#22c55e' : '#f59e0b'}`,
+                                              background: '#070c18',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              boxShadow: isPub ? '0 0 8px rgba(34,197,94,0.15)' : 'none'
+                                            }}>
+                                              <div style={{ position: 'relative', paddingTop: '80%', background: '#000', cursor: 'pointer' }}
+                                                onClick={() => setSemaforoLightboxUrl(imageUrl(adv.url))}>
+                                                <img src={imageUrl(adv.url)} alt=""
+                                                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <span style={{
+                                                  position: 'absolute', top: 3, left: 3,
+                                                  background: isPub ? 'rgba(21,128,61,0.92)' : 'rgba(180,83,9,0.92)',
+                                                  color: '#ffffff', fontSize: '0.55rem', fontWeight: 900,
+                                                  padding: '1px 5px', borderRadius: 4, backdropFilter: 'blur(3px)'
+                                                }}>
+                                                  {isPub ? '👁️ Cliente' : '🔒 Taller'}
+                                                </span>
+                                                {adv.date && (
+                                                  <span style={{
+                                                    position: 'absolute', bottom: 3, left: 3,
+                                                    background: 'rgba(0,0,0,0.8)', color: '#93c5fd',
+                                                    fontSize: '0.5rem', fontWeight: 800, padding: '1px 4px', borderRadius: 3
+                                                  }}>
+                                                    📅 {adv.date}
+                                                  </span>
+                                                )}
+                                                <span style={{
+                                                  position: 'absolute', bottom: 3, right: 3,
+                                                  background: 'rgba(0,0,0,0.75)', color: '#fff',
+                                                  fontSize: '0.5rem', padding: '1px 4px', borderRadius: 3
+                                                }}>🔍</span>
+                                              </div>
+                                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px', background: '#020617' }}>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleToggleDailyPublish(adv.id, adv.published)}
+                                                  style={{
+                                                    background: isPub ? '#166534' : '#334155',
+                                                    border: 'none', borderRadius: 4,
+                                                    color: '#ffffff', cursor: 'pointer',
+                                                    fontSize: '0.58rem', fontWeight: 800,
+                                                    padding: '2px 5px'
+                                                  }}
+                                                  title={isPub ? 'Clic para apagar al cliente' : 'Clic para mostrar al cliente'}
+                                                >
+                                                  {isPub ? '✓ Visible' : '🔒 Privada'}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleDeleteDailyAdvance(adv.id)}
+                                                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: '#ef4444', padding: '0 2px' }}
+                                                  title="Eliminar foto"
+                                                >
+                                                  🗑️
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )
+                                  ) : !activeDayKey ? (
                                     <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#475569', fontSize: '0.75rem' }}>
                                       👆 Selecciona un día del calendario para ver o subir fotos
                                     </div>
