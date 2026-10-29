@@ -148,3 +148,8 @@ class Supplier(Base):
     phone = Column(String, nullable=True)
     location = Column(String, nullable=True)
     notes = Column(String, nullable=True)
+    has_invoice = Column(Boolean, default=False, nullable=True)
+    rfc = Column(String, nullable=True)
+    business_name = Column(String, nullable=True)
+    invoice_email = Column(String, nullable=True)
+    logo_url = Column(String, nullable=True)

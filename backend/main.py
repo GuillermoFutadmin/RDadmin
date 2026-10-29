@@ -60,6 +60,11 @@ try:
     safe_alter("ALTER TABLE prospects ADD COLUMN updated_at TIMESTAMP;")
     safe_alter("UPDATE prospects SET updated_at = capture_date WHERE updated_at IS NULL;")
     safe_alter("ALTER TABLE users ADD COLUMN photo_path VARCHAR;")
+    safe_alter("ALTER TABLE suppliers ADD COLUMN has_invoice BOOLEAN DEFAULT FALSE;")
+    safe_alter("ALTER TABLE suppliers ADD COLUMN rfc VARCHAR;")
+    safe_alter("ALTER TABLE suppliers ADD COLUMN business_name VARCHAR;")
+    safe_alter("ALTER TABLE suppliers ADD COLUMN invoice_email VARCHAR;")
+    safe_alter("ALTER TABLE suppliers ADD COLUMN logo_url VARCHAR;")
 except Exception as e:
     print(f"WARNING: No se pudo conectar a la base de datos al iniciar: {e}")
     print("   El servidor arrancará de todas formas. Verifica que PostgreSQL esté corriendo.")
@@ -428,6 +433,11 @@ class SupplierCreate(BaseModel):
     phone: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None
+    has_invoice: Optional[bool] = False
+    rfc: Optional[str] = None
+    business_name: Optional[str] = None
+    invoice_email: Optional[str] = None
+    logo_url: Optional[str] = None
 
 
 class SupplierResponse(SupplierCreate):
@@ -497,10 +507,20 @@ def update_supplier(supplier_id: int, supplier: SupplierCreate, db: Session = De
     if not supplier.name.strip():
         raise HTTPException(status_code=422, detail="El nombre del proveedor es obligatorio")
     for key, value in supplier.dict().items():
-        setattr(db_supplier, key, value.strip() if key == "name" else value)
+        setattr(db_supplier, key, value.strip() if key == "name" and isinstance(value, str) else value)
     db.commit()
     db.refresh(db_supplier)
     return db_supplier
+
+
+@app.delete("/api/suppliers/{supplier_id}")
+def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    db_supplier = db.query(models.Supplier).filter(models.Supplier.id == supplier_id).first()
+    if not db_supplier:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+    db.delete(db_supplier)
+    db.commit()
+    return {"ok": True}
 
 
 @app.get("/api/dashboard")
@@ -1708,3 +1728,9 @@ async def upload_user_photo(user_id: int, file: UploadFile = File(...), db: Sess
     db.commit()
     db.refresh(db_user)
     return {"photo_path": db_user.photo_path}
+
+
+@app.post("/api/suppliers/upload-logo")
+async def upload_supplier_logo(file: UploadFile = File(...)):
+    new_url = await upload_to_storage(file, "supplier_logo")
+    return {"logo_url": new_url}
