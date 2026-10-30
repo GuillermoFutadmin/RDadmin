@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProductionWorkOptions, getPendingContractWork, getSemaforoWorkItems, getSemaforoWorkItemStageCounts, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
+import { getDashboardProductionProjects, getProductionWorkOptions, getPendingContractWork, getSemaforoWorkItems, getSemaforoWorkItemStageCounts, isInContracts, startSelectedProductionWork } from './productionWorkItems.js';
 import { getWorkSheets, getSheetPrice, getSelectedWorkIds, getSelectedTotal, getWorkSelectionPayload } from './workSelection.js';
 
 const sheets = [
@@ -100,4 +100,25 @@ test('the production traffic light includes active and delivered work items but 
   assert.equal(items[0].workItemName, 'Cocina');
   assert.equal(items[1].status, 'ENTREGADO');
   assert.deepEqual(getSemaforoWorkItemStageCounts(items), [1, 0, 0, 0, 0, 1]);
+});
+
+test('dashboard production stages use each active work item stage instead of the contract stage', () => {
+  const projects = getDashboardProductionProjects([{
+    id: 42,
+    name: 'Cristian N',
+    project_type: 'RESTAURACIONES',
+    status: 'PRODUCCION',
+    production_data: JSON.stringify({
+      current_stage: 0,
+      work_items: [
+        { id: 'kitchen', name: 'Restauración de cocina', status: 'PRODUCCION', production_data: { current_stage: 2 } },
+        { id: 'closet', name: 'Clóset', status: 'STANDBY', production_data: null }
+      ]
+    })
+  }]);
+
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].name, 'Cristian N');
+  assert.equal(projects[0].project_type, 'Restauración de cocina');
+  assert.equal(projects[0].production_data.current_stage, 2);
 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconPlusCircle, IconTrendingUp, IconTrash, IconPackage, IconClock } from './icons';
 import useAutoRefresh from './useAutoRefresh';
 import { isInProspects } from './workCascade';
+import { getDashboardProductionProjects } from './productionWorkItems';
 
 const API = '';
 
@@ -148,15 +149,18 @@ function Dashboard() {
   });
   const totalClientes = contratos ? contratos.length : null;
 
+  const dashboardProductionProjects = productionProjects
+    ? getDashboardProductionProjects(productionProjects)
+    : null;
   const productionStages = PRODUCTION_STAGES.map(stage => {
-    const items = productionProjects
-      ? productionProjects.filter(project => stage.key === 'delivered'
+    const items = dashboardProductionProjects
+      ? dashboardProductionProjects.filter(project => stage.key === 'delivered'
         ? project.status === 'ENTREGADO'
         : project.status === 'PRODUCCION' && getProductionStage(project) === stage.stageIndex)
       : [];
-    return { ...stage, count: productionProjects ? items.length : null, items };
+    return { ...stage, count: dashboardProductionProjects ? items.length : null, items };
   });
-  const totalProduction = productionProjects ? productionProjects.length : null;
+  const totalProduction = dashboardProductionProjects ? dashboardProductionProjects.length : null;
 
   const cardStyle = {
     background: 'white', borderRadius: '14px', padding: '1rem 1.2rem',

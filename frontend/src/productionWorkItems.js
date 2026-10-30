@@ -98,6 +98,25 @@ export function getSemaforoWorkItems(contracts) {
   });
 }
 
+export function getDashboardProductionProjects(contracts) {
+  return contracts.flatMap(contract => {
+    const production = parseStoredData(contract.production_data);
+    if (Array.isArray(production.work_items)) {
+      return production.work_items
+        .filter(item => ['PRODUCCION', 'ENTREGADO'].includes(item.status))
+        .map(item => ({
+          ...contract,
+          id: `${contract.id}:${item.id}`,
+          production_data: item.production_data || {},
+          status: item.status,
+          project_type: item.name || contract.project_type,
+          workItemId: item.id
+        }));
+    }
+    return [contract];
+  });
+}
+
 export function getSemaforoWorkItemStageCounts(workItems) {
   const counts = Array(PRODUCTION_WORK_STAGES.length).fill(0);
   workItems.forEach(item => {
