@@ -42,7 +42,17 @@ test('production traffic light opens clients and counts the photos shown in the 
   const originalWindow = globalThis.window;
   const originalDocument = globalThis.document;
   const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const uploads = [];
   let renderer;
+
+  class MockFormData {
+    fields = new Map();
+    append(key, value) {
+      this.fields.set(key, value);
+    }
+  }
 
   globalThis.window = {
     setInterval,
@@ -55,9 +65,15 @@ test('production traffic light opens clients and counts the photos shown in the 
     addEventListener() {},
     removeEventListener() {}
   };
-  globalThis.fetch = async url => {
+  globalThis.FormData = MockFormData;
+  URL.createObjectURL = () => 'blob:test-image';
+  globalThis.fetch = async (url, options) => {
     if (url === '/api/prospects?light=true') return { ok: true, json: async () => projects };
     if (url === '/api/suppliers') return { ok: true, json: async () => [] };
+    if (url === '/api/prospects/101/daily-advances') {
+      uploads.push({ url, date: options.body.fields.get('date') });
+      return { ok: true, json: async () => ({ production_data: production() }) };
+    }
     throw new Error(`Unexpected request: ${url}`);
   };
 
@@ -85,6 +101,45 @@ test('production traffic light opens clients and counts the photos shown in the 
       assert.ok(galleryTab, `Missing gallery tab for ${key}`);
       assert.equal(directText(galleryTab), `🖼️ Ver todas (${count})`);
 
+      if (key === '101') {
+        const saturday = renderer.root.findByProps({ title: 'Fin de semana · 2026-10-31' });
+        assert.equal(saturday.props.disabled, false);
+        await act(async () => saturday.props.onClick());
+
+        const imageInput = renderer.root.findAllByType('input')
+          .find(node => node.props.type === 'file' && node.props.accept === 'image/*');
+        assert.ok(imageInput, 'Weekend selection should keep the photo upload input available');
+        await act(async () => {
+          imageInput.props.onChange({ target: { files: [{ name: 'weekend.jpg' }] } });
+        });
+
+        const uploadForm = renderer.root.findAllByType('form')
+          .find(form => form.findAllByType('button').some(button => directText(button).startsWith('Subir')));
+        assert.ok(uploadForm, 'Weekend selection should keep the photo upload form available');
+        await act(async () => uploadForm.props.onSubmit({ preventDefault() {} }));
+        assert.deepEqual(uploads, [{ url: '/api/prospects/101/daily-advances', date: '2026-10-31' }]);
+
+        const nextMonth = renderer.root.findByProps({ 'aria-label': 'Mes siguiente' });
+        await act(async () => nextMonth.props.onClick());
+        const sunday = renderer.root.findByProps({ title: 'Fin de semana · 2026-11-01' });
+        assert.equal(sunday.props.disabled, false);
+        await act(async () => sunday.props.onClick());
+        assert.equal(renderer.root.findByProps({ title: 'Fin de semana · 2026-11-01' }).props.style.border, '2px solid #38bdf8');
+
+        const sundayImageInput = renderer.root.findAllByType('input')
+          .find(node => node.props.type === 'file' && node.props.accept === 'image/*');
+        await act(async () => {
+          sundayImageInput.props.onChange({ target: { files: [{ name: 'sunday.jpg' }] } });
+        });
+        const sundayUploadForm = renderer.root.findAllByType('form')
+          .find(form => form.findAllByType('button').some(button => directText(button).startsWith('Subir')));
+        await act(async () => sundayUploadForm.props.onSubmit({ preventDefault() {} }));
+        assert.deepEqual(uploads, [
+          { url: '/api/prospects/101/daily-advances', date: '2026-10-31' },
+          { url: '/api/prospects/101/daily-advances', date: '2026-11-01' }
+        ]);
+      }
+
       await act(async () => {
         galleryTab.props.onClick();
       });
@@ -98,6 +153,9 @@ test('production traffic light opens clients and counts the photos shown in the 
     else globalThis.window = originalWindow;
     if (originalDocument === undefined) delete globalThis.document;
     else globalThis.document = originalDocument;
+    globalThis.FormData = originalFormData;
+    if (originalCreateObjectURL === undefined) delete URL.createObjectURL;
+    else URL.createObjectURL = originalCreateObjectURL;
     globalThis.fetch = originalFetch;
     await server.close();
   }

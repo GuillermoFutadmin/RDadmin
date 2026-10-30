@@ -1713,6 +1713,23 @@ function Pedidos() {
                     const sStartDate = ssched?.startDate || calendarDate(sprod.started_at) || calendarDate(sp.contract_date) || new Date();
                     const rawProjectDays = getProjectBusinessDaysList(sStartDate, sPlannedDays);
                     const projectDays = rawProjectDays.length > 0 ? rawProjectDays : getProjectBusinessDaysList(new Date(), 30);
+                    const businessDaysByDate = new Map(projectDays.map(day => [day.dateKey, day]));
+                    const projectCalendarDays = [];
+                    const calendarStart = new Date(projectDays[0].date);
+                    const calendarEnd = projectDays[projectDays.length - 1].date;
+                    calendarStart.setHours(12, 0, 0, 0);
+                    while (calendarStart <= calendarEnd) {
+                      const date = new Date(calendarStart);
+                      const dateKey = getDateKey(date);
+                      const businessDay = businessDaysByDate.get(dateKey);
+                      projectCalendarDays.push({
+                        date,
+                        dateKey,
+                        dayNumber: businessDay?.dayNumber ?? null
+                      });
+                      calendarStart.setDate(calendarStart.getDate() + 1);
+                    }
+                    const projectCalendarDayMap = new Map(projectCalendarDays.map(day => [day.dateKey, day]));
 
                     // Obtener contrato padre y sus áreas para combinar todos los avances
                     const parentContract = sp.workItemId ? (workItemContracts.find(c => c.id === sp.id) || null) : null;
@@ -1748,15 +1765,24 @@ function Pedidos() {
                     });
 
                     const todayKey = getDateKey(new Date());
-                    // Día activo seleccionado (por defecto hoy si está dentro del proyecto, o el primer día)
-                    const activeDayKey = semaforoSelectedDayKey || (projectDays.some(d => d.dateKey === todayKey) ? todayKey : projectDays[0]?.dateKey);
-                    const activeDayObj = projectDays.find(d => d.dateKey === activeDayKey) || projectDays[0];
+                    // Allow photo uploads on any date inside the project calendar, including weekends.
+                    const activeDayKey = projectCalendarDayMap.has(semaforoSelectedDayKey)
+                      ? semaforoSelectedDayKey
+                      : projectCalendarDayMap.has(todayKey)
+                        ? todayKey
+                        : projectDays[0]?.dateKey;
+                    const activeDayObj = projectCalendarDayMap.get(activeDayKey) || projectCalendarDays[0];
+                    const activeDayLabel = activeDayObj?.dayNumber
+                      ? `Día ${activeDayObj.dayNumber} de ${projectDays.length}`
+                      : activeDayObj
+                        ? `Fin de semana · ${formatReadableDate(activeDayObj.dateKey)}`
+                        : 'Selecciona un día';
                     const activeDayAdvances = activeDayKey ? (advancesByDate.get(activeDayKey) || []) : [];
 
-                    // Fotos fuera del calendario de días hábiles actuales (ej. fechas previas)
+                    // Photos outside the project's full calendar range (for example, older dates).
                     const outOfRangeAdvances = allDailyAdvances.filter(a => {
                       const k = a.date || (a.created_at ? getDateKey(new Date(a.created_at)) : null);
-                      return !projectDays.some(d => d.dateKey === k);
+                      return !projectCalendarDayMap.has(k);
                     });
                     const updateSemaforoProduction = (project, parentProductionData) => {
                       if (project.workItemId) {
@@ -2190,15 +2216,13 @@ function Pedidos() {
                         {/* ── SECCIÓN 2: CALENDARIO MENSUAL + PANEL DE FOTOS DEL DÍA ── */}
                         {(() => {
                           // Construir set de días del proyecto para lookup rápido
-                          const projectDayMap = new Map(projectDays.map(d => [d.dateKey, d]));
-
                           // Calcular rango de meses cubiertos por el proyecto
-                          const firstDate = projectDays[0]?.date || new Date();
-                          const lastDate = projectDays[projectDays.length - 1]?.date || new Date();
+                          const firstDate = projectCalendarDays[0]?.date || new Date();
+                          const lastDate = projectCalendarDays[projectCalendarDays.length - 1]?.date || new Date();
 
                           // Mes activo del calendario (derivado del día seleccionado o el mes de hoy)
                           const calTargetDate = activeDayKey
-                            ? (projectDayMap.get(activeDayKey)?.date || firstDate)
+                            ? (projectCalendarDayMap.get(activeDayKey)?.date || firstDate)
                             : firstDate;
 
                           // Navegar meses con estado local (usamos ref para no re-renderizar todo)
@@ -2220,7 +2244,7 @@ function Pedidos() {
                           for (let d = 1; d <= daysInMonth; d++) {
                             const dt = new Date(calYear, calMonth, d);
                             const dk = getDateKey(dt);
-                            calCells.push({ date: dt, dateKey: dk, dayNum: d, projDay: projectDayMap.get(dk) || null });
+                            calCells.push({ date: dt, dateKey: dk, dayNum: d, projDay: projectCalendarDayMap.get(dk) || null });
                           }
 
                           const calMonthLabel = new Date(calYear, calMonth, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
@@ -2251,9 +2275,10 @@ function Pedidos() {
                                   {/* Header del mes */}
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                     <button type="button"
+                                      aria-label="Mes anterior"
                                       disabled={!canGoPrev}
                                       onClick={() => {
-                                        const pd = projectDays.find(d => {
+                                        const pd = projectCalendarDays.find(d => {
                                           const dt = d.date;
                                           return dt.getFullYear() === prevMonthDate.getFullYear() && dt.getMonth() === prevMonthDate.getMonth();
                                         });
@@ -2263,9 +2288,10 @@ function Pedidos() {
                                     >‹</button>
                                     <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.78rem', textTransform: 'capitalize' }}>{calMonthLabel}</span>
                                     <button type="button"
+                                      aria-label="Mes siguiente"
                                       disabled={!canGoNext}
                                       onClick={() => {
-                                        const nd = projectDays.find(d => {
+                                        const nd = projectCalendarDays.find(d => {
                                           const dt = d.date;
                                           return dt.getFullYear() === nextMonthDate.getFullYear() && dt.getMonth() === nextMonthDate.getMonth();
                                         });
@@ -2286,11 +2312,11 @@ function Pedidos() {
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
                                     {calCells.map((cell, ci) => {
                                       if (!cell) return <div key={`e${ci}`} />;
-                                      const isProjectDay = !!cell.projDay;
+                                      const isProjectDate = !!cell.projDay;
                                       const isPast = cell.dateKey < todayKey;
                                       const isToday = cell.dateKey === todayKey;
                                       const isSelected = cell.dateKey === activeDayKey;
-                                      const dayAdvs = isProjectDay ? (advancesByDate.get(cell.dateKey) || []) : [];
+                                      const dayAdvs = isProjectDate ? (advancesByDate.get(cell.dateKey) || []) : [];
                                       const hasPhotos = dayAdvs.length > 0;
                                       const firstPhoto = hasPhotos ? dayAdvs[0] : null;
 
@@ -2298,9 +2324,10 @@ function Pedidos() {
                                         <button
                                           key={cell.dateKey}
                                           type="button"
-                                          disabled={!isProjectDay}
-                                          onClick={() => isProjectDay && setSemaforoSelectedDayKey(cell.dateKey)}
-                                          title={isProjectDay ? `Día ${cell.projDay.dayNumber} · ${cell.dateKey}${hasPhotos ? ` · ${dayAdvs.length} foto(s)` : ''}` : ''}
+                                          disabled={!isProjectDate}
+                                          onClick={() => isProjectDate && setSemaforoSelectedDayKey(cell.dateKey)}
+                                          title={isProjectDate ? `${cell.projDay.dayNumber ? `Día ${cell.projDay.dayNumber}` : 'Fin de semana'} · ${cell.dateKey}${hasPhotos ? ` · ${dayAdvs.length} foto(s)` : ''}` : ''}
+                                          aria-label={isProjectDate ? `${cell.projDay.dayNumber ? `Día ${cell.projDay.dayNumber}` : 'Fin de semana'} · ${formatReadableDate(cell.dateKey)}${hasPhotos ? ` · ${dayAdvs.length} foto(s)` : ''}` : `${formatReadableDate(cell.dateKey)} · fuera del proyecto`}
                                           style={{
                                             position: 'relative',
                                             aspectRatio: '1',
@@ -2313,7 +2340,7 @@ function Pedidos() {
                                               ? '2px solid #38bdf8'
                                               : isToday
                                                 ? '2px solid #fbbf24'
-                                                : isProjectDay
+                                                : isProjectDate
                                                   ? hasPhotos
                                                     ? '1px solid #22c55e'
                                                     : isPast
@@ -2325,14 +2352,14 @@ function Pedidos() {
                                               ? '#0369a1'
                                               : isToday
                                                 ? '#78350f'
-                                                : isProjectDay
+                                                : isProjectDate
                                                   ? hasPhotos
                                                     ? '#0f2d18'
                                                     : isPast
                                                       ? '#0d1a2e'
                                                       : '#0d1322'
                                                   : '#07090f',
-                                            cursor: isProjectDay ? 'pointer' : 'default',
+                                            cursor: isProjectDate ? 'pointer' : 'default',
                                             overflow: 'hidden',
                                             boxShadow: isSelected ? '0 0 8px rgba(56,189,248,0.5)' : isToday ? '0 0 8px rgba(251,191,36,0.4)' : 'none',
                                             transition: 'border-color 0.15s, background 0.15s'
@@ -2357,7 +2384,7 @@ function Pedidos() {
                                           <span style={{
                                             position: 'relative', zIndex: 1,
                                             fontSize: '0.62rem', fontWeight: 900,
-                                            color: isProjectDay ? '#ffffff' : '#334155',
+                                            color: isProjectDate ? '#ffffff' : '#334155',
                                             lineHeight: 1,
                                             marginTop: 2,
                                             textShadow: firstPhoto ? '0 1px 3px rgba(0,0,0,0.9)' : 'none'
@@ -2450,7 +2477,7 @@ function Pedidos() {
                                       {semaforoPhotoTab === 'all' ? 'Galería completa del proyecto' : 'Registro fotográfico por día'}
                                     </div>
                                     <div style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 900, marginTop: 2 }}>
-                                      📸 {semaforoPhotoTab === 'all' ? `Todas las fotos registradas (${allDailyAdvances.length})` : activeDayObj ? `Día ${activeDayObj.dayNumber} de ${totalDays}` : 'Selecciona un día'}
+                                      📸 {semaforoPhotoTab === 'all' ? `Todas las fotos registradas (${allDailyAdvances.length})` : activeDayLabel}
                                     </div>
                                     {semaforoPhotoTab === 'day' && activeDayKey && (
                                       <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: 2 }}>{formatReadableDate(activeDayKey)}</div>
@@ -2564,7 +2591,7 @@ function Pedidos() {
                                     </div>
                                   ) : activeDayAdvances.length === 0 ? (
                                     <div style={{ padding: '1rem', textAlign: 'center', background: '#0b1329', border: '1px dashed #334155', borderRadius: 8, color: '#64748b', fontSize: '0.72rem', marginBottom: 12 }}>
-                                      Sin fotos para el Día {activeDayObj?.dayNumber}. Arrastra o selecciona fotos abajo.
+                                      Sin fotos para {activeDayObj?.dayNumber ? `el Día ${activeDayObj.dayNumber}` : `el fin de semana (${formatReadableDate(activeDayKey)})`}. Arrastra o selecciona fotos abajo.
                                     </div>
                                   ) : (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 115px), 1fr))', gap: 8, marginBottom: 12 }}>
@@ -2647,7 +2674,7 @@ function Pedidos() {
                                     <form onSubmit={handleUploadDayAdvance} style={{ padding: '0.75rem', background: '#0b1329', border: '1px solid #1e293b', borderRadius: 8 }}>
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                         <div style={{ color: '#ffffff', fontSize: '0.72rem', fontWeight: 900 }}>
-                                          📤 Agregar fotos – Día {activeDayObj?.dayNumber}
+                                          📤 Agregar fotos – {activeDayLabel}
                                         </div>
                                         {semaforoAdvanceFiles.length > 0 && (
                                           <button
