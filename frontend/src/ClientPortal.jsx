@@ -231,6 +231,13 @@ function CardSeasonalDecor({ theme }) {
               </span>
             </div>
           </div>
+          <div className="client-card-flower-path" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, index) => (
+              <span className="client-card-path-flower" key={index}>
+                <SeasonalFlower />
+              </span>
+            ))}
+          </div>
           <div className="client-card-procession">
             <img className="client-card-procession-figure" src="/catrina-xolo.png" alt="" />
           </div>
@@ -921,6 +928,10 @@ export default function ClientPortal() {
           </section>
         )}
 
+        <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
+          La información de avance se actualiza automáticamente.
+        </p>
+
         {monthlyHighlight && (
           <div className="client-monthly-card-wrapper">
             {seasonalTheme && <CardSeasonalDecor theme={seasonalTheme} />}
@@ -962,9 +973,6 @@ export default function ClientPortal() {
           </div>
         )}
 
-        <p style={{ margin: '1rem 0', color: '#94a3b8', textAlign: 'center', fontSize: '0.72rem' }}>
-          La información de avance se actualiza automáticamente.
-        </p>
         </div>
       </div>
     </main>
