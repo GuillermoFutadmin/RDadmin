@@ -219,16 +219,20 @@ function CardSeasonalDecor({ theme }) {
 
           {/* 4. Parte baja: Altarcito de Día de Muertos en la base de la tarjeta */}
           <div className="client-card-altar-dock">
-            <span className="client-card-altar-flank client-card-altar-flank--left" title="Cempasúchil">
-              <SeasonalFlower />
-            </span>
-            <div className="client-card-altar" title="Altar de Día de Muertos">
-              <DiaDeMuertosAltar />
+            <div className="client-card-altar-row">
+              <span className="client-card-altar-flank client-card-altar-flank--left" title="Cempasúchil">
+                <SeasonalFlower />
+              </span>
+              <div className="client-card-altar" title="Altar de Día de Muertos">
+                <DiaDeMuertosAltar />
+              </div>
+              <span className="client-card-altar-flank client-card-altar-flank--right" title="Cempasúchil">
+                <SeasonalFlower />
+              </span>
             </div>
-            <span className="client-card-altar-flank client-card-altar-flank--right" title="Cempasúchil">
-              <SeasonalFlower />
-            </span>
+            <img className="client-card-rd-logo" src="/logo-rd-oficial.png?v=2" alt="RD Carpintería" />
           </div>
+          <img className="client-card-procession" src="/catrina-xolo.png" alt="" />
         </>
       )}
 

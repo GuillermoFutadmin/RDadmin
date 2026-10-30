@@ -317,10 +317,6 @@ body {
     padding: 0.5rem 0.5rem 1.5rem;
   }
 
-  .client-monthly-card-wrapper {
-    margin-bottom: 85px;
-  }
-
   .client-card-side-border--left {
     left: -14px;
   }
@@ -342,21 +338,6 @@ body {
   .client-card-garland {
     height: 26px;
     top: -6px;
-  }
-
-  .client-card-altar-dock {
-    bottom: -82px;
-    gap: 8px;
-  }
-
-  .client-card-altar {
-    flex: 0 0 145px;
-  }
-
-  .client-card-altar-flank {
-    flex: 0 0 24px;
-    width: 24px;
-    height: 24px;
   }
 
   .client-season-side-flags {
@@ -418,7 +399,7 @@ body {
 .client-monthly-card-wrapper {
   position: relative;
   margin-top: 2.2rem;
-  margin-bottom: 105px; /* Espacio para que el altarcito descanse en la base inferior */
+  margin-bottom: 145px;
   padding-top: 10px;
 }
 
@@ -488,20 +469,29 @@ body {
 /* 3. Base inferior: Altarcito de Día de Muertos debajo de la tarjeta */
 .client-card-altar-dock {
   position: absolute;
-  bottom: -100px;
+  bottom: -140px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2.5vw, 18px);
-  width: min(96%, 460px);
+  gap: 2px;
+  width: min(96%, 360px);
   pointer-events: none;
   z-index: 2;
 }
 
+.client-card-altar-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 2.5vw, 18px);
+  width: 100%;
+}
+
 .client-card-altar {
-  flex: 0 0 clamp(165px, 26vw, 220px);
+  flex: 0 0 clamp(190px, 29vw, 255px);
   filter: drop-shadow(0 5px 16px rgba(124, 45, 18, 0.3));
 }
 
@@ -532,6 +522,31 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.client-card-rd-logo {
+  display: block;
+  width: 84px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(98, 67, 49, 0.16));
+}
+
+.client-card-procession {
+  position: absolute;
+  z-index: 1;
+  bottom: -140px;
+  left: 100%;
+  display: block;
+  width: clamp(112px, 16vw, 168px);
+  height: auto;
+  pointer-events: none;
+  animation: client-card-procession-walk 24s linear infinite;
+}
+
+@keyframes client-card-procession-walk {
+  from { transform: translateX(100%); }
+  to { transform: translateX(calc(-100vw - 100%)); }
 }
 
 .client-card-rosette,
@@ -572,6 +587,43 @@ body {
 .client-monthly-highlight--autumn { --month-accent: #c2410c; }
 .client-monthly-highlight--remembrance { --month-accent: #7e22ce; }
 .client-monthly-highlight--holidays { --month-accent: #b91c1c; }
+
+@media (max-width: 700px) {
+  .client-monthly-card-wrapper {
+    margin-bottom: 120px;
+  }
+
+  .client-card-altar-dock {
+    bottom: -116px;
+  }
+
+  .client-card-altar {
+    flex-basis: 170px;
+  }
+
+  .client-card-altar-flank {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .client-card-rd-logo {
+    width: 72px;
+    height: 36px;
+  }
+
+  .client-card-procession {
+    bottom: -116px;
+    width: 108px;
+    animation-duration: 20s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .client-card-procession {
+    animation: none;
+  }
+}
 
 .client-monthly-heading {
   display: flex;
