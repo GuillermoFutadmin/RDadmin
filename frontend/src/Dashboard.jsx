@@ -3,6 +3,7 @@ import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconP
 import useAutoRefresh from './useAutoRefresh';
 import { isInProspects } from './workCascade';
 import { getDashboardProductionProjects } from './productionWorkItems';
+import './Dashboard.css';
 
 const API = '';
 
@@ -79,9 +80,9 @@ function formatRegisteredDate(item) {
 }
 
 // Compact counter badge
-function CountBadge({ count, color, bg }) {
+function CountBadge({ count, color, bg, className = '' }) {
   return (
-    <span style={{
+    <span className={className} style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       minWidth: '1.6rem', height: '1.6rem', borderRadius: '6px',
       background: bg, color, fontWeight: '800', fontSize: '0.88rem',
@@ -89,6 +90,27 @@ function CountBadge({ count, color, bg }) {
     }}>
       {count === null ? '–' : count}
     </span>
+  );
+}
+
+function DashboardStageNode({ stage, groupKey, color, onHover }) {
+  const StageIcon = stage.icon;
+  return (
+    <div
+      className="dashboard-stage-node"
+      tabIndex={0}
+      aria-label={`${stage.label}: ${stage.count ?? 'cargando'}`}
+      onMouseEnter={() => onHover(`${groupKey}-${stage.key}`)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(`${groupKey}-${stage.key}`)}
+      onBlur={() => onHover(null)}
+    >
+      <span className="dashboard-stage-marker" style={{ '--stage-color': color }}>
+        <StageIcon aria-hidden="true" />
+      </span>
+      <span className="dashboard-stage-label">{stage.label}</span>
+      <CountBadge count={stage.count} color={color} bg="#ffffff" className="dashboard-stage-count" />
+    </div>
   );
 }
 
@@ -162,193 +184,87 @@ function Dashboard() {
   });
   const totalProduction = dashboardProductionProjects ? dashboardProductionProjects.length : null;
 
-  const cardStyle = {
-    background: 'white', borderRadius: '14px', padding: '1rem 1.2rem',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
-    border: '1.5px solid #f1f5f9',
-  };
+  const stageGroups = [
+    {
+      key: 'prospect',
+      label: 'Prospectos',
+      icon: IconUsers,
+      total: totalProspects,
+      color: '#475569',
+      stages: prospectStages.filter(stage => stage.key !== 'papelera'),
+      branch: prospectStages.find(stage => stage.key === 'papelera')
+    },
+    {
+      key: 'client',
+      label: 'Clientes',
+      icon: IconFileText,
+      total: totalClientes,
+      color: '#6d5aa6',
+      stages: clientStages
+    },
+    {
+      key: 'production',
+      label: 'Producción',
+      icon: IconPackage,
+      total: totalProduction,
+      color: '#315f91',
+      stages: productionStages
+    }
+  ];
+  const hoveredStageDetails = stageGroups.flatMap(group => [
+    ...group.stages.map(stage => ({ groupKey: group.key, stage })),
+    ...(group.branch ? [{ groupKey: group.key, stage: group.branch }] : [])
+  ]).find(({ groupKey, stage }) => hoveredStage === `${groupKey}-${stage.key}`);
 
   return (
-    <section style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1.5rem', alignItems: 'flex-start' }}>
-
-      {/* ── Tarjeta Prospectos ── */}
-      <div style={{ ...cardStyle, borderTop: '4px solid #ba4b24', minWidth: '220px', flex: '0 0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <IconUsers style={{ width:'22px', height:'22px', marginRight:0, color:'#ba4b24' }} />
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Prospectos</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prospectos</div>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totales</div>
-            <span style={{
-              background: '#fff1ec', borderRadius: '10px', padding: '0.1rem 0.75rem',
-              fontWeight: '800', fontSize: '1.6rem', color: '#ba4b24', lineHeight: 1, display: 'block'
-            }}>
-              {totalProspects === null ? '...' : totalProspects}
-            </span>
-          </div>
-        </div>
-
-        {/* Contadores por estado */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          {prospectStages.map(st => (
-            <div key={st.key}
-              onMouseEnter={() => setHoveredStage(`prospect-${st.key}`)}
-              onMouseLeave={() => setHoveredStage(null)}
-              style={{
-                position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.3rem 0.6rem', borderRadius: '8px',
-                background: st.bg, border: `1px solid ${st.border}`
-              }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <st.icon style={{ width:'14px', height:'14px', marginRight:0, flexShrink:0 }} />{st.label}
-              </span>
-              <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
-              
-              {/* Tooltip personalizado */}
-              {hoveredStage === `prospect-${st.key}` && st.items.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: 0, left: '105%', zIndex: 100,
-                  background: '#1e293b', color: 'white', borderRadius: '12px', padding: '1rem',
-                  minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', pointerEvents: 'none'
-                }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800', marginBottom: '0.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.4rem' }}>{st.label} ({st.items.length})</div>
-                  {st.items.map((item, idx) => (
-                    <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {formatRegisteredDate(item)}</div>
+    <section className="dashboard-lifecycle" aria-label="Flujo de prospectos, clientes y producción">
+      <div className="dashboard-lifecycle-scroll">
+        <div className="dashboard-lifecycle-groups">
+          {stageGroups.map((group, groupIndex) => {
+            const GroupIcon = group.icon;
+            return (
+              <section className="dashboard-lifecycle-group" key={group.key} style={{ '--group-color': group.color }}>
+                <header className="dashboard-lifecycle-heading">
+                  <span className="dashboard-lifecycle-title">
+                    <GroupIcon aria-hidden="true" />
+                    {group.label}
+                  </span>
+                  <span className="dashboard-lifecycle-total">{group.total ?? '...'}</span>
+                </header>
+                <div className="dashboard-stage-track">
+                  {group.stages.map((stage, index) => (
+                    <div className="dashboard-stage-slot" key={stage.key}>
+                      {group.branch && stage.key === 'Cotización' && (
+                        <div className="dashboard-trash-branch">
+                          <span className="dashboard-trash-connector" aria-hidden="true" />
+                          <DashboardStageNode stage={group.branch} groupKey={group.key} color="#a14646" onHover={setHoveredStage} />
+                        </div>
+                      )}
+                      {index > 0 && <span className="dashboard-stage-connector" aria-hidden="true" />}
+                      <DashboardStageNode stage={stage} groupKey={group.key} color={group.color} onHover={setHoveredStage} />
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          ))}
+                {groupIndex < stageGroups.length - 1 && <span className="dashboard-lifecycle-divider" aria-hidden="true" />}
+              </section>
+            );
+          })}
         </div>
       </div>
-
-      {/* ── Tarjeta Clientes ── */}
-      <div style={{ ...cardStyle, borderTop: '4px solid #7c3aed', minWidth: '220px', flex: '0 0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <IconFileText style={{ width:'22px', height:'22px', marginRight:0, color:'#7c3aed' }} />
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Clientes</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Clientes</div>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totales</div>
-            <span style={{
-              background: '#f5f3ff', borderRadius: '10px', padding: '0.1rem 0.75rem',
-              fontWeight: '800', fontSize: '1.6rem', color: '#7c3aed', lineHeight: 1, display: 'block'
-            }}>
-              {totalClientes === null ? '...' : totalClientes}
-            </span>
+      {hoveredStageDetails?.stage.items.length > 0 && (
+        <div className="dashboard-stage-details" role="status">
+          <strong>{hoveredStageDetails.stage.label} · {hoveredStageDetails.stage.items.length}</strong>
+          <div className="dashboard-stage-details-list">
+            {hoveredStageDetails.stage.items.map((item, index) => (
+              <div className="dashboard-stage-detail" key={item.id || index}>
+                <span>{item.name || 'Sin nombre'}</span>
+                <span>{item.project_type || 'Proyecto sin definir'}</span>
+                <small>Registrado: {formatRegisteredDate(item)}</small>
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* Pipeline stages */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          {clientStages.map(st => (
-            <div key={st.key}
-              onMouseEnter={() => setHoveredStage(`client-${st.key}`)}
-              onMouseLeave={() => setHoveredStage(null)}
-              style={{
-                position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.3rem 0.6rem', borderRadius: '8px',
-                background: st.bg, border: `1px solid ${st.border}`
-              }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: st.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <st.icon style={{ width:'14px', height:'14px', marginRight:0, flexShrink:0 }} />{st.label}
-              </span>
-              <CountBadge count={st.count} color={st.color} bg="rgba(255,255,255,0.65)" />
-
-              {/* Tooltip personalizado */}
-              {hoveredStage === `client-${st.key}` && st.items.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: 0, left: '105%', zIndex: 100,
-                  background: '#1e293b', color: 'white', borderRadius: '12px', padding: '1rem',
-                  minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', pointerEvents: 'none'
-                }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800', marginBottom: '0.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.4rem' }}>{st.label} ({st.items.length})</div>
-                  {st.items.map((item, idx) => (
-                    <div key={item.id || idx} style={{ marginBottom: idx === st.items.length - 1 ? 0 : '0.6rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {formatRegisteredDate(item)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Tarjeta Producción ── */}
-      <div style={{ ...cardStyle, borderTop: '4px solid #2563eb', minWidth: '220px', flex: '0 0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <IconPackage style={{ width:'22px', height:'22px', marginRight:0, color:'#2563eb' }} />
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>Producción</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Seguimiento y entregas</div>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totales</div>
-            <span style={{
-              background: '#eff6ff', borderRadius: '10px', padding: '0.1rem 0.75rem',
-              fontWeight: '800', fontSize: '1.6rem', color: '#2563eb', lineHeight: 1, display: 'block'
-            }}>
-              {totalProduction === null ? '...' : totalProduction}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          {productionStages.map(stage => (
-            <div key={stage.key}
-              onMouseEnter={() => setHoveredStage(`production-${stage.key}`)}
-              onMouseLeave={() => setHoveredStage(null)}
-              style={{
-                position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.3rem 0.6rem', borderRadius: '8px',
-                background: stage.bg, border: `1px solid ${stage.border}`
-              }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: stage.color, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <stage.icon style={{ width:'14px', height:'14px', marginRight:0, flexShrink:0 }} />{stage.label}
-              </span>
-              <CountBadge count={stage.count} color={stage.color} bg="rgba(255,255,255,0.65)" />
-
-              {hoveredStage === `production-${stage.key}` && stage.items.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: 0, left: '105%', zIndex: 100,
-                  background: '#1e293b', color: 'white', borderRadius: '12px', padding: '1rem',
-                  minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', pointerEvents: 'none'
-                }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '800', marginBottom: '0.5rem', borderBottom: '1px solid #334155', paddingBottom: '0.4rem' }}>{stage.label} ({stage.items.length})</div>
-                  {stage.items.map((item, idx) => (
-                    <div key={item.id || idx} style={{ marginBottom: idx === stage.items.length - 1 ? 0 : '0.6rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'white' }}>{item.name || 'Sin nombre'}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{item.project_type || 'Proyecto sin definir'}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Registrado: {formatRegisteredDate(item)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
+      )}
     </section>
   );
 }
