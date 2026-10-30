@@ -1990,7 +1990,7 @@ function Pedidos() {
                           </span>
                           <span style={{ color:'#475569' }}>·</span>
                           <span style={{ color:'#fbbf24', fontSize:'0.72rem', fontWeight:800 }}>
-                            📸 {dailyAdvances.length} fotos
+                            📸 {allDailyAdvances.length} fotos
                           </span>
                         </div>
 
