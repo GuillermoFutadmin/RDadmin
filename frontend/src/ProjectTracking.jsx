@@ -83,17 +83,27 @@ export function getProjectTrackingProgress(prospect) {
   const workItems = Array.isArray(production.work_items) ? production.work_items : [];
   const firstTrackedWork = workItems.find(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
   const delivered = status === 'ENTREGADO' || !!production.delivered_at;
-  const productionStarted = !!production.started_at || workItems.some(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
-  const inProduction = status === 'PRODUCCION' || delivered
-    || productionStarted;
+  const activeWorkExists = workItems.some(item => item.status === 'PRODUCCION' || item.status === 'ENTREGADO');
+  const preProductionStage = {
+    PROSPECTO: 0,
+    VALORACION: 1,
+    COTIZACION: 2,
+    APROBADO: 3,
+    CONTRATO: 3,
+    'CONTRATO PENDIENTE': 3
+  }[status];
+  const isPreProduction = preProductionStage !== undefined;
+  const productionStarted = status === 'PRODUCCION' || activeWorkExists
+    || (!isPreProduction && !!production.started_at);
+  const inProduction = productionStarted || delivered;
   const underContract = !!prospect.is_contract || !!prospect.contract_date || [
     'APROBADO', 'CONTRATO', 'CONTRATO PENDIENTE', 'PRODUCCION', 'ENTREGADO'
   ].includes(status);
   const quoteSent = !!prospect.has_quote || underContract || status === 'COTIZACION';
   const valuationDone = !!prospect.valuation_data || !!prospect.estimated_price || quoteSent
     || status === 'VALORACION';
-  const currentIndex = delivered ? 5 : inProduction ? 4 : underContract ? 3
-    : quoteSent ? 2 : valuationDone ? 1 : 0;
+  const currentIndex = delivered ? 5 : inProduction ? 4 : preProductionStage !== undefined ? preProductionStage
+    : underContract ? 3 : quoteSent ? 2 : valuationDone ? 1 : 0;
   const productionStage = Number.isInteger(production.current_stage)
     ? production.current_stage
     : firstTrackedWork?.production_data?.current_stage;
@@ -316,7 +326,7 @@ export default function ProjectTracking({
 
       {!compact && (
         <>
-          {showEvidence && productionStages.length > 0 && (() => {
+          {showEvidence && currentIndex >= 4 && productionStages.length > 0 && (() => {
             const activeStage = selectedStage ?? currentProductionStage;
             const stageData = productionStages[activeStage] || {};
             const photos = (stageData.photos || []).map(safePhotoUrl).filter(Boolean);

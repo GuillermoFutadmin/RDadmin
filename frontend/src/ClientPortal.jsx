@@ -705,6 +705,7 @@ export default function ClientPortal() {
   }, [activeProject]);
 
   const hasProductionStages = Boolean(tracking
+    && tracking.currentIndex >= 4
     && (tracking.production.stages.length > 0 || tracking.workItems.some(item => Array.isArray(item.production_data?.stages) && item.production_data.stages.length > 0)));
 
   const monthlyHighlight = monthlyContext ? MONTHLY_HIGHLIGHTS[monthlyContext.monthIndex] : null;
