@@ -37,11 +37,6 @@
   padding-left: 0.65rem;
 }
 
-.dashboard-lifecycle-group--client .dashboard-stage-track,
-.dashboard-lifecycle-group--production .dashboard-stage-track {
-  padding-top: 0.2rem;
-}
-
 .dashboard-lifecycle-group:last-child {
   padding-right: 0;
   border-right: 0;
@@ -89,7 +84,7 @@
 .dashboard-stage-track {
   display: flex;
   min-width: 0;
-  padding-top: 2.35rem;
+  padding-top: 0.2rem;
 }
 
 .dashboard-stage-slot {
@@ -461,11 +456,6 @@
   }
 
   .dashboard-stage-track {
-    padding-top: 2.2rem;
-  }
-
-  .dashboard-lifecycle-group--client .dashboard-stage-track,
-  .dashboard-lifecycle-group--production .dashboard-stage-track {
     padding-top: 0.2rem;
   }
 
