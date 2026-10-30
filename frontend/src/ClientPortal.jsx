@@ -217,7 +217,7 @@ function CardSeasonalDecor({ theme }) {
             <span className="client-card-item client-card-item--skull" title="Calaverita de azúcar"><SugarSkull /></span>
           </div>
 
-          {/* 4. Parte baja: Altarcito de Día de Muertos en la base de la tarjeta */}
+          {/* 4. Altar, personajes y logo en capas para conservar la profundidad */}
           <div className="client-card-altar-dock">
             <div className="client-card-altar-row">
               <span className="client-card-altar-flank client-card-altar-flank--left" title="Cempasúchil">
@@ -230,13 +230,13 @@ function CardSeasonalDecor({ theme }) {
                 <SeasonalFlower />
               </span>
             </div>
-            <div className="client-card-rd-logo" role="img" aria-label="Logo animado de RD Carpintería">
-              <img className="client-card-rd-logo-frame client-card-rd-logo-frame--one" src="/logo-anim-1.jpg" alt="" />
-              <img className="client-card-rd-logo-frame client-card-rd-logo-frame--two" src="/logo-anim-2.jpg" alt="" />
-            </div>
           </div>
           <div className="client-card-procession">
             <img className="client-card-procession-figure" src="/catrina-xolo.png" alt="" />
+          </div>
+          <div className="client-card-rd-logo" role="img" aria-label="Logo animado de RD Carpintería">
+            <img className="client-card-rd-logo-frame client-card-rd-logo-frame--one" src="/logo-anim-transparent-1.png" alt="" />
+            <img className="client-card-rd-logo-frame client-card-rd-logo-frame--two" src="/logo-anim-transparent-2.png" alt="" />
           </div>
         </>
       )}
