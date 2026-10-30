@@ -3,6 +3,7 @@ import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconP
 import useAutoRefresh from './useAutoRefresh';
 import { isInProspects } from './workCascade';
 import { getDashboardProductionProjects } from './productionWorkItems';
+import StageIcon from './StageIcon';
 import './Dashboard.css';
 
 const API = '';
@@ -94,7 +95,10 @@ function CountBadge({ count, color, bg, className = '' }) {
 }
 
 function DashboardStageNode({ stage, groupKey, color, onHover }) {
-  const StageIcon = stage.icon;
+  const StageGlyph = stage.icon;
+  const icon = groupKey === 'production' && Number.isInteger(stage.stageIndex)
+    ? <StageIcon stage={stage.stageIndex} size={17} />
+    : <StageGlyph aria-hidden="true" />;
   return (
     <div
       className="dashboard-stage-node"
@@ -106,7 +110,7 @@ function DashboardStageNode({ stage, groupKey, color, onHover }) {
       onBlur={() => onHover(null)}
     >
       <span className="dashboard-stage-marker" style={{ '--stage-color': color }}>
-        <StageIcon aria-hidden="true" />
+        {icon}
       </span>
       <span className="dashboard-stage-label">{stage.label}</span>
       <CountBadge count={stage.count} color={color} bg="#ffffff" className="dashboard-stage-count" />
@@ -223,7 +227,7 @@ function Dashboard() {
           {stageGroups.map((group, groupIndex) => {
             const GroupIcon = group.icon;
             return (
-              <section className="dashboard-lifecycle-group" key={group.key} style={{ '--group-color': group.color }}>
+              <section className={`dashboard-lifecycle-group dashboard-lifecycle-group--${group.key}`} key={group.key} style={{ '--group-color': group.color }}>
                 <header className="dashboard-lifecycle-heading">
                   <span className="dashboard-lifecycle-title">
                     <GroupIcon aria-hidden="true" />
