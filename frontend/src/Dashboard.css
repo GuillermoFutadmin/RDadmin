@@ -391,8 +391,6 @@
   display: grid;
   grid-column: 1 / -1;
   gap: 0.45rem;
-  max-height: 13rem;
-  overflow: auto;
   padding-top: 0.65rem;
   border-top: 1px solid #e2e8f0;
 }

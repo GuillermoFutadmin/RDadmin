@@ -35,7 +35,6 @@ export function getLatestProductionActivity(project) {
   const candidates = [
     stageEnteredAt,
     production.started_at,
-    project.updated_at,
     ...((Array.isArray(production.daily_advances) ? production.daily_advances : [])
       .filter(advance => advance && advance.published !== false)
       .map(advance => advance.created_at || advance.date))

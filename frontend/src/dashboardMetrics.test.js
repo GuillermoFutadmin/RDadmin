@@ -6,8 +6,8 @@ const now = Date.parse('2026-10-25T20:00:00Z');
 
 test('production freshness uses a 24-hour window and ignores delivered work', () => {
   const freshness = getProductionFreshness([
-    { id: 'fresh', status: 'PRODUCCION', updated_at: '2026-10-24T20:00:00Z' },
-    { id: 'stale', status: 'PRODUCCION', updated_at: '2026-10-24T19:59:59Z' },
+    { id: 'fresh', status: 'PRODUCCION', updated_at: '2026-10-24T20:00:00Z', production_data: { started_at: '2026-10-24T20:00:00Z' } },
+    { id: 'stale', status: 'PRODUCCION', updated_at: '2026-10-24T19:59:59Z', production_data: { started_at: '2026-10-24T19:59:59Z' } },
     { id: 'delivered', status: 'ENTREGADO', updated_at: '2026-10-25T19:00:00Z' },
     { id: 'standby', status: 'STANDBY', updated_at: '2026-10-25T19:00:00Z' }
   ], now);
@@ -27,6 +27,22 @@ test('production freshness turns red only when most active projects are stale', 
 
   assert.equal(getProductionFreshness(projects, now).tone, 'red');
   assert.equal(getProductionFreshness([], now).tone, 'neutral');
+});
+
+test('a recent prospect record edit does not make old production activity look fresh', () => {
+  const freshness = getProductionFreshness([{
+    status: 'PRODUCCION',
+    updated_at: '2026-10-25T19:00:00Z',
+    production_data: JSON.stringify({
+      started_at: '2026-10-21T12:00:00Z',
+      current_stage: 0,
+      stages: [{ entered_at: '2026-10-21T12:00:00Z' }]
+    })
+  }], now);
+
+  assert.equal(freshness.fresh, 0);
+  assert.equal(freshness.stale, 1);
+  assert.equal(freshness.items[0].isFresh, false);
 });
 
 test('latest production activity uses the current stage entry and visible advances', () => {
