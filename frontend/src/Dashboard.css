@@ -270,8 +270,7 @@
 
 .dashboard-insights {
   display: grid;
-  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 2fr);
-  gap: 0.9rem;
+  grid-template-columns: minmax(0, 25rem);
   margin: 0 1.5rem 1.5rem;
 }
 
@@ -428,79 +427,6 @@
 
 .dashboard-freshness-dot.is-fresh {
   background: #16834a;
-}
-
-.dashboard-flow-chart-card {
-  overflow: hidden;
-}
-
-.dashboard-flow-chart-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.dashboard-chart-period {
-  flex: 0 0 auto;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  color: #475569;
-  font-size: 0.65rem;
-  font-weight: 700;
-}
-
-.dashboard-flow-chart {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-top: 0.45rem;
-  overflow: visible;
-}
-
-.dashboard-chart-gridline {
-  stroke: #e9eef4;
-  stroke-width: 1;
-}
-
-.dashboard-chart-axis {
-  stroke: #cbd5e1;
-  stroke-width: 1;
-}
-
-.dashboard-chart-axis-label,
-.dashboard-chart-point-label {
-  fill: #64748b;
-  font-family: inherit;
-  font-size: 10px;
-}
-
-.dashboard-chart-point-label {
-  fill: #334155;
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.dashboard-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem 1.2rem;
-  color: #475569;
-  font-size: 0.68rem;
-}
-
-.dashboard-chart-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.dashboard-chart-legend i {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
 }
 
 @media (max-width: 640px) {

@@ -1,5 +1,4 @@
 const PRODUCTION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
-const TIME_ZONE = 'America/Tijuana';
 
 function parseJson(value) {
   if (!value) return {};
@@ -66,63 +65,5 @@ export function getProductionFreshness(projects, now = Date.now()) {
     stale,
     ratio: items.length ? fresh / items.length : 0,
     tone
-  };
-}
-
-function mexicoDateKey(timestamp) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).formatToParts(timestamp);
-  const part = type => parts.find(item => item.type === type)?.value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
-}
-
-function getLastUpdate(project) {
-  return parseTimestamp(project.updated_at)
-    ?? parseTimestamp(project.capture_date)
-    ?? parseTimestamp(project.contract_date);
-}
-
-export function getThreeDayFlowActivity({ prospects = [], clients = [], production = [] }, now = Date.now()) {
-  const todayKey = mexicoDateKey(now);
-  const day = new Date(`${todayKey}T12:00:00Z`);
-  const dayKeys = Array.from({ length: 3 }, (_, index) => {
-    const date = new Date(day);
-    date.setUTCDate(date.getUTCDate() - (2 - index));
-    return mexicoDateKey(date);
-  });
-  const counts = {
-    prospects: Array(3).fill(0),
-    clients: Array(3).fill(0),
-    production: Array(3).fill(0)
-  };
-  const recordActivity = (group, project, timestamp) => {
-    if (timestamp === null) return;
-    const index = dayKeys.indexOf(mexicoDateKey(timestamp));
-    if (index >= 0) counts[group][index] += 1;
-  };
-
-  prospects.forEach(project => recordActivity('prospects', project, getLastUpdate(project)));
-  clients.forEach(project => recordActivity('clients', project, getLastUpdate(project)));
-  production.forEach(project => recordActivity('production', project, getLatestProductionActivity(project)));
-
-  return {
-    days: dayKeys.map(key => ({
-      key,
-      label: new Date(`${key}T20:00:00Z`).toLocaleDateString('es-MX', {
-        timeZone: TIME_ZONE,
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short'
-      })
-    })),
-    series: [
-      { key: 'prospects', label: 'Prospectos', color: '#64748b', values: counts.prospects },
-      { key: 'clients', label: 'Clientes', color: '#7c6ba6', values: counts.clients },
-      { key: 'production', label: 'Producción', color: '#315f91', values: counts.production }
-    ]
   };
 }

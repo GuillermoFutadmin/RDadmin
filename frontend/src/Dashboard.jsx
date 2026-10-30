@@ -3,7 +3,7 @@ import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconP
 import useAutoRefresh from './useAutoRefresh';
 import { isInProspects } from './workCascade';
 import { getDashboardProductionProjects } from './productionWorkItems';
-import { getProductionFreshness, getThreeDayFlowActivity } from './dashboardMetrics';
+import { getProductionFreshness } from './dashboardMetrics';
 import './Dashboard.css';
 
 const API = '';
@@ -191,84 +191,6 @@ function ProductionFreshnessCard({ projects, loading }) {
   );
 }
 
-function FlowActivityChart({ activity }) {
-  const plot = { left: 36, top: 14, width: 580, height: 146 };
-  const highestCount = Math.max(0, ...activity.series.flatMap(series => series.values));
-  const tickStep = Math.max(1, Math.ceil(highestCount / 4));
-  const maxValue = tickStep * 4;
-  const ticks = Array.from({ length: 5 }, (_, index) => index * tickStep);
-  const point = (series, index) => ({
-    x: plot.left + (plot.width / (activity.days.length - 1)) * index,
-    y: plot.top + plot.height - (series.values[index] / maxValue) * plot.height
-  });
-
-  return (
-    <article className="dashboard-insight-card dashboard-flow-chart-card">
-      <div className="dashboard-flow-chart-heading">
-        <div>
-          <div className="dashboard-insight-eyebrow">Seguimiento reciente</div>
-          <h2 className="dashboard-insight-title">Recorrido del flujo</h2>
-          <p className="dashboard-insight-description">Registros con actividad por día · no representa cambios históricos de etapa.</p>
-        </div>
-        <span className="dashboard-chart-period">3 días</span>
-      </div>
-      <svg
-        className="dashboard-flow-chart"
-        viewBox="0 0 640 205"
-        role="img"
-        aria-label={`Proyectos con actividad en los últimos tres días: ${activity.series.map(series => `${series.label} ${series.values.join(', ')}`).join('; ')}`}
-      >
-        {ticks.map(tick => {
-          const y = plot.top + plot.height - (tick / maxValue) * plot.height;
-          return (
-            <g key={tick}>
-              <line x1={plot.left} y1={y} x2={plot.left + plot.width} y2={y} className="dashboard-chart-gridline" />
-              <text x={plot.left - 10} y={y + 3} textAnchor="end" className="dashboard-chart-axis-label">{tick}</text>
-            </g>
-          );
-        })}
-        <line x1={plot.left} y1={plot.top} x2={plot.left} y2={plot.top + plot.height} className="dashboard-chart-axis" />
-        <line x1={plot.left} y1={plot.top + plot.height} x2={plot.left + plot.width} y2={plot.top + plot.height} className="dashboard-chart-axis" />
-        {activity.series.map(series => {
-          const points = series.values.map((_, index) => point(series, index));
-          return (
-            <g key={series.key}>
-              <polyline
-                points={points.map(({ x, y }) => `${x},${y}`).join(' ')}
-                fill="none"
-                stroke={series.color}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-              {points.map(({ x, y }, index) => (
-                <g key={`${series.key}-${activity.days[index].key}`}>
-                  <circle cx={x} cy={y} r="4" fill="#fff" stroke={series.color} strokeWidth="2.5">
-                    <title>{`${series.label}: ${series.values[index]} · ${activity.days[index].label}`}</title>
-                  </circle>
-                  <text x={x} y={y - 9} textAnchor="middle" className="dashboard-chart-point-label">{series.values[index]}</text>
-                </g>
-              ))}
-            </g>
-          );
-        })}
-        {activity.days.map((day, index) => {
-          const x = plot.left + (plot.width / (activity.days.length - 1)) * index;
-          return <text key={day.key} x={x} y={plot.top + plot.height + 23} textAnchor="middle" className="dashboard-chart-axis-label">{day.label}</text>;
-        })}
-      </svg>
-      <div className="dashboard-chart-legend">
-        {activity.series.map(series => (
-          <span key={series.key}>
-            <i style={{ background: series.color }} />
-            {series.label}
-          </span>
-        ))}
-      </div>
-    </article>
-  );
-}
-
 function Dashboard() {
   const [prospects, setProspects] = useState(null);
   const [contratos, setContratos] = useState(null);
@@ -338,12 +260,6 @@ function Dashboard() {
     return { ...stage, count: dashboardProductionProjects ? items.length : null, items };
   });
   const totalProduction = dashboardProductionProjects ? dashboardProductionProjects.length : null;
-  const flowActivity = getThreeDayFlowActivity({
-    prospects: prospectStages.flatMap(stage => stage.key === 'papelera' ? [] : stage.items),
-    clients: contratos || [],
-    production: dashboardProductionProjects || []
-  });
-
   const stageGroups = [
     {
       key: 'prospect',
@@ -427,9 +343,8 @@ function Dashboard() {
         </div>
       )}
     </section>
-    <section className="dashboard-insights" aria-label="Indicadores de actualización y recorrido">
+    <section className="dashboard-insights" aria-label="Semáforo de actualización en producción">
       <ProductionFreshnessCard projects={dashboardProductionProjects || []} loading={dashboardProductionProjects === null} />
-      <FlowActivityChart activity={flowActivity} />
     </section>
     </>
   );

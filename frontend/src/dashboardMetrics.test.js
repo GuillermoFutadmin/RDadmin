@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getLatestProductionActivity, getProductionFreshness, getThreeDayFlowActivity } from './dashboardMetrics.js';
+import { getLatestProductionActivity, getProductionFreshness } from './dashboardMetrics.js';
 
 const now = Date.parse('2026-10-25T20:00:00Z');
 
@@ -44,32 +44,4 @@ test('latest production activity uses the current stage entry and visible advanc
       ]
     }
   }), Date.parse('2026-10-24T12:00:00Z'));
-});
-
-test('three-day activity counts updated records by group in Tijuana calendar days', () => {
-  const activity = getThreeDayFlowActivity({
-    prospects: [
-      { updated_at: '2026-10-23T19:00:00Z' },
-      { updated_at: '2026-10-25T19:00:00Z' },
-      { updated_at: '2026-10-22T19:00:00Z' }
-    ],
-    clients: [
-      { updated_at: '2026-10-24T19:00:00Z' },
-      { updated_at: null, contract_date: '2026-10-25' }
-    ],
-    production: [{
-      status: 'PRODUCCION',
-      updated_at: null,
-      production_data: {
-        daily_advances: [{ created_at: '2026-10-24T20:00:00Z', published: true }]
-      }
-    }]
-  }, now);
-
-  assert.deepEqual(activity.days.map(day => day.key), ['2026-10-23', '2026-10-24', '2026-10-25']);
-  assert.deepEqual(activity.series.map(series => series.values), [
-    [1, 0, 1],
-    [0, 1, 1],
-    [0, 1, 0]
-  ]);
 });
