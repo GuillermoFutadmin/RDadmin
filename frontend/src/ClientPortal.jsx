@@ -230,9 +230,14 @@ function CardSeasonalDecor({ theme }) {
                 <SeasonalFlower />
               </span>
             </div>
-            <img className="client-card-rd-logo" src="/logo-rd-oficial.png?v=2" alt="RD Carpintería" />
+            <div className="client-card-rd-logo" role="img" aria-label="Logo animado de RD Carpintería">
+              <img className="client-card-rd-logo-frame client-card-rd-logo-frame--one" src="/logo-anim-1.jpg" alt="" />
+              <img className="client-card-rd-logo-frame client-card-rd-logo-frame--two" src="/logo-anim-2.jpg" alt="" />
+            </div>
           </div>
-          <img className="client-card-procession" src="/catrina-xolo.png" alt="" />
+          <div className="client-card-procession">
+            <img className="client-card-procession-figure" src="/catrina-xolo.png" alt="" />
+          </div>
         </>
       )}
 
