@@ -399,7 +399,7 @@ body {
 .client-monthly-card-wrapper {
   position: relative;
   margin-top: 2.2rem;
-  margin-bottom: 330px;
+  margin-bottom: 374px;
   padding-top: 10px;
 }
 
@@ -469,7 +469,7 @@ body {
 /* 3. Base inferior: Altarcito de Día de Muertos debajo de la tarjeta */
 .client-card-altar-dock {
   position: absolute;
-  bottom: -190px;
+  bottom: -180px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -479,7 +479,7 @@ body {
   gap: 2px;
   width: min(96%, 360px);
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 .client-card-altar-row {
@@ -527,7 +527,7 @@ body {
 .client-card-rd-logo {
   position: absolute;
   z-index: 4;
-  bottom: -300px;
+  bottom: -344px;
   left: 50%;
   display: block;
   width: 140px;
@@ -586,8 +586,8 @@ body {
 
 .client-card-flower-path--front {
   z-index: 4;
-  bottom: -190px;
-  height: 24px;
+  bottom: -194px;
+  height: 28px;
 }
 
 .client-card-procession-figure {
@@ -648,11 +648,11 @@ body {
 
 @media (max-width: 700px) {
   .client-monthly-card-wrapper {
-    margin-bottom: 260px;
+    margin-bottom: 304px;
   }
 
   .client-card-altar-dock {
-    bottom: -130px;
+    bottom: -120px;
   }
 
   .client-card-altar {
@@ -666,7 +666,7 @@ body {
   }
 
   .client-card-rd-logo {
-    bottom: -212px;
+    bottom: -256px;
     width: 104px;
     height: 82px;
   }
@@ -682,7 +682,7 @@ body {
   }
 
   .client-card-flower-path--front {
-    bottom: -130px;
+    bottom: -134px;
   }
 }
 

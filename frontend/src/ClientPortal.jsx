@@ -417,8 +417,8 @@ function DiaDeMuertosAltar() {
 
 function MarigoldPath({ foreground = false }) {
   const patternId = useId();
-  const size = foreground ? 24 : 36;
-  const spacing = foreground ? size * 2 : 28;
+  const size = foreground ? 28 : 36;
+  const spacing = foreground ? 48 : 28;
 
   return (
     <svg

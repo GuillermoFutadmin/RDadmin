@@ -49,9 +49,10 @@ test('Day of the Dead has a continuous large-flower floor and alternating small 
     assert.equal(floorPattern.props.height, 36);
     assert.equal(floorPattern.props.width, 28);
     assert.equal(floorPattern.children[0].props.width, 36);
-    assert.equal(frontPattern.props.height, 24);
+    assert.equal(frontPattern.props.height, 28);
     assert.equal(frontPattern.props.width, 48);
-    assert.equal(frontPattern.children[0].props.width, 24);
+    assert.equal(frontPattern.children[0].props.width, 28);
+    assert.equal(frontPattern.props.width - frontPattern.children[0].props.width, 20);
     assert.notEqual(floorPattern.props.id, frontPattern.props.id);
 
     for (const layer of [floor, front]) {
