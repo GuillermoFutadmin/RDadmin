@@ -570,28 +570,24 @@ body {
 
 .client-card-flower-path {
   position: absolute;
-  z-index: 1;
-  bottom: -205px;
   left: 50%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
+  display: block;
   width: 100vw;
   transform: translateX(-50%);
   pointer-events: none;
-}
-
-.client-card-path-flower {
-  display: block;
-  width: clamp(18px, 2.4vw, 28px);
-  height: clamp(18px, 2.4vw, 28px);
   filter: drop-shadow(0 2px 3px rgba(124, 45, 18, 0.18));
 }
 
-.client-card-path-flower svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+.client-card-flower-path--floor {
+  z-index: 1;
+  bottom: -226px;
+  height: 36px;
+}
+
+.client-card-flower-path--front {
+  z-index: 4;
+  bottom: -190px;
+  height: 24px;
 }
 
 .client-card-procession-figure {
@@ -681,13 +677,12 @@ body {
     animation-duration: 20s;
   }
 
-  .client-card-flower-path {
-    bottom: -145px;
+  .client-card-flower-path--floor {
+    bottom: -166px;
   }
 
-  .client-card-path-flower {
-    width: clamp(14px, 4vw, 20px);
-    height: clamp(14px, 4vw, 20px);
+  .client-card-flower-path--front {
+    bottom: -130px;
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import ProjectTracking, { getProjectTrackingProgress, PRODUCTION_STAGES } from './ProjectTracking';
 import useAutoRefresh from './useAutoRefresh';
 
@@ -231,16 +231,11 @@ function CardSeasonalDecor({ theme }) {
               </span>
             </div>
           </div>
-          <div className="client-card-flower-path" aria-hidden="true">
-            {Array.from({ length: 24 }, (_, index) => (
-              <span className="client-card-path-flower" key={index}>
-                <SeasonalFlower />
-              </span>
-            ))}
-          </div>
+          <MarigoldPath />
           <div className="client-card-procession">
             <img className="client-card-procession-figure" src="/catrina-xolo.png" alt="" />
           </div>
+          <MarigoldPath foreground />
           <div className="client-card-rd-logo" role="img" aria-label="Logo animado de RD Carpintería">
             <img className="client-card-rd-logo-frame client-card-rd-logo-frame--one" src="/logo-anim-transparent-1.png" alt="" />
             <img className="client-card-rd-logo-frame client-card-rd-logo-frame--two" src="/logo-anim-transparent-2.png" alt="" />
@@ -416,6 +411,28 @@ function DiaDeMuertosAltar() {
         <circle cx="145" cy="152" r="2" fill="#ea580c" />
         <circle cx="155" cy="154" r="2.5" fill="#f97316" />
       </g>
+    </svg>
+  );
+}
+
+function MarigoldPath({ foreground = false }) {
+  const patternId = useId();
+  const size = foreground ? 24 : 36;
+  const spacing = foreground ? size * 2 : 28;
+
+  return (
+    <svg
+      className={`client-card-flower-path client-card-flower-path--${foreground ? 'front' : 'floor'}`}
+      aria-hidden="true"
+    >
+      <defs>
+        <pattern id={patternId} width={spacing} height={size} patternUnits="userSpaceOnUse">
+          <svg x={foreground ? 0 : -4} width={size} height={size}>
+            <SeasonalFlower />
+          </svg>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
   );
 }

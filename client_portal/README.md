@@ -31,3 +31,7 @@ GRANT SELECT (
 ```
 
 The separate app process isolates client HTTP requests from staff HTTP requests. Both services still read the same PostgreSQL database; use a read replica if database read load itself becomes a bottleneck.
+
+## Seasonal decoration
+
+During the Day of the Dead season (October 15 through November 10, Mexico City time), the Catrina and xolo walk over a continuous, viewport-wide carpet of 36px marigolds repeated every 28px so neighboring flowers touch. A 24px foreground row sits immediately above the carpet without a gap and alternates a small marigold with an equally sized empty space. The characters' feet align with the top of the carpet, while the small flowers conceal their lower legs to preserve depth on desktop and mobile. The procession respects the browser's reduced-motion preference.
