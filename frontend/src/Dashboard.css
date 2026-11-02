@@ -265,7 +265,9 @@
 
 .dashboard-insights {
   display: grid;
-  grid-template-columns: minmax(0, 25rem);
+  grid-template-columns: minmax(0, 25rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
   margin: 0 1.5rem 1.5rem;
 }
 
@@ -389,10 +391,15 @@
 
 .dashboard-freshness-details {
   display: grid;
-  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  align-items: start;
+  min-width: 0;
   gap: 0.45rem;
-  padding-top: 0.65rem;
-  border-top: 1px solid #e2e8f0;
+}
+
+.dashboard-freshness-details > .dashboard-activity-legend,
+.dashboard-freshness-details > .dashboard-insight-description {
+  grid-column: 1 / -1;
 }
 
 .dashboard-freshness-item {
@@ -517,6 +524,12 @@
 .dashboard-activity-overdue {
   color: #b91c1c;
   margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard-insights {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

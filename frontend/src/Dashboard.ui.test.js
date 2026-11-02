@@ -40,6 +40,11 @@ test('the production circle toggles project cards with independent daily graphs'
     await act(async () => { circle().props.onClick(); });
     assert.equal(circle().props['aria-expanded'], true);
     assert.equal(cards().length, 3);
+    const details = renderer.root.findByProps({ id: 'dashboard-production-cards' });
+    const summary = renderer.root.findAllByType('article').find(node =>
+      node.props.className?.includes('dashboard-freshness-card'));
+    assert.equal(details.parent, summary.parent);
+    assert.equal(summary.findAllByProps({ className: 'dashboard-production-card' }).length, 0);
     assert.deepEqual(cards().map(card => card.findByType('h3').children.join('')), [
       'Cliente con áreas · Cocina', 'Cliente con áreas · Clóset', 'Sin duración · Proyecto'
     ]);

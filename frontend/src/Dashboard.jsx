@@ -184,6 +184,7 @@ function ProductionFreshnessCard({ projects, loading }) {
   const percentage = freshness.total ? Math.round(freshness.ratio * 100) : null;
 
   return (
+    <>
     <article className={`dashboard-insight-card dashboard-freshness-card is-${freshness.tone}`}>
       <div>
         <div className="dashboard-insight-eyebrow">Semáforo de producción</div>
@@ -216,8 +217,9 @@ function ProductionFreshnessCard({ projects, loading }) {
         <strong>{loading ? 'Cargando estado…' : toneLabels[freshness.tone]}</strong>
         <span>{loading ? ' ' : `${freshness.fresh} al día · ${freshness.stale} pendientes`}</span>
       </div>
+    </article>
       {expanded && !loading && (
-        <div className="dashboard-freshness-details" id="dashboard-production-cards">
+        <div className="dashboard-freshness-details" id="dashboard-production-cards" role="region" aria-label="Tarjetas de actividad por proyecto">
           {freshness.total === 0 && <p className="dashboard-insight-description">No hay proyectos activos en producción.</p>}
           {freshness.items.map(project => (
             <article className="dashboard-production-card" key={project.semaforoKey || project.id}>
@@ -237,7 +239,7 @@ function ProductionFreshnessCard({ projects, loading }) {
           )}
         </div>
       )}
-    </article>
+    </>
   );
 }
 
