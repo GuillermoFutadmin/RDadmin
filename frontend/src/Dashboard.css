@@ -422,6 +422,81 @@
   background: #16834a;
 }
 
+.dashboard-production-card {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.dashboard-production-card h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-activity-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.65rem;
+  margin: 0.55rem 0 0.25rem;
+  color: #475569;
+  font-size: 0.7rem;
+}
+
+.dashboard-activity-stats strong {
+  color: #1e293b;
+}
+
+.dashboard-activity-chart {
+  min-width: 0;
+}
+
+.dashboard-activity-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.dashboard-activity-axis-label {
+  fill: #475569;
+  font-size: 10px;
+}
+
+.dashboard-activity-axis {
+  stroke: #cbd5e1;
+}
+
+.dashboard-activity-line {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dashboard-activity-deadline {
+  stroke: #94a3b8;
+  stroke-dasharray: 3 3;
+}
+
+.dashboard-activity-legend,
+.dashboard-activity-error,
+.dashboard-activity-overdue {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.65rem;
+  line-height: 1.5;
+}
+
+.dashboard-activity-error,
+.dashboard-activity-overdue {
+  color: #b91c1c;
+  margin-bottom: 0.5rem;
+}
+
 @media (max-width: 640px) {
   .dashboard-insights {
     grid-template-columns: 1fr;

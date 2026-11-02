@@ -3,7 +3,7 @@ import { IconUsers, IconCheckCircle, IconPalette, IconRuler, IconFileText, IconP
 import useAutoRefresh from './useAutoRefresh';
 import { isInProspects } from './workCascade';
 import { getDashboardProductionProjects } from './productionWorkItems';
-import { getProductionFreshness } from './dashboardMetrics';
+import { getProductionDailyActivity, getProductionFreshness } from './dashboardMetrics';
 import './Dashboard.css';
 
 const API = '';
@@ -132,6 +132,49 @@ function formatFreshnessDate(timestamp) {
   });
 }
 
+function ProductionActivityChart({ activity }) {
+  if (activity.error) return <p className="dashboard-activity-error" role="status">{activity.error}</p>;
+  const x = day => activity.days.length === 1 ? 170 : 28 + (day - 1) * 284 / (activity.days.length - 1);
+  const y = value => value === 1 ? 16 : 60;
+  const recordedDays = activity.days.filter(day => day.value !== null);
+  const points = recordedDays.map(day => `${x(day.day)},${y(day.value)}`).join(' ');
+  return (
+    <>
+      <div className="dashboard-activity-stats">
+        <span><strong>{activity.workedDays}</strong> días con avance</span>
+        <span><strong>{activity.idleDays}</strong> días sin avance</span>
+        <span><strong>{activity.plannedDays}</strong> días previstos</span>
+      </div>
+      {activity.overdueDays > 0 && (
+        <p className="dashboard-activity-overdue">{activity.overdueDays} días fuera del plazo previsto.</p>
+      )}
+      <div className="dashboard-activity-chart">
+        <svg viewBox="0 0 328 92" role="img" aria-label={`Actividad diaria: ${activity.workedDays} días con avance y ${activity.idleDays} días sin avance; plazo de ${activity.plannedDays} días`}>
+          <text x="20" y="20" textAnchor="end" className="dashboard-activity-axis-label">+1</text>
+          <text x="20" y="42" textAnchor="end" className="dashboard-activity-axis-label">0</text>
+          <text x="20" y="64" textAnchor="end" className="dashboard-activity-axis-label">−1</text>
+          <line x1="28" y1="38" x2="312" y2="38" className="dashboard-activity-axis" />
+          <line x1={x(activity.plannedDays)} y1="8" x2={x(activity.plannedDays)} y2="68" className="dashboard-activity-deadline">
+            <title>Fin del plazo previsto: día {activity.plannedDays}</title>
+          </line>
+          {recordedDays.length > 1 && <polyline points={points} className="dashboard-activity-line" />}
+          {recordedDays.map(day => (
+            <circle key={day.date} cx={x(day.day)} cy={y(day.value)} r="2" fill={day.value === 1 ? '#16834a' : '#c43d45'}>
+              <title>{day.date} · Día {day.day}: {day.value === 1 ? '+1, con avance registrado' : '−1, sin avance registrado'}</title>
+            </circle>
+          ))}
+          <text x="28" y="85" className="dashboard-activity-axis-label">Día 1</text>
+          <text x="312" y="85" textAnchor="end" className="dashboard-activity-axis-label">Día {activity.days.length}</text>
+        </svg>
+      </div>
+      <p className="dashboard-activity-legend" title={`Inicio: ${activity.start}. Se cuentan todos los días, incluidos domingos y festivos, según la fecha del avance en Tijuana.`}>
+        +1 con avance · −1 sin avance · punteada: plazo.
+        {recordedDays.length < activity.days.length && ' Futuro sin trazar.'}
+      </p>
+    </>
+  );
+}
+
 function ProductionFreshnessCard({ projects, loading }) {
   const [expanded, setExpanded] = useState(false);
   const freshness = getProductionFreshness(projects || []);
@@ -155,7 +198,8 @@ function ProductionFreshnessCard({ projects, loading }) {
         type="button"
         className="dashboard-freshness-control"
         aria-expanded={expanded}
-        aria-label={`${loading ? 'Cargando estado' : toneLabels[freshness.tone]}. ${freshness.fresh} de ${freshness.total} trabajos actualizados en las últimas 24 horas.`}
+        aria-controls="dashboard-production-cards"
+        aria-label={`${loading ? 'Cargando estado' : toneLabels[freshness.tone]}. ${freshness.fresh} de ${freshness.total} trabajos actualizados en las últimas 24 horas. ${expanded ? 'Ocultar' : 'Mostrar'} tarjetas y gráficas por proyecto.`}
         onClick={() => setExpanded(value => !value)}
         disabled={loading}
       >
@@ -176,14 +220,18 @@ function ProductionFreshnessCard({ projects, loading }) {
         <strong>{loading ? 'Cargando estado…' : toneLabels[freshness.tone]}</strong>
         <span>{loading ? ' ' : `${freshness.fresh} al día · ${freshness.stale} pendientes`}</span>
       </div>
-      {expanded && !loading && freshness.total > 0 && (
-        <div className="dashboard-freshness-details">
+      {expanded && !loading && (
+        <div className="dashboard-freshness-details" id="dashboard-production-cards">
+          {freshness.total === 0 && <p className="dashboard-insight-description">No hay proyectos activos en producción.</p>}
           {freshness.items.map(project => (
-            <div className="dashboard-freshness-item" key={project.semaforoKey || project.id}>
-              <span className={`dashboard-freshness-dot${project.isFresh ? ' is-fresh' : ' is-stale'}`} />
-              <span>{project.name || 'Cliente'} · {project.workItemName || project.project_type || 'Proyecto'}</span>
-              <small>{formatFreshnessDate(project.lastUpdatedAt)}</small>
-            </div>
+            <article className="dashboard-production-card" key={project.semaforoKey || project.id}>
+              <div className="dashboard-freshness-item">
+                <span className={`dashboard-freshness-dot${project.isFresh ? ' is-fresh' : ' is-stale'}`} />
+                <h3>{project.name || 'Cliente'} · {project.workItemName || project.project_type || 'Proyecto'}</h3>
+                <small>{project.isFresh ? 'Al día' : 'Pendiente de actualizar'} · {formatFreshnessDate(project.lastUpdatedAt)}</small>
+              </div>
+              <ProductionActivityChart activity={getProductionDailyActivity(project)} />
+            </article>
           ))}
         </div>
       )}

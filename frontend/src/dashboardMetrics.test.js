@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getLatestProductionActivity, getProductionFreshness } from './dashboardMetrics.js';
+import { getLatestProductionActivity, getProductionDailyActivity, getProductionFreshness } from './dashboardMetrics.js';
 
 const now = Date.parse('2026-10-25T20:00:00Z');
 
@@ -60,4 +60,74 @@ test('latest production activity uses the current stage entry and visible advanc
       ]
     }
   }), Date.parse('2026-10-24T12:00:00Z'));
+});
+
+test('daily activity counts calendar days, distinct worked dates and future dates separately', () => {
+  const result = getProductionDailyActivity({
+    production_days: 5,
+    production_data: JSON.stringify({
+      started_at: '2026-10-23',
+      daily_advances: [
+        { date: '2026-10-23', created_at: '2026-10-25T18:00:00Z' },
+        { date: '2026-10-23' },
+        { date: '2026-10-25', published: false },
+        { date: '2026-10-27' },
+        { date: '2026-10-22' }
+      ]
+    })
+  }, now);
+
+  assert.deepEqual(result.days.map(day => day.value), [1, -1, 1, null, null]);
+  assert.equal(result.workedDays, 2);
+  assert.equal(result.idleDays, 1);
+  assert.equal(result.elapsedDays, 3);
+  assert.equal(result.overdueDays, 0);
+});
+
+test('daily activity uses Tijuana calendar dates and does not lose days at a DST boundary', () => {
+  const result = getProductionDailyActivity({
+    production_days: 2,
+    production_data: {
+      started_at: '2026-10-31T23:00:00Z',
+      daily_advances: [
+        { created_at: '2026-11-01T06:30:00Z' },
+        { created_at: '2026-11-02T07:30:00Z' }
+      ]
+    }
+  }, Date.parse('2026-11-02T20:00:00Z'));
+
+  assert.deepEqual(result.days.map(day => [day.date, day.value]), [
+    ['2026-10-31', 1], ['2026-11-01', 1], ['2026-11-02', -1]
+  ]);
+  assert.equal(result.overdueDays, 1);
+});
+
+test('starting production or changing a stage alone is not a recorded daily advance', () => {
+  const result = getProductionDailyActivity({
+    production_days: 1,
+    production_data: { stages: [{ entered_at: '2026-10-25T12:00:00Z' }] }
+  }, now);
+  assert.deepEqual(result.days.map(day => day.value), [-1]);
+});
+
+test('daily activity reports missing schedule data instead of inventing a schedule', () => {
+  assert.match(getProductionDailyActivity({ production_days: 5 }, now).error, /inicio/);
+  assert.match(getProductionDailyActivity({
+    production_days: 5, production_data: { started_at: '2026-02-30' }
+  }, now).error, /inicio/);
+  for (const production_days of [null, 0, -1, 1.5, 'abc']) {
+    assert.match(getProductionDailyActivity({
+      production_days, production_data: { started_at: '2026-10-25' }
+    }, now).error, /duración/);
+  }
+});
+
+test('a project not yet started has only future dates and no idle days', () => {
+  const result = getProductionDailyActivity({
+    production_days: 2,
+    production_data: { started_at: '2026-10-26' }
+  }, now);
+  assert.deepEqual(result.days.map(day => day.value), [null, null]);
+  assert.equal(result.idleDays, 0);
+  assert.equal(result.elapsedDays, 0);
 });
