@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 const API = import.meta.env.VITE_API_URL || '';
-import { FIRMA_ROGER_B64 } from './firmaRogerB64.js';
+import FIRMA_ROGER from './firma_roger_limpia.png';
 import { SignaturePad } from './SignaturePad';
 import { PhotoCapture } from './PhotoCapture';
 import WorkSelectionPanel from './WorkSelectionPanel.jsx';
@@ -292,7 +292,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
   };
   const startDate = parseDate(projectDetails.start_date || prospect.start_date);
   
-  const [repSig, setRepSig] = useState(prospect.contract_signature_rep || FIRMA_ROGER_B64);
+  const [repSig, setRepSig] = useState(prospect.contract_signature_rep || FIRMA_ROGER);
   const [clientSig, setClientSig] = useState(prospect.contract_signature_client || null);
   const [repPhoto, setRepPhoto] = useState(prospect.contract_photo_rep || null);
   const [clientPhoto, setClientPhoto] = useState(prospect.contract_photo_client || null);
@@ -341,7 +341,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         {sig ? (
           <img src={sig} alt={`Firma ${type}`} style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
         ) : type === 'rep' ? (
-          <img src={FIRMA_ROGER_B64} alt="Firma Rogelio" style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
+          <img src={FIRMA_ROGER} alt="Firma Rogelio" style={{ maxHeight: '70px', objectFit: 'contain', zIndex: 1 }} />
         ) : (
           <button onClick={() => setShowCapture(`${type}Sig`)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginBottom: '10px' }}>
             ✏️ Firmar Digitalmente
@@ -642,7 +642,7 @@ export function ContratoPDFView({ prospect, onBack, onSaveStatus }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', marginBottom: '40px', pageBreakInside: 'avoid' }}>
           <div style={{ textAlign: 'center', width: '42%' }}>
             <div style={{ position: 'relative', height: '110px', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
-              {repSig && <img src={repSig} alt="Firma" style={{ maxHeight: '110px', maxWidth: '220px', objectFit: 'contain', paddingBottom: '5px' }} />}
+              <img src={repSig || FIRMA_ROGER} alt="Firma" style={{ maxHeight: '110px', maxWidth: '220px', objectFit: 'contain', paddingBottom: '5px' }} />
             </div>
             <div style={{ borderTop: '1px solid #000', marginBottom: '6px' }}></div>
             <strong>Firma: Rogelio Diaz Flores</strong>
