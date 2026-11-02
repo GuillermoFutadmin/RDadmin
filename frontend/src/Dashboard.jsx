@@ -139,10 +139,10 @@ function ProductionActivityChart({ activity }) {
   const recordedDays = activity.days.filter(day => day.value !== null);
   const points = recordedDays.map(day => `${x(day.day)},${y(day.value)}`).join(' ');
   return (
-    <>
+    <div className="dashboard-activity-panel">
       <div className="dashboard-activity-stats">
-        <span><strong>{activity.workedDays}</strong> días con avance</span>
-        <span><strong>{activity.idleDays}</strong> días sin avance</span>
+        <span><strong>{activity.workedDays}</strong> con avance</span>
+        <span><strong>{activity.idleDays}</strong> sin avance</span>
         <span><strong>{activity.plannedDays}</strong> días previstos</span>
       </div>
       {activity.overdueDays > 0 && (
@@ -167,11 +167,7 @@ function ProductionActivityChart({ activity }) {
           <text x="312" y="85" textAnchor="end" className="dashboard-activity-axis-label">Día {activity.days.length}</text>
         </svg>
       </div>
-      <p className="dashboard-activity-legend" title={`Inicio: ${activity.start}. Se cuentan todos los días, incluidos domingos y festivos, según la fecha del avance en Tijuana.`}>
-        +1 con avance · −1 sin avance · punteada: plazo.
-        {recordedDays.length < activity.days.length && ' Futuro sin trazar.'}
-      </p>
-    </>
+    </div>
   );
 }
 
@@ -233,6 +229,12 @@ function ProductionFreshnessCard({ projects, loading }) {
               <ProductionActivityChart activity={getProductionDailyActivity(project)} />
             </article>
           ))}
+          {freshness.total > 0 && (
+            <p className="dashboard-activity-legend">
+              +1 con avance · −1 sin avance · punteada: plazo. Futuro sin trazar.
+              Se cuentan todos los días, incluidos domingos y festivos (Tijuana).
+            </p>
+          )}
         </div>
       )}
     </article>
